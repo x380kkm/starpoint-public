@@ -1,0 +1,80 @@
+{
+    "1003": {
+        "name": "",
+        "scoreRewardGroupId": 197268,
+        "bRankTime": 300000,
+        "aRankTime": 240000,
+        "sRankTime": 180000,
+        "sPlusRankTime": 120000,
+        "rankPointReward": 294,
+        "characterExpReward": 825,
+        "manaReward": 1230,
+        "poolExpReward": 825,
+        "sPlusRewardId": 1
+    },
+    "1004": {
+        "name": "",
+        "scoreRewardGroupId": 197270,
+        "bRankTime": 300000,
+        "aRankTime": 240000,
+        "sRankTime": 180000,
+        "sPlusRankTime": 120000,
+        "rankPointReward": 294,
+        "characterExpReward": 825,
+        "manaReward": 1230,
+        "poolExpReward": 825,
+        "sPlusRewardId": 1
+    },
+    "1001": {
+        "name": "",
+        "scoreRewardGroupId": 197266,
+        "bRankTime": 300000,
+        "aRankTime": 240000,
+        "sRankTime": 180000,
+        "sPlusRankTime": 120000,
+        "rankPointReward": 294,
+        "characterExpReward": 825,
+        "manaReward": 1230,
+        "poolExpReward": 825,
+        "sPlusRewardId": 1
+    },
+    "1002": {
+        "name": "",
+        "scoreRewardGroupId": 197267,
+        "bRankTime": 300000,
+        "aRankTime": 240000,
+        "sRankTime": 180000,
+        "sPlusRankTime": 120000,
+        "rankPointReward": 294,
+        "characterExpReward": 825,
+        "manaReward": 1230,
+        "poolExpReward": 825,
+        "sPlusRewardId": 1
+    },
+    "1005": {
+        "name": "",
+        "scoreRewardGroupId": 197263,
+        "bRankTime": 300000,
+        "aRankTime": 240000,
+        "sRankTime": 180000,
+        "sPlusRankTime": 120000,
+        "rankPointReward": 294,
+        "characterExpReward": 825,
+        "manaReward": 1230,
+        "poolExpReward": 825,
+        "sPlusRewardId": 1
+    },
+    "1006": {
+        "name": "",
+        "scoreRewardGroupId": 197269,
+        "bRankTime": 300000,
+        "aRankTime": 240000,
+        "sRankTime": 180000,
+        "sPlusRankTime": 120000,
+        "rankPointReward": 294,
+        "characterExpReward": 825,
+        "manaReward": 1230,
+        "poolExpReward": 825,
+        "sPlusRewardId": 1
+    }
+}

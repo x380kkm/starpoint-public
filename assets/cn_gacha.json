@@ -1,0 +1,695 @@
+{
+    "1": {
+        "stringId": "normal_1",
+        "title": "开服纪念扭蛋",
+        "name": "开服纪念扭蛋",
+        "listOrder": 100,
+        "bannerImage": "dynamic/gacha_list_banner/01_release_gacha",
+        "pageKind": 0,
+        "type": 0,
+        "paymentType": 0,
+        "singleCost": 150,
+        "multiCost": 1500,
+        "discountCost": 50,
+        "tenTimesPerAccountCost": null,
+        "guaranteeNumber": 1,
+        "onceTicketItemId": 20001,
+        "tenTimesTicketItemId": 20002,
+        "crazyTenTimesTicketItemId": null,
+        "wildcardCharacterTicketAvailable": false,
+        "canBeStartDashExchange": false,
+        "wildcardEquipmentTicketAvailable": false,
+        "ticketExpiryAtMs": 1612061999000,
+        "showPeriod": true,
+        "isComeback": false,
+        "isStarsGacha": false,
+        "freemiumGuaranteeAvailable": false,
+        "canBeTutorial": false,
+        "tutorialOddsRarityStringId": null,
+        "tutorialMovieId": null,
+        "tutorialOnceCost": null,
+        "tutorialReasonId": null,
+        "movieName": "normal",
+        "guaranteeMovieName": "normal_guarantee",
+        "startDate": "2017-02-05 15:00:00",
+        "endDate": "2020-01-27 11:59:59",
+        "startAtMs": 1486274400000,
+        "endAtMs": 1580093999000,
+        "rankRates": {
+            "normal": [
+                50,
+                250,
+                700
+            ],
+            "multiGuarantee": [
+                167,
+                833
+            ]
+        },
+        "pool": {
+            "1": [
+                {
+                    "id": 111001,
+                    "rank": 5,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 66.67
+                },
+                {
+                    "id": 111002,
+                    "rank": 5,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 66.67
+                },
+                {
+                    "id": 111003,
+                    "rank": 5,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 66.67
+                },
+                {
+                    "id": 121001,
+                    "rank": 5,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 66.67
+                },
+                {
+                    "id": 121002,
+                    "rank": 5,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 66.67
+                },
+                {
+                    "id": 131001,
+                    "rank": 5,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 66.67
+                },
+                {
+                    "id": 131002,
+                    "rank": 5,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 66.67
+                },
+                {
+                    "id": 141002,
+                    "rank": 5,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 66.67
+                },
+                {
+                    "id": 141004,
+                    "rank": 5,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 66.67
+                },
+                {
+                    "id": 141001,
+                    "rank": 5,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 66.67
+                },
+                {
+                    "id": 151001,
+                    "rank": 5,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 66.67
+                },
+                {
+                    "id": 151002,
+                    "rank": 5,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 66.67
+                },
+                {
+                    "id": 151003,
+                    "rank": 5,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 66.67
+                },
+                {
+                    "id": 161001,
+                    "rank": 5,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 66.67
+                },
+                {
+                    "id": 161002,
+                    "rank": 5,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 66.67
+                }
+            ],
+            "2": [
+                {
+                    "id": 211001,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 211002,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 211003,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 211004,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 211005,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 221001,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 221002,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 221003,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 221004,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 221006,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 231001,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 231002,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 231003,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 231004,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 231006,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 241001,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 241002,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 241003,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 241004,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 241005,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 251002,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 251003,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 251004,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 251005,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 261003,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 261004,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                },
+                {
+                    "id": 261005,
+                    "rank": 4,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 37.04
+                }
+            ],
+            "3": [
+                {
+                    "id": 311001,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 311002,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 311004,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 311005,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 311006,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 311008,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 311009,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 311010,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 321001,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 321002,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 321003,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 321004,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 321005,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 321006,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 321007,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 321008,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 321009,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 321010,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 331001,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 331002,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 331003,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 331004,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 331005,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 331006,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 331007,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 331010,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 331011,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 341001,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 341002,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 341004,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 341005,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 341006,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 341007,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 341008,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 341009,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 351001,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 351002,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 351003,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 351004,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 351005,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 351006,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 351007,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 361001,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 361002,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 361003,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 361004,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 361005,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 361006,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                },
+                {
+                    "id": 361007,
+                    "rank": 3,
+                    "odds": 1,
+                    "isRateUp": false,
+                    "rarity": 20.41
+                }
+            ]
+        }
+    }
+}

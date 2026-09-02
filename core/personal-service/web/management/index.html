@@ -1,0 +1,446 @@
+<!-- audience: external -->
+<!-- # personal-service-management -->
+<!-- 此页面直接管理当前设备的活动, 邮件和存档. 远程服务器设置只在用户主动连接后显示. -->
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>星点个人服务</title>
+  <link rel="stylesheet" href="/manage/style.css">
+  <script src="/manage/app.js" type="module"></script>
+</head>
+<body>
+  <header class="hero">
+    <div>
+      <p class="eyebrow">STARPOINT LOCAL CONTROL</p>
+      <h1>星点个人服务</h1>
+      <p class="hero-copy">在当前设备管理活动, 邮件和存档. 需要时再连接远程服务器.</p>
+    </div>
+    <div class="hero-actions">
+      <span id="connection-state" class="status-pill offline">未连接</span>
+      <button id="refresh-button" class="button secondary" type="button" disabled>刷新</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="dashboard">
+      <div class="management-tablist" role="tablist" aria-label="管理功能" aria-orientation="horizontal">
+        <button id="management-tab-activity" class="management-tab button secondary" type="button" role="tab" aria-selected="true" aria-controls="management-panel-activity" data-management-tab="activity">活动与时间</button>
+        <button id="management-tab-ai" class="management-tab button secondary" type="button" role="tab" aria-selected="false" aria-controls="management-panel-ai" data-management-tab="ai" tabindex="-1">AI</button>
+        <button id="management-tab-server" class="management-tab button secondary" type="button" role="tab" aria-selected="false" aria-controls="management-panel-server" data-management-tab="server" tabindex="-1">服务器与存档</button>
+        <button id="management-tab-other" class="management-tab button secondary" type="button" role="tab" aria-selected="false" aria-controls="management-panel-other" data-management-tab="other" tabindex="-1">其他信息</button>
+      </div>
+
+      <div id="management-panel-server" class="management-tab-panel" role="tabpanel" aria-labelledby="management-tab-server" data-management-tab-panel="server" tabindex="0" hidden>
+      <section class="overview-grid single-column">
+        <article class="panel">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">联机入口</p>
+              <h2>游戏服务器</h2>
+            </div>
+          </div>
+          <div id="server-profile-list" class="card-list"></div>
+          <details class="form-drawer">
+            <summary>连接远程服务器</summary>
+            <form id="server-profile-form" class="stack-form">
+              <label><span>名称</span><input name="name" maxlength="64" required></label>
+              <div class="form-row">
+                <label><span>协议</span><select name="scheme"><option value="http">HTTP</option><option value="https">HTTPS</option></select></label>
+                <label class="grow"><span>主机</span><input name="host" placeholder="192.168.1.20" maxlength="253" required></label>
+                <label><span>端口</span><input name="port" type="number" min="1" max="65535" value="80" required></label>
+              </div>
+              <button class="button primary" type="submit">保存服务器</button>
+            </form>
+          </details>
+        </article>
+
+        <article id="remote-save-panel" class="panel" hidden>
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">远程功能</p>
+              <h2>远程存档</h2>
+            </div>
+          </div>
+          <div id="sync-target-list" class="card-list"></div>
+          <details class="form-drawer">
+            <summary>添加存档服务器</summary>
+            <form id="sync-target-form" class="stack-form">
+              <label><span>名称</span><input name="name" maxlength="64" required></label>
+              <div class="form-row">
+                <label><span>协议</span><select name="scheme"><option value="https">HTTPS</option><option value="http">HTTP, 仅本机</option></select></label>
+                <label class="grow"><span>主机</span><input name="host" placeholder="saves.example.com" maxlength="253" required></label>
+                <label><span>端口</span><input name="port" type="number" min="1" max="65535" value="443" required></label>
+              </div>
+              <div class="form-row">
+                <label class="grow"><span>用户名</span><input name="username" maxlength="128" autocomplete="username" required></label>
+                <label class="grow"><span>密码</span><input name="password" type="password" maxlength="256" autocomplete="current-password" required></label>
+              </div>
+              <button class="button primary" type="submit">保存存档服务器</button>
+            </form>
+          </details>
+        </article>
+      </section>
+
+      <section id="remote-player-access-panel" class="panel player-access-panel" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">远程权限</p>
+            <h2>存档访问授权</h2>
+          </div>
+          <p id="player-access-state" class="meta">管理员可以签发或撤销远程存档授权</p>
+        </div>
+        <form id="player-access-form" class="stack-form">
+          <div class="form-row">
+            <label class="grow"><span>Viewer ID</span><input id="player-access-viewer-id" name="viewer_id" type="number" min="1" step="1" required></label>
+            <button class="button primary" type="submit" name="action" value="issue">签发或轮换</button>
+            <button class="button danger" type="submit" name="action" value="revoke">撤销</button>
+          </div>
+          <label><span>本次签发的授权码</span><input id="player-access-token" type="text" readonly spellcheck="false" placeholder="签发后仅在此页面显示"></label>
+        </form>
+      </section>
+
+      <section class="panel save-panel">
+        <div class="section-heading save-heading">
+          <div>
+            <p class="section-kicker">设备数据</p>
+            <h2>本地存档</h2>
+          </div>
+          <label class="device-picker">
+            <span>操作设备</span>
+            <select id="device-select"></select>
+          </label>
+        </div>
+        <div id="save-list" class="save-list"></div>
+      </section>
+
+      <section class="utility-grid">
+        <article class="panel">
+          <p class="section-kicker">文件迁移</p>
+          <h2>导入存档</h2>
+          <form id="import-form" class="stack-form">
+            <label><span>新存档名称, 可选</span><input name="name" maxlength="64" placeholder="从朋友设备导入"></label>
+            <label class="file-input"><span>Starpoint 存档文件</span><input name="file" type="file" accept="application/json,.json,.starpoint-save" required></label>
+            <button class="button primary" type="submit">导入为隔离存档</button>
+          </form>
+        </article>
+
+        <article id="remote-restore-panel" class="panel" hidden>
+          <p class="section-kicker">远端恢复</p>
+          <h2>从服务器下载存档</h2>
+          <form id="sync-download-form" class="stack-form">
+            <label><span>存档服务器</span><select name="target_id" class="sync-target-select" required></select></label>
+            <label><span>远端对象 ID</span><input name="object_id" maxlength="64" pattern="[A-Za-z0-9_-]+" required></label>
+            <label><span>新存档名称</span><input name="name" maxlength="64" required></label>
+            <button class="button primary" type="submit">下载为隔离存档</button>
+          </form>
+        </article>
+      </section>
+      </div>
+
+      <div id="management-panel-activity" class="management-tab-panel" role="tabpanel" aria-labelledby="management-tab-activity" data-management-tab-panel="activity" tabindex="0">
+
+      <section class="panel time-panel">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">时间基准</p>
+            <h2>虚拟服务器时间</h2>
+          </div>
+          <p id="time-state" class="meta">使用设备 UTC 时间</p>
+        </div>
+        <form id="time-form" class="stack-form">
+          <div class="form-row time-fields">
+            <label class="check-row"><input id="time-enabled" type="checkbox"><span>启用虚拟时间</span></label>
+            <label class="grow"><span>起始时间, UTC</span><input id="time-value" type="datetime-local" step="1" required></label>
+            <label><span>推进倍率</span><input id="time-rate" type="number" min="0.1" max="1000" step="0.1" value="1" required></label>
+          </div>
+          <button class="button primary" type="submit">保存时间设置</button>
+        </form>
+      </section>
+
+      <section class="panel activity-catalog-panel">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">活动管理</p>
+            <h2>活动目录</h2>
+          </div>
+          <p id="activity-catalog-state" class="meta">连接后加载活动目录</p>
+        </div>
+        <div class="activity-toolbar" aria-label="活动筛选">
+          <label class="grow"><span>搜索活动</span><input id="activity-search" type="search" autocomplete="off" placeholder="名称, ID 或标签"></label>
+          <label><span>类型</span><select id="activity-kind-filter"><option value="">全部类型</option></select></label>
+          <label><span>状态</span><select id="activity-status-filter"><option value="">全部状态</option><option value="open">进行中</option><option value="not_started">未开始</option><option value="ended">已结束</option><option value="disabled">已关闭</option><option value="unscheduled">未排期</option></select></label>
+          <label><span>开始日期</span><input id="activity-date-from" type="date"></label>
+          <label><span>结束日期</span><input id="activity-date-to" type="date"></label>
+          <label class="check-row activity-favorite-filter"><input id="activity-favorite-filter" type="checkbox"><span>只看收藏</span></label>
+          <button id="activity-date-clear" class="button ghost" type="button">清除日期</button>
+          <button id="activity-catalog-refresh" class="button ghost" type="button">刷新目录</button>
+          <button id="activity-reset" class="button danger" type="button">重置活动设置</button>
+        </div>
+        <div id="activityQuickFilters" class="activity-filter-group activity-quick-filters" aria-label="快捷筛选"></div>
+        <div id="activityTagFilters" class="activity-filter-group activity-tag-filters" aria-label="标签筛选"></div>
+        <div class="activity-calendar-toolbar">
+          <div class="activity-calendar-nav activity-calendar-nav-previous" role="group" aria-label="向前切换活动日历">
+            <button id="activity-calendar-previous-year" class="button ghost" type="button" aria-label="上一年" title="上一年">«</button>
+            <button id="activity-calendar-previous" class="button ghost" type="button" aria-label="上个月">‹</button>
+          </div>
+          <button id="activity-calendar-today" class="button ghost activity-calendar-today" type="button">今天</button>
+          <strong id="activity-calendar-title">活动日历</strong>
+          <div class="activity-calendar-nav activity-calendar-nav-next" role="group" aria-label="向后切换活动日历">
+            <button id="activity-calendar-next" class="button ghost" type="button" aria-label="下个月">›</button>
+            <button id="activity-calendar-next-year" class="button ghost" type="button" aria-label="下一年" title="下一年">»</button>
+          </div>
+        </div>
+        <div id="activity-calendar" class="activity-calendar" role="grid" aria-label="活动日历"></div>
+        <section id="activity-detail" class="activity-detail" hidden aria-labelledby="activity-detail-title">
+          <div class="activity-detail-head">
+            <div>
+              <p class="section-kicker">活动详情</p>
+              <h3 id="activity-detail-title">选择活动</h3>
+              <p id="activity-detail-meta" class="meta"></p>
+            </div>
+            <button id="activity-detail-close" class="button ghost" type="button">关闭详情</button>
+          </div>
+          <div class="activity-detail-body">
+            <figure class="activity-banner-frame">
+              <img id="activity-detail-banner" alt="活动 banner" hidden>
+              <span id="activity-detail-banner-placeholder" class="activity-banner-placeholder">暂无 banner</span>
+            </figure>
+            <div class="activity-detail-copy">
+              <p id="activity-detail-description" class="activity-description"></p>
+              <div id="activity-detail-tags" class="activity-tags"></div>
+              <div class="card-actions">
+                <button id="activity-open-button" class="button primary" type="button">开放 24 小时</button>
+                <button id="activity-close-button" class="button danger" type="button">快速结束</button>
+                <button id="activity-favorite-button" class="button ghost" type="button">收藏</button>
+              </div>
+              <p id="activity-temporary-state" class="meta">当前没有临时开放.</p>
+            </div>
+          </div>
+          <details class="form-drawer">
+            <summary>选择活动模式</summary>
+            <form id="activity-mode-form" class="stack-form">
+              <label><span>模式</span><select id="activity-mode" name="mode"><option value="manual">手动开启或结束</option><option value="always">始终开启</option><option value="window">一次性时间窗口</option><option value="periodic">周期活动</option></select></label>
+              <button class="button primary" type="submit">保存活动模式</button>
+            </form>
+          </details>
+          <details class="form-drawer">
+            <summary>设置一次性时间窗口</summary>
+            <form id="activity-window-form" class="stack-form">
+              <div class="form-row">
+                <label class="grow"><span>开始时间, UTC</span><input id="activity-window-start" name="start_at" type="datetime-local" step="1"></label>
+                <label class="grow"><span>结束时间, UTC</span><input id="activity-window-end" name="end_at" type="datetime-local" step="1"></label>
+              </div>
+              <button class="button primary" type="submit">保存时间窗口</button>
+            </form>
+          </details>
+          <details class="form-drawer">
+            <summary>设置周期</summary>
+            <form id="activity-period-form" class="stack-form">
+              <div class="form-row">
+                <label class="grow"><span>周期类型</span><select id="activity-period-kind" name="period"><option value="once">一次性</option><option value="daily">每天</option><option value="weekly">每周</option><option value="monthly">每月</option><option value="interval_days">按天间隔</option></select></label>
+                <label><span>间隔天数</span><input id="activity-period-interval" name="interval_days" type="number" min="1" max="3650" value="1"></label>
+              </div>
+              <button class="button primary" type="submit">保存周期</button>
+            </form>
+          </details>
+        </section>
+        <div id="activity-catalog-list" class="activity-catalog-list"></div>
+      </section>
+
+      <section class="panel activity-panel">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">活动管理</p>
+            <h2>Raid Boss 状态</h2>
+          </div>
+          <p id="activity-state" class="meta">输入活动 ID 后读取状态</p>
+        </div>
+        <form id="activity-form" class="stack-form">
+          <div class="form-row">
+            <label class="grow"><span>活动 ID</span><input id="activity-event-id" type="number" min="1" step="1" required></label>
+            <label><span>Boss HP 百分比</span><input id="activity-hp" type="number" min="0" max="100" step="1" value="100" required></label>
+            <label><span>击杀数</span><input id="activity-kills" type="number" min="0" step="1" value="0" required></label>
+          </div>
+          <div class="form-row">
+            <button id="activity-load-button" class="button ghost" type="button">读取活动状态</button>
+            <button class="button primary" type="submit">保存活动状态</button>
+          </div>
+        </form>
+      </section>
+      </div>
+
+      <div id="management-panel-ai" class="management-tab-panel" role="tabpanel" aria-labelledby="management-tab-ai" data-management-tab-panel="ai" tabindex="0" hidden>
+
+      <section id="ai-team-management" class="panel ai-team-panel">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">联机模板</p>
+            <h2>AI 编队模板</h2>
+          </div>
+          <p id="ai-team-state" class="meta">选择存档后读取有效编队</p>
+        </div>
+        <div class="ai-team-layout">
+          <div class="stack-form">
+            <p class="meta">本机保存两个编队快照. 真实联机由所连接服务器的 COM 配置读取服务器账号编队.</p>
+            <label><span>本地存档槽</span><select id="ai-team-slot" required></select></label>
+            <div class="ai-team-selectors">
+              <label><span>AI A 编队</span><select id="ai-team-a" required></select></label>
+              <label><span>AI B 编队</span><select id="ai-team-b" required></select></label>
+            </div>
+            <div class="form-row">
+              <button id="ai-team-save" class="button primary" type="button">保存编队模板</button>
+              <button id="ai-team-default" class="button ghost" type="button">使用前两个有效编队</button>
+            </div>
+          </div>
+          <section aria-labelledby="ai-team-candidate-title">
+            <div class="mail-list-head">
+              <h3 id="ai-team-candidate-title">当前存档的编队</h3>
+            </div>
+            <div id="ai-team-candidates" class="ai-party-candidates">
+              <p class="empty-state">尚未读取编队.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+      </div>
+
+      <div id="management-panel-other" class="management-tab-panel" role="tabpanel" aria-labelledby="management-tab-other" data-management-tab-panel="other" tabindex="0" hidden>
+
+      <section class="panel shop-stock-panel">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">本地商店</p>
+            <h2>刷新商品库存</h2>
+          </div>
+          <p id="shop-stock-state" class="meta">选择存档和商品后刷新当前周期库存</p>
+        </div>
+        <form id="shop-stock-form" class="stack-form">
+          <div class="form-row">
+            <label class="grow"><span>本地存档槽</span><select id="shop-stock-slot-id" name="slot_id" required></select></label>
+            <label class="grow"><span>当前 Viewer ID</span><input id="shop-stock-viewer-id" type="text" readonly placeholder="启动游戏后自动建立"></label>
+          </div>
+          <div class="form-row">
+            <label><span>商店类型</span><select id="shop-stock-type" name="shop_type" required>
+              <option value="2">宝库商店</option>
+              <option value="4">活动商店</option>
+              <option value="7">讨伐币商店</option>
+              <option value="8">普通商店</option>
+              <option value="9">星之粒兑换所</option>
+              <option value="10">装备强化商店</option>
+            </select></label>
+            <label class="grow"><span>商品 ID</span><input id="shop-stock-item-id" name="shop_item_id" type="number" min="1" step="1" required></label>
+            <button class="button primary" type="submit">刷新库存</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel gameplay-settings-panel">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">战斗设置</p>
+            <h2>掉落倍率</h2>
+          </div>
+          <p id="gameplay-settings-state" class="meta">连接后加载当前设置</p>
+        </div>
+        <form id="gameplay-settings-form" class="stack-form">
+          <div class="form-row gameplay-settings-fields">
+            <label class="grow"><span>战斗道具掉落倍率</span><input id="gameplay-drop-multiplier" name="drop_multiplier" type="number" min="1" max="100" step="1" value="1" required></label>
+            <div class="setting-summary" aria-live="polite">
+              <span class="setting-summary-label">当前倍率</span>
+              <strong id="gameplay-drop-multiplier-current">1x</strong>
+              <span class="meta">普通道具, 元素素材和以太素材</span>
+            </div>
+          </div>
+          <button class="button primary" type="submit">保存掉落设置</button>
+        </form>
+      </section>
+
+      <section id="mail-management" class="panel mail-panel">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">CN 管理</p>
+            <h2>发放本地邮件</h2>
+          </div>
+          <p id="mail-state" class="meta">选择本地存档槽后加载未领取邮件</p>
+        </div>
+        <section class="mail-shortcuts" aria-labelledby="mail-shortcut-title">
+          <div class="mail-subheading">
+            <div>
+              <p class="section-kicker">常用补给</p>
+              <h3 id="mail-shortcut-title">快捷发放</h3>
+            </div>
+            <p id="mail-catalog-state" class="meta">正在读取奖励目录</p>
+          </div>
+          <div id="mail-preset-list" class="mail-preset-list"></div>
+        </section>
+        <div class="mail-layout">
+          <form id="mail-form" class="stack-form mail-compose-form">
+            <div class="form-row">
+              <label class="grow"><span>本地存档槽</span><select id="mail-slot-id" name="slot_id" required></select></label>
+              <label class="grow"><span>当前 Viewer ID</span><input id="mail-viewer-id" type="text" readonly placeholder="启动游戏后自动建立"></label>
+              <label class="grow"><span>发件人</span><input name="sender" maxlength="100" value="Starpoint" required></label>
+            </div>
+            <section class="mail-reward-picker" aria-labelledby="mail-reward-title">
+              <div class="mail-subheading">
+                <div>
+                  <p class="section-kicker">奖励目录</p>
+                  <h3 id="mail-reward-title">选择奖励</h3>
+                </div>
+                <button id="mail-selection-clear" class="button ghost" type="button">清空已选</button>
+              </div>
+              <div class="mail-reward-toolbar">
+                <label class="grow"><span>搜索</span><input id="mail-reward-search" type="search" autocomplete="off" placeholder="名称或资源 ID"></label>
+                <label><span>类型</span><select id="mail-reward-kind"><option value="all">全部</option></select></label>
+                <label class="check-row"><input id="mail-reward-favorites" type="checkbox"><span>只看收藏</span></label>
+              </div>
+              <div id="mail-reward-list" class="mail-reward-list"></div>
+              <div class="mail-selection-heading">
+                <h4>已选奖励</h4>
+                <span id="mail-selection-count" class="badge">0 项</span>
+              </div>
+              <div id="mail-selection-list" class="mail-selection-list">
+                <p class="empty-state">从上方目录添加奖励.</p>
+              </div>
+              <input id="mail-rewards-payload" name="rewards" type="hidden" value="{}">
+            </section>
+            <label><span>标题</span><input name="title" maxlength="200" value="本地补给" required></label>
+            <label><span>正文</span><textarea name="body" rows="3" maxlength="5000" required>由当前设备的个人服务发放.</textarea></label>
+            <div class="form-row mail-form-actions">
+              <label class="grow"><span>过期时间, UTC, 可选</span><input name="expires_at" type="datetime-local" step="1"></label>
+              <button class="button primary" type="submit">发放邮件</button>
+            </div>
+          </form>
+          <section class="mail-list-panel" aria-labelledby="mail-list-title">
+            <div class="mail-list-head">
+              <h3 id="mail-list-title">未领取邮件</h3>
+              <button id="mail-load-button" class="button ghost" type="button">加载</button>
+            </div>
+            <div id="mail-list" class="mail-list">
+              <p class="empty-state">尚未加载邮件.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">本地网络记录</p>
+            <h2>最近请求</h2>
+          </div>
+          <p class="meta">每条请求显示最新状态, 展开可查看历史状态</p>
+        </div>
+        <div id="http-observation-list" class="card-list http-observation-list">
+          <p class="empty-state">正在读取请求记录.</p>
+        </div>
+      </section>
+      </div>
+    </div>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

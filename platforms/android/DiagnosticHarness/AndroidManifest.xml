@@ -1,0 +1,30 @@
+<!-- audience: external -->
+<!-- # android-personal-service-diagnostic -->
+<!-- 此清单只声明个人服务诊断 Activity 和 loopback WebView 所需的网络权限. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="dev.starpoint.personalservice">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="false"
+        android:extractNativeLibs="true"
+        android:hardwareAccelerated="true"
+        android:label="星点个人服务诊断"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        android:usesCleartextTraffic="false">
+        <activity
+            android:name=".DiagnosticActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

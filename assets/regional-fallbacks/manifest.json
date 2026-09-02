@@ -1,0 +1,21 @@
+{
+  "format_version": 1,
+  "fallbacks": [
+    {
+      "logical_path": "dynamic/gacha_list_banner/01_release_gacha.png",
+      "asset_file": "en/8ed654129fbfc216fd473beca36107d5168c0498.png",
+      "source_region": "en",
+      "client_version": "2.1.125",
+      "expected_size": 130901,
+      "expected_sha256": "76eea836be8a3e6172c885f55c97881aacd9b015c41494f344c494bec0f4674a",
+      "width": 510,
+      "height": 180,
+      "activity_ids": [
+        "gacha:1"
+      ],
+      "source_url": "https://archive.org/details/gacha-archive",
+      "source_archive_entry": "patch.wdfp.kakaogames.com/Live/2.0.0/en/archive-common-diff/asset-2.1.107-2.1.108-36-b215a74d.zip!production/upload/8e/d654129fbfc216fd473beca36107d5168c0498",
+      "evidence": "regional-fallback:en:2.1.125:same-logical-path"
+    }
+  ]
+}

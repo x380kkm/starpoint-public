@@ -1,0 +1,113 @@
+<!-- audience: external -->
+<!-- # personal-service-player -->
+<!-- 此页面只管理当前玩家获授权的本地存档, 玩家 token 只保留在页面内存. -->
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>星点玩家存档</title>
+  <link rel="stylesheet" href="/manage/style.css">
+  <script src="/player/app.js" type="module"></script>
+</head>
+<body>
+  <header class="hero">
+    <div>
+      <p class="eyebrow">STARPOINT PLAYER STORAGE</p>
+      <h1>星点玩家存档</h1>
+      <p class="hero-copy">在当前设备查看, 迁移和切换你获授权的存档. 管理员 token 不在这里使用.</p>
+    </div>
+    <div class="hero-actions">
+      <span id="connection-state" class="status-pill offline">未连接</span>
+      <button id="refresh-button" class="button secondary" type="button" disabled>刷新</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="access-panel" class="panel access-panel">
+      <div>
+        <p class="section-kicker">玩家访问</p>
+        <h2>输入玩家 token</h2>
+        <p class="muted">token 由服务器管理员签发, 只在本页面内存中使用, 不写入浏览器存储.</p>
+      </div>
+      <form id="player-token-form" class="inline-form">
+        <label class="grow">
+          <span>玩家 token</span>
+          <input id="player-token-input" type="password" autocomplete="off" spellcheck="false" required>
+        </label>
+        <button class="button primary" type="submit">连接存档</button>
+      </form>
+    </section>
+
+    <div id="dashboard" hidden>
+      <section class="panel save-panel">
+        <div class="section-heading save-heading">
+          <div>
+            <p class="section-kicker">已授权数据</p>
+            <h2>我的存档</h2>
+          </div>
+          <label class="device-picker">
+            <span>激活设备 ID</span>
+            <input id="device-id" type="number" min="1" step="1" inputmode="numeric" placeholder="输入设备 ID" required>
+          </label>
+        </div>
+        <div id="device-list" class="binding-list"></div>
+        <div id="player-save-list" class="save-list"></div>
+      </section>
+
+      <section class="utility-grid">
+        <article class="panel">
+          <p class="section-kicker">文件迁移</p>
+          <h2>导入存档</h2>
+          <form id="import-form" class="stack-form">
+            <label><span>新存档名称, 可选</span><input name="name" maxlength="64" placeholder="从朋友设备导入"></label>
+            <label class="file-input"><span>JSON 或加密存档文件</span><input name="file" type="file" accept="application/json,.json,.starpoint-save" required></label>
+            <button class="button primary" type="submit">导入为新存档</button>
+          </form>
+        </article>
+
+        <article class="panel">
+          <p class="section-kicker">密文同步</p>
+          <h2>存档服务器</h2>
+          <p id="sync-state" class="muted">由管理员配置的服务器不会向玩家暴露登录凭据.</p>
+          <div class="mail-layout">
+            <form id="sync-upload-form" class="stack-form">
+              <label><span>上传存档</span><select id="sync-upload-slot" required></select></label>
+              <label><span>存档服务器</span><select id="sync-upload-target" required></select></label>
+              <label><span>远端对象 ID</span><input id="sync-upload-object" maxlength="40" pattern="[A-Za-z0-9_-]+" value="primary" required></label>
+              <button class="button primary" type="submit">上传密文</button>
+            </form>
+            <form id="sync-download-form" class="stack-form">
+              <label><span>下载服务器</span><select id="sync-download-target" required></select></label>
+              <label><span>远端对象 ID</span><input id="sync-download-object" maxlength="40" pattern="[A-Za-z0-9_-]+" value="primary" required></label>
+              <label><span>新存档名称</span><input id="sync-download-name" maxlength="64" value="远端恢复" required></label>
+              <button class="button primary" type="submit">下载密文</button>
+            </form>
+          </div>
+          <p id="access-state" class="privacy-note">只显示管理员授予当前 token 的存档槽. 导出的存档不会包含管理 token.</p>
+        </article>
+
+        <article class="panel">
+          <p class="section-kicker">跨设备迁移</p>
+          <h2>恢复包</h2>
+          <p class="muted">恢复包只包含加密后的本地密钥和远端作用域. 密码不会写入文件.</p>
+          <div class="mail-layout">
+            <form id="recovery-export-form" class="stack-form">
+              <label><span>恢复密码</span><input id="recovery-export-password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label>
+              <button class="button primary" type="submit">导出恢复包</button>
+            </form>
+            <form id="recovery-import-form" class="stack-form">
+              <label><span>恢复密码</span><input id="recovery-import-password" type="password" minlength="8" maxlength="128" autocomplete="off" required></label>
+              <label class="file-input"><span>恢复包文件</span><input id="recovery-import-file" type="file" accept="application/json,.json,.starpoint-recovery" required></label>
+              <button class="button primary" type="submit">导入恢复包</button>
+            </form>
+          </div>
+        </article>
+      </section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

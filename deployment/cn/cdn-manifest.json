@@ -1,0 +1,52 @@
+{
+  "schema": "wf-cn-cdn-release",
+  "version": 1,
+  "resVersion": "1.4.54",
+  "repo": "dennis96292/.cdn",
+  "tag": "cdn-1.4.54",
+  "archiveName": "cn-cdn.tar",
+  "topLevelDir": "cn",
+  "extractedFileCount": 696,
+  "extractedSize": 10882879093,
+  "requiredFiles": [
+    {
+      "path": "entities/10939-android_medium.csv",
+      "size": 17042766,
+      "sha256": "9772de877b739cc6864da14f450bf71f3bb51caa75c07e401592339991b1f4f5"
+    }
+  ],
+  "partCount": 6,
+  "totalSize": 10883440640,
+  "parts": [
+    {
+      "name": "cn-cdn.tar.part.00",
+      "size": 1992294400,
+      "sha256": "7bc90950f663b7e9d2f728ca68919ecdf58031702bd592df49d68347c97a585d"
+    },
+    {
+      "name": "cn-cdn.tar.part.01",
+      "size": 1992294400,
+      "sha256": "772079676898bf7c79e5f2991d1e59dca4b85d5495f89d0a3d6c9e75968bd5f3"
+    },
+    {
+      "name": "cn-cdn.tar.part.02",
+      "size": 1992294400,
+      "sha256": "0f90abadd7734ef25d35c0a410df9cbdb16eb90ba367b66f2ad51c2c98db9d0c"
+    },
+    {
+      "name": "cn-cdn.tar.part.03",
+      "size": 1992294400,
+      "sha256": "28c453cfd307ca39c9611adf8899ee46d06097992faec8d7964735d444dbee5d"
+    },
+    {
+      "name": "cn-cdn.tar.part.04",
+      "size": 1992294400,
+      "sha256": "2a24a538c942af0f068679f0706c6f22e2e95c802fd1fbf99144eadb059b8c8b"
+    },
+    {
+      "name": "cn-cdn.tar.part.05",
+      "size": 921968640,
+      "sha256": "3d7c97bd7d64ab91906427f2b1492aeac0e2d81b3d4203ac51e15755a26ed8b3"
+    }
+  ]
+}

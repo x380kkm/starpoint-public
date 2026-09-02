@@ -1,0 +1,471 @@
+{
+  "schemaVersion": 1,
+  "clients": [
+    {
+      "id": "cn-android-1.8.1",
+      "platform": "android",
+      "version": "1.8.1",
+      "sha256": "1adba913eb662bc21d5623b797c82c1df82ffe4120920384949e730335b3540e",
+      "artifactName": "V1.8.1.apk"
+    },
+    {
+      "id": "cn-ios-1.8.4",
+      "platform": "ios",
+      "version": "1.8.4",
+      "sha256": "5241e51b40bd9d7e2ad92bae9b85e4dc31cd19cd68a637d363c5dcca3eae0a3a",
+      "artifactName": "iOS-1.8.4.ipa"
+    }
+  ],
+  "entries": [
+    {
+      "id": "cn.version.android",
+      "priority": "P0",
+      "transport": "http",
+      "operation": "Android 客户端版本发现",
+      "request": { "method": "GET", "path": "/shijtswy/version/client_release_android.dis" },
+      "authority": { "local": "gateway", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/routes/cn/versionCheck.ts", "tests": ["scripts/protocol-lab/test-cn-server.js"] },
+        "personalService": { "status": "covered", "handler": "core/personal-service/src/http.rs", "tests": ["core/personal-service/tests/lifecycle.rs"] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "dynamic", "reference": "protocol-lab:android-cn-title-login-gate-paired-20260813T170142Z-pcap" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "partial",
+      "nextEvidence": "2026-08-13 以新版 10.0.2.2 探针、完整 CN CDN 和隔离服务执行单模拟器配对实验. 客户端先真实请求 GET /shijtswy/version/client_release_android.dis 并收到 200 text/plain. 标题页显示点击开始后只发送一次触摸, 随即进入真实 leiting_login, antiaddiction, signup 和 load 链, 最后显示资源下载选择. PCAP 和服务端脱敏元数据均记录方法、路径、状态和媒体类型, 未记录请求正文、token、设备标识或存档. 本轮证明版本响应后的标题页门控已在运行时通过, 但不把 Android 证据扩展到 iOS, gacha, mail 或战斗. 下一步对照 iOS 1.8.4 的版本字段和顺序."
+    },
+    {
+      "id": "cn.version.ios",
+      "priority": "P0",
+      "transport": "http",
+      "operation": "iOS 客户端版本发现",
+      "request": { "method": "GET", "path": "/shijtswy/version/client_release_ios.dis" },
+      "authority": { "local": "gateway", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/routes/cn/versionCheck.ts", "tests": ["scripts/protocol-lab/test-cn-server.js"] },
+        "personalService": { "status": "covered", "handler": "core/personal-service/src/http.rs", "tests": ["core/personal-service/tests/lifecycle.rs"] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "not-applicable", "reference": null },
+        "cn-ios-1.8.4": { "level": "static", "reference": "scripts/protocol-lab/test_ios_inventory.py" }
+      },
+      "status": "partial",
+      "nextEvidence": "在真实 iPhone 诊断通过后记录 iOS 冷启动请求."
+    },
+    {
+      "id": "cn.asset.entity_list",
+      "priority": "P0",
+      "transport": "http",
+      "operation": "载入 CN EntityLists 清单",
+      "request": { "method": "GET", "path": "/patch/cn/EntityLists/10939-android_medium.csv" },
+      "authority": { "local": "gateway", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/server.ts", "tests": ["scripts/protocol-lab/test-cn-server.js", "scripts/protocol-lab/test-cn-cdn-preparer.mjs"] },
+        "personalService": { "status": "covered", "handler": "core/personal-service/src/cn_asset_files.rs", "tests": ["core/personal-service/tests/cn_asset_files.rs"] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "dynamic", "reference": "protocol-lab:android-cn-entity-list-http-metadata" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "partial",
+      "nextEvidence": "Android 1.8.1 真实请求使用 /patch/cn/EntityLists/10939-android_medium.csv. 10.0.2.2 路径曾在 TCP 段边界丢失一个 Base64 字符. 使用 adb reverse、显式 CN CDN 根和全新个人服务 root 冷启动后, 客户端完成登录和资源初始化, 进入真实下载方式选择. 安全访问日志随后记录 49 个 archive GET, 均返回 200 application/zip, 下载进度达到 2.67%, 且没有出现 EntityLists GET 或 404. 本轮保持原有 EntityLists 动态证据不变. 内置 bundle.zip 含 2426 个按 SHA-1 命名的生产资源对象, 没有 EntityLists, PathFile, CSV, DIS 或 manifest 命名条目, 因此当前证据不支持把 HTTP 清单直接归因于该压缩包. 下一步在新 APK 的版本查询冷启动复测后, 再记录完整 archive 下载结果和 iOS 1.8.4 路径."
+    },
+    {
+      "id": "cn.auth.leiting_login",
+      "priority": "P0",
+      "transport": "http",
+      "operation": "CN 雷霆渠道登录",
+      "request": { "method": "POST", "path": "/api/index.php/channels/channel_leiting/leiting_login" },
+      "authority": { "local": "personal-service", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/routes/cn/leitingAuth.ts", "tests": ["scripts/protocol-lab/test-cn-server.js"] },
+        "personalService": { "status": "covered", "handler": "core/personal-service/src/cn.rs", "tests": ["core/personal-service/tests/cn_auth.rs"] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "dynamic", "reference": "protocol-lab:android-cn-strict-paired-restart-20260818" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "partial",
+      "nextEvidence": "2026-08-18 单模拟器与隔离服务严格配对实验在冷启动和进程重启后均真实完成 leiting_login, leiting_antiaddiction_login, signup 和 load. 初次 load 后客户端进入教程选择并调用 query_unfinish_order. 安全日志只记录方法, 路径, 状态和 Content-Type. 本轮不把证据扩展到 iOS, gacha, mail 或 battle. 下一步在 iOS 1.8.4 对照相同顺序和字段."
+    },
+    {
+      "id": "cn.auth.leiting_antiaddiction_login",
+      "priority": "P0",
+      "transport": "http",
+      "operation": "CN 雷霆防沉迷登录",
+      "request": { "method": "POST", "path": "/api/index.php/channels/channel_leiting/leiting_antiaddiction_login" },
+      "authority": { "local": "personal-service", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/routes/cn/leitingAuth.ts", "tests": ["scripts/protocol-lab/test-cn-server.js"] },
+        "personalService": { "status": "covered", "handler": "core/personal-service/src/cn.rs", "tests": ["core/personal-service/tests/cn_auth.rs"] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "dynamic", "reference": "protocol-lab:android-cn-strict-paired-restart-20260818" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "partial",
+      "nextEvidence": "2026-08-18 真实 Android CN 1.8.1 客户端在两次登录启动链中均于 leiting_login 后发送该请求并收到 200 application/x-msgpack. 下一步在 iOS 1.8.4 对照请求顺序和字段."
+    },
+    {
+      "id": "cn.account.signup",
+      "priority": "P0",
+      "transport": "http",
+      "operation": "创建实例账号壳",
+      "request": { "method": "POST", "path": "/api/index.php/tool/signup" },
+      "authority": { "local": "personal-service", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/routes/cn/tool.ts", "tests": ["scripts/protocol-lab/test-cn-server.js"] },
+        "personalService": { "status": "covered", "handler": "core/personal-service/src/cn.rs", "tests": ["core/personal-service/tests/cn_auth.rs"] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "dynamic", "reference": "protocol-lab:android-cn-strict-paired-restart-20260818" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "partial",
+      "nextEvidence": "2026-08-18 真实 Android CN 1.8.1 客户端在冷启动和进程重启后均发送 signup 并继续进入 load. 两次 signup 后隔离 SQLite 仍只有 1 个 account, 1 个 player 和 1 个 session, 因此重复启动没有创建第二个账号行. 本轮不读取或记录 device_id, viewer_id 或凭据值. 下一步验证多槽身份字段并在 iOS 1.8.4 复测."
+    },
+    {
+      "id": "cn.account.load",
+      "priority": "P0",
+      "transport": "http",
+      "operation": "载入当前实例壳的激活存档槽",
+      "request": { "method": "POST", "path": "/api/index.php/load" },
+      "authority": { "local": "personal-service", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/routes/cn/load.ts", "tests": ["scripts/protocol-lab/test-cn-server.js"] },
+        "personalService": { "status": "covered", "handler": "core/personal-service/src/cn.rs", "tests": ["core/personal-service/tests/cn_load.rs"] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "dynamic", "reference": "protocol-lab:android-cn-strict-paired-restart-20260818" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "partial",
+      "nextEvidence": "2026-08-18 真实 Android CN 1.8.1 客户端在冷启动和进程重启后均完成 load 并收到 200 application/x-msgpack. 初次 load 后客户端进入教程选择并继续调用 query_unfinish_order. 下一步验证多槽激活后的身份字段并在 iOS 1.8.4 对照."
+    },
+    {
+      "id": "cn.tutorial.update_step",
+      "priority": "P0",
+      "transport": "http",
+      "operation": "持久化教程进度",
+      "request": { "method": "POST", "path": "/api/index.php/tutorial/update_step" },
+      "authority": { "local": "personal-service", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/routes/api/tutorial.ts", "tests": ["scripts/protocol-lab/test-cn-server.js"] },
+        "personalService": { "status": "covered", "handler": "core/personal-service/src/cn_tutorial.rs", "tests": ["core/personal-service/tests/cn_tutorial.rs"] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "dynamic", "reference": "protocol-lab:android-cn-personal-service-cold-start-pcap" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "partial",
+      "nextEvidence": "2026-08-10 Android 在 Rust 个人服务上跳过新手引导并发送 update_step, 响应为 200 application/x-msgpack. 下一步验证跳过教程后重启回读, 再在 iOS 真机复测."
+    },
+    {
+      "id": "cn.story.finish_with_skip",
+      "priority": "P0",
+      "transport": "http",
+      "operation": "跳过并结算剧情任务",
+      "request": { "method": "POST", "path": "/api/index.php/story_quest/finish_with_skip" },
+      "authority": { "local": "personal-service", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/routes/api/storyQuest.ts", "tests": ["scripts/protocol-lab/test-cn-server.js"] },
+        "personalService": { "status": "covered", "handler": "core/personal-service/src/cn_story.rs", "tests": ["core/personal-service/tests/cn_story.rs"] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "dynamic", "reference": "protocol-lab:android-cn-story-skip-success" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "partial",
+      "nextEvidence": "真实 Android 首次 finish_with_skip 只发送 viewer_id, party_id, quest_id 和 category, 失败重试增加 retry_count. 修正后的服务对 finish 和 finish_with_skip 均返回 200 application/x-msgpack; 星导石从 1495 增加到 1510, free_mana 保持 1029, 1001003 只有 1 条完成记录. 冷启动登录链和 load 均返回 200, 首页保持 1510 星导石并推进到 2-1. 下一步核对 iOS 1.8.4 字段和顺序."
+    },
+    {
+      "id": "cn.single_battle.start",
+      "priority": "P0",
+      "transport": "http",
+      "operation": "开始单机战斗",
+      "request": { "method": "POST", "path": "/api/index.php/single_battle_quest/start" },
+      "authority": { "local": "personal-service", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/routes/api/singleBattleQuest.ts", "tests": ["scripts/protocol-lab/test-cn-server.js"] },
+        "personalService": { "status": "covered", "handler": "core/personal-service/src/cn_battle.rs", "tests": ["core/personal-service/tests/cn_single_battle.rs"] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "dynamic", "reference": "protocol-lab:android-cn-dynamic-20260814T105910Z-metadata" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "partial",
+      "nextEvidence": "2026-08-14 Android CN 真实 start 返回 200 application/x-msgpack, 随后进入战斗; 当前仍需核对战斗 ID, 服务器时间, 异常中断和 iOS 字段."
+    },
+    {
+      "id": "cn.single_battle.finish",
+      "priority": "P0",
+      "transport": "http",
+      "operation": "结束单机战斗并发放掉落",
+      "request": { "method": "POST", "path": "/api/index.php/single_battle_quest/finish" },
+      "authority": { "local": "personal-service", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/routes/api/singleBattleQuest.ts", "tests": ["scripts/protocol-lab/test-cn-server.js"] },
+        "personalService": { "status": "covered", "handler": "core/personal-service/src/cn_battle.rs", "tests": ["core/personal-service/tests/cn_single_battle.rs"] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "dynamic", "reference": "protocol-lab:android-cn-dynamic-20260814T105910Z-metadata" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "partial",
+      "nextEvidence": "2026-08-14 Android CN 真实 finish 返回 200, 显示 SS 结算并写入任务 1001002, 等级, 经验和掉落; play_continue 也返回 200. 当前仍需核对异常中断和 iOS 字段."
+    },
+    {
+      "id": "cn.gacha.exec",
+      "priority": "P0",
+      "transport": "http",
+      "operation": "执行角色抽取 gacha",
+      "request": { "method": "POST", "path": "/api/index.php/gacha/exec" },
+      "authority": { "local": "personal-service", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/routes/api/gacha.ts", "tests": ["scripts/protocol-lab/test-cn-server.js", "scripts/protocol-lab/test-cn-gacha.mjs"] },
+        "personalService": { "status": "covered", "handler": "core/personal-service/src/cn_gacha.rs", "tests": ["core/personal-service/tests/cn_gacha.rs"] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "dynamic", "reference": "protocol-lab:android-cn-dynamic-20260814T105910Z-metadata" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "partial",
+      "nextEvidence": "2026-08-14 Android CN 普通扭蛋真实发送 gacha/exec 并返回 200; free_vmoney 从 1500 降到 1350, 角色表新增记录, players_gacha_info 的 exchange point 变为 1. 当前仍需验证重复角色, 十连, 保底和 iOS 字段."
+    },
+    {
+      "id": "cn.shop.recover_stamina",
+      "priority": "P0",
+      "transport": "http",
+      "operation": "使用星导石恢复体力",
+      "request": { "method": "POST", "path": "/api/index.php/shop/recover_stamina" },
+      "authority": { "local": "personal-service", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/routes/api/shop.ts", "tests": ["scripts/protocol-lab/test-cn-server.js"] },
+        "personalService": { "status": "covered", "handler": "core/personal-service/src/cn_shop.rs", "tests": ["core/personal-service/tests/cn_shop.rs"] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "dynamic", "reference": "protocol-lab:android-cn-main-quest-stamina-http-metadata" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "partial",
+      "nextEvidence": "真实 Android 已确认恢复请求返回 200 并继续发出单人战斗 start; 后续记录安全的资源变化证据, 并验证 iOS 和真实客户端错误路径."
+    },
+    {
+      "id": "cn.mail.receive",
+      "priority": "P0",
+      "transport": "http",
+      "operation": "领取邮件和资源发放",
+      "request": { "method": "POST", "path": "/api/index.php/mail/receive_all" },
+      "authority": { "local": "personal-service", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/routes/api/mail.ts", "tests": ["scripts/protocol-lab/test-cn-server.js", "scripts/protocol-lab/test-cn-gacha.mjs"] },
+        "personalService": { "status": "covered", "handler": "core/personal-service/src/cn_mail.rs", "tests": ["core/personal-service/tests/cn_mail.rs"] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "dynamic", "reference": "protocol-lab:android-cn-mail-time-sentinel-20260817T020739Z" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "partial",
+      "nextEvidence": "2026-08-17 Android CN 1.8.1 证明未领取邮件的 receive_time 必须是 0000-00-00 00:00:00. 修复后 mail/index 和 mail/receive_all 均返回 200 application/x-msgpack, 客户端显示领取成功, 奖励写入 SQLite, 客户端重启后邮件计数和奖励仍保持. 安全证据记录于 protocol-lab:android-cn-mail-time-sentinel-20260817T020739Z. 后续验证单封 mail/receive 和 iOS CN 1.8.4."
+    },
+    {
+      "id": "instance.shell.slots",
+      "priority": "P0",
+      "transport": "management",
+      "operation": "实例壳的多存档槽和激活槽",
+      "request": { "method": "GET", "path": "/manage/api/saves" },
+      "authority": { "local": "personal-service", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/routes/management/saves.ts", "tests": ["scripts/protocol-lab/test-management.js", "scripts/protocol-lab/management-three-instance-portable-save-test.js"] },
+        "personalService": { "status": "covered", "handler": "core/personal-service/src/local_saves.rs", "tests": ["core/personal-service/tests/local_saves.rs", "scripts/protocol-lab/management-three-instance-portable-save-test.js"] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "not-applicable", "reference": null },
+        "cn-ios-1.8.4": { "level": "not-applicable", "reference": null }
+      },
+      "status": "partial",
+      "nextEvidence": "2026-08-03 已验证 Rust L 和 Node A/B 的实例 ID, 激活槽, 切槽后 viewer_id 归属和 Node B 重启. 下一步验证同一远端实例保存多个壳凭据."
+    },
+    {
+      "id": "instance.save.portable_transfer",
+      "priority": "P0",
+      "transport": "management",
+      "operation": "跨实例导入, 导出, 上传和下载可移植存档",
+      "request": { "method": "POST", "path": "/v1/local-saves/:slotId/transfer-bindings/:bindingId/sync" },
+      "authority": { "local": "personal-service", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/routes/management/transferBindings.ts", "tests": ["scripts/protocol-lab/test-management.js", "scripts/protocol-lab/management-server-transfer-binding-test.js", "scripts/protocol-lab/management-server-transfer-binding-conflict-test.js", "scripts/protocol-lab/management-server-transfer-binding-race-test.js", "scripts/protocol-lab/management-three-instance-portable-save-test.js"] },
+        "personalService": { "status": "covered", "handler": "core/personal-service/src/local_saves/transfer_bindings.rs", "tests": ["core/personal-service/tests/transfer_bindings.rs", "core/personal-service/tests/transfer_tokens.rs", "scripts/protocol-lab/management-three-instance-portable-save-test.js"] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "not-applicable", "reference": null },
+        "cn-ios-1.8.4": { "level": "not-applicable", "reference": null }
+      },
+      "status": "partial",
+      "nextEvidence": "2026-08-04 已验证明确 L 到 A 槽位绑定, 三种冲突解决, 手动槽 token 搬运和个人服务 interval runner. 完整 Node 服务器现已在 WDFP SQLite 持久化 TransferBinding 与冲突, 支持条件 ETag upload/pull, ask 下三种手动解决, local_wins/remote_wins 自动策略, 同一绑定远端操作互斥, Fastify 生命周期内的单任务 interval runner, 以及来源服务器重启后继续自动上传; 管理响应不返回目标槽 token, 普通玩家不能访问绑定管理. 延迟 PUT 验证来源槽中途变化会保留或重设 open 冲突而不报告成功; 玩家完整替换保留绑定, 删除守卫拒绝仍有绑定的玩家删除, 未变化轮询不会追加 revision. 下一步在干净 Linux 部署验证跨进程 runner, 远端暂时不可用重试和目标 shell 身份变化拒绝."
+    },
+    {
+      "id": "cn.follow.lists",
+      "priority": "P1",
+      "transport": "http",
+      "operation": "列出关注, 粉丝和互相关注",
+      "request": { "method": "POST", "path": "/api/index.php/follow/lists" },
+      "authority": { "local": "unsupported", "remote": "server" },
+      "implementation": {
+        "server": { "status": "missing", "handler": null, "tests": [] },
+        "personalService": { "status": "not-applicable", "handler": null, "tests": [] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "static", "reference": "wf-2.1.125-cn-decompiled:FollowListsRealRemote" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "not-implemented",
+      "nextEvidence": "从 CN 客户端固定响应结构建立服务器壳好友表和真实双账号测试."
+    },
+    {
+      "id": "cn.follow.add",
+      "priority": "P1",
+      "transport": "http",
+      "operation": "关注目标服务器壳",
+      "request": { "method": "POST", "path": "/api/index.php/follow/add" },
+      "authority": { "local": "unsupported", "remote": "server" },
+      "implementation": {
+        "server": { "status": "missing", "handler": null, "tests": [] },
+        "personalService": { "status": "not-applicable", "handler": null, "tests": [] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "static", "reference": "wf-2.1.125-cn-decompiled:FollowAddRealRemote" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "not-implemented",
+      "nextEvidence": "确认请求字段和关注数量错误码."
+    },
+    {
+      "id": "cn.follow.delete",
+      "priority": "P1",
+      "transport": "http",
+      "operation": "取消关注目标服务器壳",
+      "request": { "method": "POST", "path": "/api/index.php/follow/delete" },
+      "authority": { "local": "unsupported", "remote": "server" },
+      "implementation": {
+        "server": { "status": "missing", "handler": null, "tests": [] },
+        "personalService": { "status": "not-applicable", "handler": null, "tests": [] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "static", "reference": "wf-2.1.125-cn-decompiled:FollowDeleteRealRemote" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "not-implemented",
+      "nextEvidence": "确认删除响应和互相关注状态变化."
+    },
+    {
+      "id": "cn.follow.bulk_edit",
+      "priority": "P1",
+      "transport": "http",
+      "operation": "批量编辑关注关系",
+      "request": { "method": "POST", "path": "/api/index.php/follow/bulk_edit" },
+      "authority": { "local": "unsupported", "remote": "server" },
+      "implementation": {
+        "server": { "status": "missing", "handler": null, "tests": [] },
+        "personalService": { "status": "not-applicable", "handler": null, "tests": [] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "static", "reference": "wf-2.1.125-cn-decompiled:FollowBulkEditRealRemote" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "not-implemented",
+      "nextEvidence": "确认 add 与 delete 数组以及 max_follower_user_viewer_id_list."
+    },
+    {
+      "id": "cn.profile.get_profile",
+      "priority": "P1",
+      "transport": "http",
+      "operation": "取得服务器壳当前激活槽的公开资料",
+      "request": { "method": "POST", "path": "/api/index.php/profile/get_profile" },
+      "authority": { "local": "unsupported", "remote": "server" },
+      "implementation": {
+        "server": { "status": "missing", "handler": null, "tests": [] },
+        "personalService": { "status": "not-applicable", "handler": null, "tests": [] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "static", "reference": "wf-2.1.125-cn-decompiled:ProfileGetProfileRealRemote" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "not-implemented",
+      "nextEvidence": "固定 target_user_info 和 favorite_character 结构, 并验证切槽后资料更新."
+    },
+    {
+      "id": "cn.multi.http_room_lifecycle",
+      "priority": "P1",
+      "transport": "http",
+      "operation": "多人房间创建, 选择, 准备, 开始和解散",
+      "request": { "method": "POST", "path": "/api/index.php/multi_battle_quest/:operation" },
+      "authority": { "local": "unsupported", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/routes/api/multiBattleQuest.ts", "tests": ["scripts/protocol-lab/test-cn-server.js"] },
+        "personalService": { "status": "not-applicable", "handler": null, "tests": [] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "static", "reference": "wf-2.1.125-cn-decompiled:multi_battle_quest" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "ready-for-dynamic",
+      "nextEvidence": "用两个真实 CN 客户端完成房间全生命周期."
+    },
+    {
+      "id": "cn.multi.meeting",
+      "priority": "P1",
+      "transport": "tcp",
+      "operation": "cooperation_room 大厅握手和命令",
+      "request": { "socket": "cooperation_room", "frame": "enter-ready-start-bye" },
+      "authority": { "local": "unsupported", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/multiplayer/sessionServer.ts", "tests": ["scripts/protocol-lab/test-cn-server.js"] },
+        "personalService": { "status": "not-applicable", "handler": null, "tests": [] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "static", "reference": "wf-2.1.125-cn-decompiled:cooperation_room" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "ready-for-dynamic",
+      "nextEvidence": "捕获纯真人大厅的 enter, ready, startBattle 和 bye 原始帧."
+    },
+    {
+      "id": "cn.multi.battle",
+      "priority": "P1",
+      "transport": "tcp",
+      "operation": "cooperation_battle 战斗握手和帧转发",
+      "request": { "socket": "cooperation_battle", "frame": "sceneReady-finalize-measurement-send-broadcast" },
+      "authority": { "local": "unsupported", "remote": "server" },
+      "implementation": {
+        "server": { "status": "covered", "handler": "src/multiplayer/cnBattleProtocol.ts", "tests": ["scripts/protocol-lab/test-cn-server.js"] },
+        "personalService": { "status": "not-applicable", "handler": null, "tests": [] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "static", "reference": "wf-2.1.125-cn-decompiled:cooperation_battle" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "ready-for-dynamic",
+      "nextEvidence": "捕获两名真人的 started, finalized, send, broadcast, measurement 和 leave."
+    },
+    {
+      "id": "cn.multi.finish",
+      "priority": "P1",
+      "transport": "http",
+      "operation": "多人结算并写入当前服务器槽",
+      "request": { "method": "POST", "path": "/api/index.php/multi_battle_quest/finish" },
+      "authority": { "local": "unsupported", "remote": "server" },
+      "implementation": {
+        "server": { "status": "partial", "handler": "src/routes/api/multiBattleQuest.ts", "tests": ["scripts/protocol-lab/test-cn-server.js"] },
+        "personalService": { "status": "not-applicable", "handler": null, "tests": [] }
+      },
+      "clientEvidence": {
+        "cn-android-1.8.1": { "level": "static", "reference": "wf-2.1.125-cn-decompiled:multi_battle_quest/finish" },
+        "cn-ios-1.8.4": { "level": "none", "reference": null }
+      },
+      "status": "partial",
+      "nextEvidence": "真实确认 host_finished, party_info, follow_info 和活动字段."
+    }
+  ]
+}
