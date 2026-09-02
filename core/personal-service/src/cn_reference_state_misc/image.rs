@@ -1,0 +1,36 @@
+// audience: internal
+// # personal-service-cn-reference-image
+//
+// 该模块返回漫画图片接口需要的透明 PNG.
+
+use crate::http::{HttpRequest, HttpResponse};
+
+const TRANSPARENT_PNG: &[u8] = &[
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+    0x89, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41, 0x54, 0x08, 0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0xf0,
+    0x1f, 0x00, 0x05, 0x00, 0x01, 0xff, 0x89, 0x99, 0x3d, 0x1d, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45,
+    0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+];
+
+pub(super) fn response(request: &HttpRequest) -> HttpResponse {
+    let episode = request
+        .target()
+        .split_once('?')
+        .map(|(_, query)| query)
+        .into_iter()
+        .flat_map(|query| url::form_urlencoded::parse(query.as_bytes()))
+        .find_map(|(name, value)| {
+            (name == "episode")
+                .then(|| value.parse::<i64>().ok())
+                .flatten()
+        });
+    if !episode.is_some_and(|episode| episode > 0) {
+        return HttpResponse::json(
+            "400 Bad Request",
+            "{\"error\":\"Missing episode\"}".to_owned(),
+        );
+    }
+    HttpResponse::bytes("200 OK", "image/png", TRANSPARENT_PNG.to_vec())
+        .with_header("Cache-Control", "public, max-age=86400")
+}

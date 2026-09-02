@@ -1,0 +1,9 @@
+<!-- audience: external -->
+<!-- # android-personal-service-network-security -->
+<!-- 此配置只允许 127.0.0.1 个人服务使用明文 HTTP. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>

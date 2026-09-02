@@ -1,0 +1,16 @@
+<!-- audience: external -->
+<!-- # android-provider-observer -->
+<!-- 此 manifest 注册仅供协议实验使用的 ContentProvider. 它不提供账号数据或伪造 SDK 响应. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.mtl.check">
+    <application
+        android:allowBackup="false"
+        android:label="Starpoint Provider Observer"
+        android:usesCleartextTraffic="false">
+        <provider
+            android:name=".ProviderObserver"
+            android:authorities="com.mtl.check.DataContentProvider"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+    </application>
+</manifest>

@@ -1,0 +1,155 @@
+<!-- audience: external -->
+<!-- # management-page -->
+<!-- 此页面使用同源 cookie 登录, 并通过 JSON API 加载全部动态数据. -->
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>StarPoint 服务器管理</title>
+    <style>
+        :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+        * { box-sizing: border-box; }
+        body { max-width: 1180px; margin: 0 auto; padding: 24px; background: #0f172a; color: #e2e8f0; }
+        main { display: grid; gap: 16px; }
+        section { border: 1px solid #334155; border-radius: 10px; padding: 16px; background: #1e293b; }
+        h1, h2 { margin: 0 0 12px; }
+        label { display: grid; gap: 6px; margin-top: 10px; }
+        input, select, textarea, button { font: inherit; padding: 9px; border: 1px solid #475569; border-radius: 6px; background: #0f172a; color: inherit; }
+        textarea { min-height: 120px; resize: vertical; }
+        button { cursor: pointer; background: #2563eb; border-color: #2563eb; }
+        button.secondary { background: #334155; border-color: #475569; }
+        button.danger { background: #b91c1c; border-color: #dc2626; }
+        button:disabled { cursor: wait; opacity: .55; }
+        pre { white-space: pre-wrap; overflow-wrap: anywhere; margin-bottom: 0; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 9px; border-bottom: 1px solid #334155; text-align: left; vertical-align: top; }
+        th { color: #93c5fd; }
+        .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+        .row > label { flex: 1 1 180px; }
+        .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+        .muted { color: #94a3b8; }
+        .scroll { overflow-x: auto; }
+        .hidden { display: none; }
+        #notice { min-height: 24px; color: #fbbf24; }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <h1>StarPoint 服务器管理</h1>
+        <p class="muted">使用管理账号登录. 普通用户只能访问已经绑定的玩家存档.</p>
+    </header>
+
+    <section id="login-panel">
+        <h2>登录</h2>
+        <div class="row">
+            <label>用户名 <input id="username" autocomplete="username"></label>
+            <label>密码 <input id="password" type="password" autocomplete="current-password"></label>
+        </div>
+        <div class="row">
+            <button id="login">登录</button>
+            <button id="logout" class="secondary hidden">退出</button>
+            <button id="refresh-all" class="secondary hidden">刷新</button>
+        </div>
+        <p id="identity" class="muted">尚未登录.</p>
+        <p id="notice"></p>
+    </section>
+
+    <section id="saves-panel" class="hidden">
+        <h2>我的存档</h2>
+        <p class="muted">导入会先完整解析存档, 再在一个 SQLite 事务中替换当前玩家数据.</p>
+        <div id="saves" class="muted">尚未加载.</div>
+    </section>
+
+    <section class="admin-only hidden">
+        <h2>管理用户</h2>
+        <div class="row">
+            <label>用户名 <input id="new-username" autocomplete="off"></label>
+            <label>初始密码 <input id="new-password" type="password" autocomplete="new-password"></label>
+            <label>角色
+                <select id="new-role"><option value="player">player</option><option value="admin">admin</option></select>
+            </label>
+            <button id="create-user">创建用户</button>
+        </div>
+        <div class="row">
+            <label>用户 ID <input id="bind-user-id" type="number" min="1"></label>
+            <label>玩家 ID <input id="bind-player-id" type="number" min="1"></label>
+            <button id="bind-player">绑定玩家</button>
+        </div>
+        <div class="scroll">
+            <table>
+                <thead><tr><th>ID</th><th>用户名</th><th>角色</th><th>玩家 ID</th><th>状态</th></tr></thead>
+                <tbody id="users"><tr><td colspan="5" class="muted">尚未加载.</td></tr></tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="admin-only hidden">
+        <h2>服务器时间</h2>
+        <div class="row">
+            <label>起始时间 <input id="time" type="datetime-local"></label>
+            <label>推进倍率 <input id="rate" type="number" min="0.01" max="1000" step="0.01" value="1"></label>
+        </div>
+        <div class="row">
+            <button id="set-time">启用虚拟时间</button>
+            <button id="reset-time" class="secondary">恢复系统时间</button>
+        </div>
+    </section>
+
+    <section class="admin-only hidden">
+        <h2>COM 队友配置</h2>
+        <p class="muted">最多保存 2 个模板. pairingKey 使用 *, category:* 或 category:quest. sourcePlayerId 和 partySlot 指向服务器内已有玩家队伍.</p>
+        <label>JSON 配置
+            <textarea id="npc">{"enabled":false,"delaySeconds":30,"mates":[]}</textarea>
+        </label>
+        <button id="save-npc">保存配置</button>
+    </section>
+
+    <section class="admin-only hidden">
+        <h2>邮件奖励</h2>
+        <div class="row">
+            <label>玩家 ID <input id="mail-player-id" type="number" min="1"></label>
+            <label>标题 <input id="mail-title" value="服务器补给"></label>
+            <label>发送者 <input id="mail-sender" value="StarPoint"></label>
+        </div>
+        <label>正文 <textarea id="mail-body">感谢参与测试.</textarea></label>
+        <label>奖励 JSON <textarea id="mail-rewards">{"itemList":{"100000":100},"freeVmoney":0,"freeMana":0}</textarea></label>
+        <div class="row">
+            <button id="send-mail">发放邮件</button>
+            <button id="load-mails" class="secondary">读取未领取邮件</button>
+        </div>
+        <div id="mails" class="muted">尚未加载.</div>
+    </section>
+
+    <section class="admin-only hidden">
+        <div class="row">
+            <h2>游戏账号</h2>
+            <button id="previous-accounts" class="secondary">上一页</button>
+            <button id="next-accounts" class="secondary">下一页</button>
+        </div>
+        <div class="scroll">
+            <table>
+                <thead><tr><th>ID</th><th>来源</th><th>玩家</th><th>会话</th><th>最近登录</th><th>操作</th></tr></thead>
+                <tbody id="accounts"><tr><td colspan="6" class="muted">尚未加载.</td></tr></tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="admin-only hidden">
+        <div class="row">
+            <h2>备份</h2>
+            <button id="create-backup">创建备份</button>
+            <button id="refresh-backups" class="secondary">刷新列表</button>
+        </div>
+        <div id="backups" class="muted">尚未加载.</div>
+    </section>
+
+    <section id="output-panel" class="hidden">
+        <h2>状态与操作结果</h2>
+        <pre id="output">尚未执行操作.</pre>
+    </section>
+</main>
+<script src="/public/management.js" defer></script>
+</body>
+</html>

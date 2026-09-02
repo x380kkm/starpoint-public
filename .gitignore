@@ -1,0 +1,75 @@
+# 忽略依赖目录和编译输出.
+node_modules/
+out/
+dist/
+build/
+target/
+coverage/
+web/public/tailwind.css
+
+# 忽略本地配置和运行状态.
+.env
+.env.*
+.database/
+.management/
+data/personal-service/
+.cdn/
+.cn-cdn/
+.mitmproxy/
+mitm_redirect/
+artifacts/
+archive/
+references/
+refs/
+scripts/in/
+.misc/
+.unzip-temp/
+
+# 忽略工具索引和编辑器缓存.
+cleanread/
+.cleanread/
+.cache/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.gradle/
+.idea/
+__pycache__/
+*.py[cod]
+*.swp
+*.tmp
+*.bak
+
+# 忽略应用包和平台构建目录.
+*.ipa
+*.apk
+*.aab
+*.app/
+*.framework/
+*.xcarchive/
+*.dSYM/
+DerivedData/
+
+# 忽略证书, 私钥和签名材料.
+*.mobileprovision
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.pem
+*.key
+*.cer
+*.crt
+*.der
+*.csr
+
+# 忽略数据库, 抓包和运行日志.
+*.sqlite
+*.sqlite3
+*.db
+*.db3
+*.pcap
+*.pcapng
+*.log
+*.dmp
+starpoint-save*.json
