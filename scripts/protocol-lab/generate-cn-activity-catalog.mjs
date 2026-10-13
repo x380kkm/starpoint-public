@@ -60,7 +60,7 @@ export function readEntityRecords(cdnRoot) {
         if (fields.length !== 5) throw new Error("CN EntityLists row has an unexpected field count")
         const [entryPath, version, byteLength, digest, assetKind] = fields
         const parsedByteLength = Number(byteLength)
-        if (!/^production\/(?:(?:android|ios|medium)_)?upload\/[a-f0-9]{2}\/[a-f0-9]{38}$/.test(entryPath)) {
+        if (!/^production\/(?:(?:android|ios)_)?(?:(?:medium|small)_)?upload\/[a-f0-9]{2}\/[a-f0-9]{38}$/.test(entryPath)) {
             throw new Error(`CN EntityLists contains an invalid asset path: ${entryPath}`)
         }
         if (!version || !Number.isSafeInteger(parsedByteLength) || parsedByteLength < 1
@@ -154,6 +154,7 @@ function parseActivityWindow(schema, rows) {
 
 // //// 构造所有已识别 master 的活动记录 [@x380kkm 2026-08-19] ////
 function activityName(schema, id, rows) {
+    if (schema.name === "character_election") return schema.label
     for (const index of schema.nameIndexes) {
         for (const row of rows) {
             const value = row[index]
@@ -350,6 +351,11 @@ export function buildActivityCatalogArtifacts({
                 collectMasterRows(rootRow),
                 gachaPolicy,
             )
+            if (schema.name === "gacha_campaign" && gachaPolicy) {
+                if (rows.every((row) => row[0]?.includes("_temporary_"))) continue
+                const poolIds = rows.flatMap((row) => (row[5] ?? "").split(",")).filter(Boolean)
+                if (poolIds.length > 0 && poolIds.every((id) => gachaPolicy.temporaryAliases.has(id))) continue
+            }
             if (rows.length > 0) activities.push(buildActivity(schema, recordId, rows, entityRecords))
         }
     }

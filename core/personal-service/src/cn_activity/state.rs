@@ -1,13 +1,19 @@
 // audience: internal
 // # personal-service-cn-activity-state
 //
-// 该模块将 CN 活动进度保存在玩家快照中, 并将活动战斗写入现有活跃战斗表.
+// 该模块将 CN 活动进度保存在玩家快照中.
 
 use crate::cn_tutorial::{decode_player_data, encode_player_data, player_snapshot, require_root};
-use crate::database::{ActiveSingleQuest, ServiceDatabase};
+use crate::database::ServiceDatabase;
 use crate::http::HttpResponse;
 use crate::PersonalServiceError;
 use serde_json::{json, Map, Value};
+
+mod periods;
+pub(crate) use periods::{
+    activate_battle_period, event_period_start, reset_event_state,
+    reward_scope, select_event_period, select_period,
+};
 
 const ACTIVITY_STATE_KEY: &str = "cn_activity_state";
 const CURRENT_EVENT_IDS_KEY: &str = "current_event_ids";
@@ -48,21 +54,9 @@ impl ActivityPlayer {
     pub(super) fn save(&self, database: &mut ServiceDatabase) -> Result<(), PersonalServiceError> {
         database.save_player_snapshot(self.account_id, &encode_player_data(&self.data)?)
     }
-
-    pub(super) fn start_battle(
-        &self,
-        database: &mut ServiceDatabase,
-        active_quest: &ActiveSingleQuest,
-    ) -> Result<(), PersonalServiceError> {
-        database.start_active_single_quest(
-            self.account_id,
-            &encode_player_data(&self.data)?,
-            active_quest,
-        )
-    }
 }
 
-pub(super) fn current_event_id(root: &Map<String, Value>, family: &str) -> Option<i64> {
+pub(crate) fn current_event_id(root: &Map<String, Value>, family: &str) -> Option<i64> {
     root.get(ACTIVITY_STATE_KEY)
         .and_then(Value::as_object)
         .and_then(|state| state.get(CURRENT_EVENT_IDS_KEY))
@@ -100,10 +94,19 @@ pub(super) fn set_current_event(
     family: &str,
     event_id: i64,
 ) -> Result<(), PersonalServiceError> {
-    let legacy = legacy_event_state(root, family, event_id);
     let activity = activity_state_mut(root)?;
     let current = required_object_mut(activity, CURRENT_EVENT_IDS_KEY)?;
     current.insert(family.to_owned(), Value::from(event_id));
+    prepare_event_state(root, family, event_id)
+}
+
+// //// 初始化当前期别的活动进度与角色引用 [@x380kkm 2026-09-28] ////
+pub(super) fn prepare_event_state(
+    root: &mut Map<String, Value>,
+    family: &str,
+    event_id: i64,
+) -> Result<(), PersonalServiceError> {
+    let legacy = legacy_event_state(root, family, event_id);
     let event = event_state_mut(root, family, event_id)?;
     if !event
         .get("legacy_state_imported")
@@ -115,10 +118,25 @@ pub(super) fn set_current_event(
         }
         event.insert("legacy_state_imported".to_owned(), Value::Bool(true));
     }
+    if family == "rush" {
+        super::rush::normalize_character_references(event);
+    }
     Ok(())
 }
 
-pub(super) fn event_state<'a>(
+pub(crate) fn event_state<'a>(
+    root: &'a Map<String, Value>,
+    family: &str,
+    event_id: i64,
+) -> Option<&'a Map<String, Value>> {
+    let event = event_container(root, family, event_id)?;
+    match event.get("active_period_start_ms").and_then(Value::as_i64) {
+        Some(start) => event.get("periods")?.get(start.to_string())?.as_object(),
+        None => Some(event),
+    }
+}
+
+pub(super) fn event_container<'a>(
     root: &'a Map<String, Value>,
     family: &str,
     event_id: i64,
@@ -133,7 +151,27 @@ pub(super) fn event_state<'a>(
         .and_then(Value::as_object)
 }
 
-pub(super) fn event_state_mut<'a>(
+pub(crate) fn event_state_mut<'a>(
+    root: &'a mut Map<String, Value>,
+    family: &str,
+    event_id: i64,
+) -> Result<&'a mut Map<String, Value>, PersonalServiceError> {
+    let event = event_container_mut(root, family, event_id)?;
+    let Some(start) = event.get("active_period_start_ms").and_then(Value::as_i64) else {
+        return Ok(event);
+    };
+    required_object_mut(event, "periods")?
+        .entry(start.to_string())
+        .or_insert_with(|| {
+            let mut value = default_event_state();
+            value["legacy_state_imported"] = Value::Bool(true);
+            value
+        })
+        .as_object_mut()
+        .ok_or_else(|| PersonalServiceError::new("stored CN activity period state is invalid"))
+}
+
+pub(super) fn event_container_mut<'a>(
     root: &'a mut Map<String, Value>,
     family: &str,
     event_id: i64,

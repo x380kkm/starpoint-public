@@ -3,6 +3,13 @@
 //
 // 该模块从玩家快照生成 CN 个人资料和编队摘要.
 
+mod degrees;
+mod party_state;
+
+pub(crate) use degrees::owned_degree_ids;
+pub(crate) use party_state::{profile_party_groups_mut, PROFILE_PARTY_CATEGORY};
+use party_state::{favorite_character, read_profile_party_groups};
+
 use crate::cn::{decode_request, msgpack_response_at, server_time};
 use crate::cn_tutorial::{decode_player_data, encode_player_data, player_snapshot, require_root};
 use crate::database::{ServiceDatabase, ViewerSessionPlayer};
@@ -111,7 +118,7 @@ fn get_my_profile(
         .ok_or_else(|| PersonalServiceError::new("stored CN player data is not an object"))?;
     let character_count = i64::try_from(required_object(root, "user_character_list")?.len())
         .map_err(|_| PersonalServiceError::new("stored CN character count is out of range"))?;
-    let degree_count = 1;
+    let degree_count = owned_degree_ids(&player_data).len();
     let party_groups = profile_party_groups(root)?;
     let profile_settings = root
         .get("profile_settings")
@@ -192,29 +199,15 @@ fn get_profile(
     let characters = required_object(root, "user_character_list")?;
     let owned_character_count = i64::try_from(characters.len())
         .map_err(|_| PersonalServiceError::new("stored CN character count is out of range"))?;
-    let leader_character_id = user_info
-        .get("leader_character_id")
-        .and_then(Value::as_i64)
-        .filter(|character_id| characters.contains_key(&character_id.to_string()))
-        .or_else(|| {
-            characters
-                .keys()
-                .filter_map(|character_id| character_id.parse::<i64>().ok())
-                .min()
-        });
-    let favorite_character_ids = leader_character_id.into_iter().collect::<Vec<_>>();
+    let owned_degree_count = owned_degree_ids(&player_data).len();
+    let favorite_character = favorite_character(root)?;
 
     msgpack_response_at(
         body.viewer_id,
         false,
         server_time(database)?,
         json!({
-            "favorite_character": {
-                "character_ex_boost": [],
-                "character_ids": favorite_character_ids,
-                "unison_character_ex_boost": [],
-                "unison_character_ids": [],
-            },
+            "favorite_character": favorite_character,
             "target_user_info": {
                 "comment": user_info.get("comment").and_then(Value::as_str).unwrap_or(""),
                 "degree_id": user_info.get("degree_id").and_then(Value::as_i64).unwrap_or_default(),
@@ -223,11 +216,11 @@ fn get_profile(
                 "leader_character_full_shot_evolution_level": 0,
                 "max_opened_mana_board_second_count": 0,
                 "max_owned_character_count": owned_character_count,
-                "max_owned_degree_count": 1,
+                "max_owned_degree_count": owned_degree_count,
                 "name": user_info.get("name").and_then(Value::as_str).unwrap_or("冒险者"),
                 "opened_mana_board_second_count": 0,
                 "owned_character_count": owned_character_count,
-                "owned_degree_count": 1,
+                "owned_degree_count": owned_degree_count,
                 "rank": 1,
                 "role": user_info.get("role").and_then(Value::as_i64).unwrap_or(1),
                 "viewer_id": body.target_viewer_id,
@@ -363,10 +356,12 @@ fn update_user_info_text(
     )
 }
 
-// //// 将持久化编队映射为个人资料协议数组 [@x380kkm 2026-08-22] ////
-fn profile_party_groups(root: &Map<String, Value>) -> Result<Vec<Value>, PersonalServiceError> {
-    let groups = required_object(root, "user_party_group_list")?;
-    let mut indexed_groups = parse_indexed_values(groups, "party group")?;
+// //// 将展示编队映射为首页和个人资料协议数组 [@x380kkm 2026-09-30] ////
+pub(crate) fn profile_party_groups(
+    root: &Map<String, Value>,
+) -> Result<Vec<Value>, PersonalServiceError> {
+    let groups = read_profile_party_groups(root)?;
+    let mut indexed_groups = parse_indexed_values(&groups, "profile party group")?;
     indexed_groups.sort_by_key(|(group_id, _)| *group_id);
     let mut response = Vec::with_capacity(indexed_groups.len());
 
@@ -411,7 +406,7 @@ fn profile_party_groups(root: &Map<String, Value>) -> Result<Vec<Value>, Persona
     }
     Ok(response)
 }
-// //// /将持久化编队映射为个人资料协议数组 ////
+// //// /将展示编队映射为首页和个人资料协议数组 ////
 
 fn parse_indexed_values<'a>(
     values: &'a Map<String, Value>,

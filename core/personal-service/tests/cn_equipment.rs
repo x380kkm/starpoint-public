@@ -113,6 +113,34 @@ fn upgrades_equipment_and_persists_resources() {
     ));
     assert_eq!(protected.data, serde_json::json!({}));
 
+    let protected_sale = cn_support::send_request(
+        service.port(),
+        "/api/index.php/equipment/sell_stack",
+        &encode_request(&SellEquipmentRequest {
+            viewer_id,
+            api_count: 3,
+            equipment_list: vec![SellEquipmentItem {
+                equipment_id: 5_030_037,
+                number: Some(1),
+            }],
+        }),
+    );
+    assert!(
+        protected_sale.starts_with("HTTP/1.1 400")
+            && protected_sale.contains("equipment_protected")
+    );
+    let unprotected = cn_support::send_request(
+        service.port(),
+        "/api/index.php/equipment/set_protection",
+        &encode_request(&SetProtectionRequest {
+            viewer_id,
+            protection: false,
+            equipment_ids: vec![5_030_037, 5_040_028],
+            api_count: 10,
+        }),
+    );
+    assert!(unprotected.starts_with("HTTP/1.1 200"));
+
     let sold_stack = decode_response::<Value>(&cn_support::send_request(
         service.port(),
         "/api/index.php/equipment/sell_stack",
@@ -128,6 +156,20 @@ fn upgrades_equipment_and_persists_resources() {
     assert_eq!(sold_stack.data["equipment_list"][0]["stack"], 0);
     assert_eq!(sold_stack.data["item_list"]["100000"], 5);
     assert_eq!(sold_stack.data["item_list"]["5030037"], 2);
+
+    let second_copies = decode_response::<Value>(&cn_support::send_request(
+        service.port(),
+        "/api/index.php/equipment/sell_stack",
+        &encode_request(&SellEquipmentRequest {
+            viewer_id,
+            api_count: 11,
+            equipment_list: vec![SellEquipmentItem {
+                equipment_id: 5_040_028,
+                number: Some(3),
+            }],
+        }),
+    ));
+    assert_eq!(second_copies.data["item_list"]["100000"], 20);
 
     let sold_equipment = decode_response::<Value>(&cn_support::send_request(
         service.port(),
@@ -147,8 +189,8 @@ fn upgrades_equipment_and_persists_resources() {
         5_030_037
     );
     assert_eq!(sold_equipment.data["equipment_list"][0]["stack"], 0);
-    assert_eq!(sold_equipment.data["item_list"]["100000"], 20);
-    assert_eq!(sold_equipment.data["item_list"]["5040028"], 3);
+    assert_eq!(sold_equipment.data["item_list"]["100000"], 25);
+    assert_eq!(sold_equipment.data["item_list"]["5040028"], 4);
 
     let missing_equipment = cn_support::send_request(
         service.port(),
@@ -211,6 +253,18 @@ fn upgrades_equipment_and_persists_resources() {
     );
     assert!(insufficient_stack.starts_with("HTTP/1.1 400 Bad Request"));
 
+    let protected = cn_support::send_request(
+        service.port(),
+        "/api/index.php/equipment/set_protection",
+        &encode_request(&SetProtectionRequest {
+            viewer_id,
+            protection: true,
+            equipment_ids: vec![5_030_037],
+            api_count: 12,
+        }),
+    );
+    assert!(protected.starts_with("HTTP/1.1 200"));
+
     let loaded = decode_response::<Value>(&cn_support::send_request(
         service.port(),
         "/api/index.php/load",
@@ -224,9 +278,9 @@ fn upgrades_equipment_and_persists_resources() {
     assert_eq!(equipment["stack"], 0);
     assert_eq!(equipment["protection"], true);
     assert!(loaded.data["user_equipment_list"].get("5040028").is_none());
-    assert_eq!(loaded.data["item_list"]["100000"], 20);
+    assert_eq!(loaded.data["item_list"]["100000"], 25);
     assert_eq!(loaded.data["item_list"]["5030037"], 2);
-    assert_eq!(loaded.data["item_list"]["5040028"], 3);
+    assert_eq!(loaded.data["item_list"]["5040028"], 4);
     let history = decode_response::<Value>(&cn_support::send_request(
         service.port(),
         "/api/index.php/history/receive",
@@ -242,9 +296,9 @@ fn upgrades_equipment_and_persists_resources() {
             .filter_map(|entry| entry["number"].as_i64())
             .sum::<i64>()
     };
-    assert_eq!(received(100_000), 45);
+    assert_eq!(received(100_000), 50);
     assert_eq!(received(5_030_037), 2);
-    assert_eq!(received(5_040_028), 3);
+    assert_eq!(received(5_040_028), 4);
     service.stop().expect("service stops cleanly");
 
     let restarted = PersonalService::start(root.path(), 0).expect("service restarts");
@@ -256,7 +310,7 @@ fn upgrades_equipment_and_persists_resources() {
             viewer_id,
         }),
     ));
-    assert_eq!(restarted_load.data["item_list"]["100000"], 20);
+    assert_eq!(restarted_load.data["item_list"]["100000"], 25);
     assert!(restarted_load.data["user_equipment_list"]
         .get("5040028")
         .is_none());

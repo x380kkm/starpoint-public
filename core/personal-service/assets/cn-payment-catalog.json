@@ -1,0 +1,3055 @@
+{
+  "sources": [
+    "master/payment/android_payment.orderedmap",
+    "master/payment/ios_payment.orderedmap",
+    "master/bonus/premium_login_bonus.orderedmap",
+    "master/bonus/premium_login_bonus_config.orderedmap"
+  ],
+  "products": {
+    "com.leiting.wf.stone_50": {
+      "store_product_id": "com.leiting.wf.stone_50",
+      "name": "星导石 × 50",
+      "charge_vmoney_num": 50,
+      "free_vmoney_num": 0,
+      "price": 6,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 14,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "com.leiting.wf.stone_150": {
+      "store_product_id": "com.leiting.wf.stone_150",
+      "name": "星导石 × 160",
+      "charge_vmoney_num": 160,
+      "free_vmoney_num": 0,
+      "price": 18,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 15,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "com.leiting.wf.stone_350": {
+      "store_product_id": "com.leiting.wf.stone_350",
+      "name": "星导石 × 320",
+      "charge_vmoney_num": 320,
+      "free_vmoney_num": 0,
+      "price": 40,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 16,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "com.leiting.wf.stone_850": {
+      "store_product_id": "com.leiting.wf.stone_850",
+      "name": "星导石 × 850",
+      "charge_vmoney_num": 850,
+      "free_vmoney_num": 0,
+      "price": 98,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 17,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "com.leiting.wf.stone_1500": {
+      "store_product_id": "com.leiting.wf.stone_1500",
+      "name": "星导石 × 1500",
+      "charge_vmoney_num": 1500,
+      "free_vmoney_num": 0,
+      "price": 163,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 18,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "com.leiting.wf.stone_2450": {
+      "store_product_id": "com.leiting.wf.stone_2450",
+      "name": "星导石 × 2450",
+      "charge_vmoney_num": 2450,
+      "free_vmoney_num": 0,
+      "price": 258,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 19,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "com.leiting.wf.stone_5100": {
+      "store_product_id": "com.leiting.wf.stone_5100",
+      "name": "星导石 × 5100",
+      "charge_vmoney_num": 5100,
+      "free_vmoney_num": 0,
+      "price": 518,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 20,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "com.leiting.wf.stonepack_850": {
+      "store_product_id": "com.leiting.wf.stonepack_850",
+      "name": "★4必得扭蛋券套装",
+      "charge_vmoney_num": 850,
+      "free_vmoney_num": 0,
+      "price": 98,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 100,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 45,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 20003,
+          "amount": 1
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.stonepack_5100": {
+      "store_product_id": "com.leiting.wf.stonepack_5100",
+      "name": "★5必得扭蛋券套装",
+      "charge_vmoney_num": 5100,
+      "free_vmoney_num": 0,
+      "price": 518,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 101,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 45,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 20004,
+          "amount": 1
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.stonepack_Daily": {
+      "store_product_id": "com.leiting.wf.stonepack_Daily",
+      "name": "每日星导石礼包",
+      "charge_vmoney_num": 500,
+      "free_vmoney_num": 0,
+      "price": 50,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 102,
+      "page_kind": 2,
+      "feature": "MonthCard",
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": [
+        {
+          "entitlement": "subscription",
+          "id": "month_card"
+        }
+      ]
+    },
+    "jp.co.cygames.worldflipper.stone_set_15": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_15",
+      "name": "毎月更新！星導石セールA",
+      "charge_vmoney_num": 630,
+      "free_vmoney_num": 0,
+      "price": 980,
+      "start_time": 2529694800,
+      "end_time": 2548598999,
+      "list_order": 31,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "monthly",
+        "limit": 1
+      },
+      "rewards": [],
+      "entitlements": []
+    },
+    "com.leiting.wf.stonepack_150": {
+      "store_product_id": "com.leiting.wf.stonepack_150",
+      "name": "新手应援礼包",
+      "charge_vmoney_num": 150,
+      "free_vmoney_num": 0,
+      "price": 6,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 103,
+      "page_kind": 0,
+      "feature": "SalePack",
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_16": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_16",
+      "name": "毎月更新！星導石セールB",
+      "charge_vmoney_num": 2250,
+      "free_vmoney_num": 0,
+      "price": 2940,
+      "start_time": 2529694800,
+      "end_time": 2548598999,
+      "list_order": 32,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "monthly",
+        "limit": 1
+      },
+      "rewards": [],
+      "entitlements": []
+    },
+    "com.leiting.wf.stonepack_GachaTicket": {
+      "store_product_id": "com.leiting.wf.stonepack_GachaTicket",
+      "name": "豪华扭蛋券礼包",
+      "charge_vmoney_num": 0,
+      "free_vmoney_num": 0,
+      "price": 98,
+      "start_time": 1739419200,
+      "end_time": 1740067199,
+      "list_order": 104,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 45,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "periodically",
+        "limit": 3
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 3
+        },
+        {
+          "kind": "item",
+          "id": 999001,
+          "amount": 1
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.login_bonus_01": {
+      "store_product_id": "jp.co.cygames.worldflipper.login_bonus_01",
+      "name": "デイリー星導石パック",
+      "charge_vmoney_num": 500,
+      "free_vmoney_num": 0,
+      "price": 980,
+      "start_time": 2524622400,
+      "end_time": 2556115199,
+      "list_order": 10,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": [
+        {
+          "entitlement": "subscription",
+          "id": "daily_stone_pack"
+        }
+      ]
+    },
+    "com.leiting.wf.stonepack_500": {
+      "store_product_id": "com.leiting.wf.stonepack_500",
+      "name": "活动限定 每日特惠礼包",
+      "charge_vmoney_num": 500,
+      "free_vmoney_num": 0,
+      "price": 25,
+      "start_time": 1739419200,
+      "end_time": 1740067199,
+      "list_order": 105,
+      "page_kind": 0,
+      "feature": "SalePack",
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "daily",
+        "limit": 1
+      },
+      "rewards": [],
+      "entitlements": []
+    },
+    "com.leiting.wf.stonepack_RewardPoints": {
+      "store_product_id": "com.leiting.wf.stonepack_RewardPoints",
+      "name": "迷宫领主加成点数礼包 ",
+      "charge_vmoney_num": 0,
+      "free_vmoney_num": 0,
+      "price": 25,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 106,
+      "page_kind": 0,
+      "feature": "WeeklyBonus",
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [
+        {
+          "kind": "star_crumb",
+          "amount": 7
+        }
+      ],
+      "entitlements": [
+        {
+          "entitlement": "subscription",
+          "id": "weekly_bonus"
+        }
+      ]
+    },
+    "com.leiting.wf.stonepack_7500": {
+      "store_product_id": "com.leiting.wf.stonepack_7500",
+      "name": "每月特惠礼包",
+      "charge_vmoney_num": 7500,
+      "free_vmoney_num": 0,
+      "price": 518,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 107,
+      "page_kind": 0,
+      "feature": "SalePack",
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "monthly",
+        "limit": 3
+      },
+      "rewards": [],
+      "entitlements": []
+    },
+    "com.leiting.wf.stonepack_Light": {
+      "store_product_id": "com.leiting.wf.stonepack_Light",
+      "name": "成长基金·莱特的存钱罐",
+      "charge_vmoney_num": 0,
+      "free_vmoney_num": 0,
+      "price": 128,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 108,
+      "page_kind": 0,
+      "feature": "LaiteFund",
+      "reason_id": null,
+      "required_main_quest_id": 3013003,
+      "ios_required_main_quest_id": 3013003,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "star_crumb",
+          "amount": 20
+        }
+      ],
+      "entitlements": [
+        {
+          "entitlement": "growth_fund",
+          "kind": "laite"
+        }
+      ]
+    },
+    "com.leiting.wf.stonepack_MAIN": {
+      "store_product_id": "com.leiting.wf.stonepack_MAIN",
+      "name": "成长基金·主线通关基金",
+      "charge_vmoney_num": 0,
+      "free_vmoney_num": 0,
+      "price": 60,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 109,
+      "page_kind": 0,
+      "feature": "MainQuestFund",
+      "reason_id": null,
+      "required_main_quest_id": 3013003,
+      "ios_required_main_quest_id": 3013003,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "star_crumb",
+          "amount": 10
+        }
+      ],
+      "entitlements": [
+        {
+          "entitlement": "growth_fund",
+          "kind": "main_quest"
+        }
+      ]
+    },
+    "com.leiting.wf.stonepack_EX": {
+      "store_product_id": "com.leiting.wf.stonepack_EX",
+      "name": "成长基金·高难通关基金",
+      "charge_vmoney_num": 0,
+      "free_vmoney_num": 0,
+      "price": 60,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 110,
+      "page_kind": 0,
+      "feature": "EXQuestFund",
+      "reason_id": null,
+      "required_main_quest_id": 3013003,
+      "ios_required_main_quest_id": 3013003,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "star_crumb",
+          "amount": 10
+        }
+      ],
+      "entitlements": [
+        {
+          "entitlement": "growth_fund",
+          "kind": "ex_quest"
+        }
+      ]
+    },
+    "worldflipper.daily_set_02": {
+      "store_product_id": "worldflipper.daily_set_02",
+      "name": "史黛拉的每日甜点",
+      "charge_vmoney_num": 0,
+      "free_vmoney_num": 0,
+      "price": 30,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 113,
+      "page_kind": 2,
+      "feature": "MiniMonthCard",
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": false,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": [
+        {
+          "entitlement": "subscription",
+          "id": "mini_month_card"
+        }
+      ]
+    },
+    "com.leiting.wf.adventurer_pack_01": {
+      "store_product_id": "com.leiting.wf.adventurer_pack_01",
+      "name": "初级冒险助力礼包",
+      "charge_vmoney_num": 0,
+      "free_vmoney_num": 0,
+      "price": 6,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 5,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 45,
+      "required_main_quest_id": 1008004,
+      "ios_required_main_quest_id": 1008004,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999100,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 999003,
+          "amount": 1
+        },
+        {
+          "kind": "experience",
+          "amount": 4000
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.adventurer_pack_02": {
+      "store_product_id": "com.leiting.wf.adventurer_pack_02",
+      "name": "中级冒险助力礼包",
+      "charge_vmoney_num": 0,
+      "free_vmoney_num": 0,
+      "price": 30,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 6,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 45,
+      "required_main_quest_id": 2009007,
+      "ios_required_main_quest_id": 2009007,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999101,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 999003,
+          "amount": 3
+        },
+        {
+          "kind": "experience",
+          "amount": 10000
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.adventurer_pack_03": {
+      "store_product_id": "com.leiting.wf.adventurer_pack_03",
+      "name": "上级冒险助力礼包",
+      "charge_vmoney_num": 0,
+      "free_vmoney_num": 0,
+      "price": 68,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 7,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 45,
+      "required_main_quest_id": 4011005,
+      "ios_required_main_quest_id": 4011005,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999102,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 999003,
+          "amount": 6
+        },
+        {
+          "kind": "mana",
+          "amount": 10000
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.adventurer_pack_04": {
+      "store_product_id": "com.leiting.wf.adventurer_pack_04",
+      "name": "高级冒险助力礼包",
+      "charge_vmoney_num": 1500,
+      "free_vmoney_num": 0,
+      "price": 128,
+      "start_time": 1425193200,
+      "end_time": 7258089599,
+      "list_order": 8,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": 6010006,
+      "ios_required_main_quest_id": 6010006,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 99,
+          "amount": 30
+        },
+        {
+          "kind": "mana",
+          "amount": 20000
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.weekly_set_1": {
+      "store_product_id": "com.leiting.wf.weekly_set_1",
+      "name": "每周礼包A",
+      "charge_vmoney_num": 1500,
+      "free_vmoney_num": 0,
+      "price": 113,
+      "start_time": 1662004800,
+      "end_time": 7258089599,
+      "list_order": 114,
+      "page_kind": 0,
+      "feature": "morethanstones",
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "weekly",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 11003,
+          "amount": 2
+        },
+        {
+          "kind": "item",
+          "id": 106,
+          "amount": 2
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.weekly_set_2": {
+      "store_product_id": "com.leiting.wf.weekly_set_2",
+      "name": "每周礼包B",
+      "charge_vmoney_num": 1500,
+      "free_vmoney_num": 0,
+      "price": 113,
+      "start_time": 1662004800,
+      "end_time": 7258089599,
+      "list_order": 115,
+      "page_kind": 0,
+      "feature": "morethanstones",
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "weekly",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999102,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 106,
+          "amount": 2
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.challenge_point_pack": {
+      "store_product_id": "com.leiting.wf.challenge_point_pack",
+      "name": "单人挑战次数加成礼包 ",
+      "charge_vmoney_num": 0,
+      "free_vmoney_num": 0,
+      "price": 25,
+      "start_time": 1662004800,
+      "end_time": 7258089599,
+      "list_order": 116,
+      "page_kind": 0,
+      "feature": "WeeklyBonus2",
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999102,
+          "amount": 1
+        }
+      ],
+      "entitlements": [
+        {
+          "entitlement": "subscription",
+          "id": "weekly_bonus2"
+        }
+      ]
+    },
+    "com.leiting.wf.stonepack_500_pack": {
+      "store_product_id": "com.leiting.wf.stonepack_500_pack",
+      "name": "活动限定 每日特惠礼包（打包）",
+      "charge_vmoney_num": 4000,
+      "free_vmoney_num": 0,
+      "price": 198,
+      "start_time": 1739419200,
+      "end_time": 1740067199,
+      "list_order": 105,
+      "page_kind": 0,
+      "feature": "SalePack",
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "periodically",
+        "limit": 1
+      },
+      "rewards": [],
+      "entitlements": []
+    },
+    "com.leiting.wf.pass_card": {
+      "store_product_id": "com.leiting.wf.pass_card",
+      "name": "高阶修行礼包",
+      "charge_vmoney_num": 0,
+      "free_vmoney_num": 0,
+      "price": 68,
+      "start_time": 1717189200,
+      "end_time": 1746046799,
+      "list_order": 7,
+      "page_kind": 2,
+      "feature": "PassCard",
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [],
+      "entitlements": [
+        {
+          "entitlement": "pass_card"
+        }
+      ]
+    },
+    "com.leiting.wf.comeback_pack_01": {
+      "store_product_id": "com.leiting.wf.comeback_pack_01",
+      "name": "回归畅游礼包",
+      "charge_vmoney_num": 0,
+      "free_vmoney_num": 0,
+      "price": 1,
+      "start_time": 1716411600,
+      "end_time": 7258089599,
+      "list_order": 117,
+      "page_kind": 0,
+      "feature": "Comeback",
+      "reason_id": 40103,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "comeback",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999003,
+          "amount": 1
+        },
+        {
+          "kind": "experience",
+          "amount": 160000
+        },
+        {
+          "kind": "mana",
+          "amount": 120000
+        },
+        {
+          "kind": "item",
+          "id": 101,
+          "amount": 20
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.comeback_pack_02_1": {
+      "store_product_id": "com.leiting.wf.comeback_pack_02_1",
+      "name": "回归珍宝礼包",
+      "charge_vmoney_num": 0,
+      "free_vmoney_num": 0,
+      "price": 6,
+      "start_time": 1716411600,
+      "end_time": 7258089599,
+      "list_order": 118,
+      "page_kind": 0,
+      "feature": "Comeback",
+      "reason_id": 40103,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "comeback",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999003,
+          "amount": 1
+        },
+        {
+          "kind": "experience",
+          "amount": 160000
+        },
+        {
+          "kind": "mana",
+          "amount": 120000
+        },
+        {
+          "kind": "item",
+          "id": 70031,
+          "amount": 1
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.comeback_pack_02_2": {
+      "store_product_id": "com.leiting.wf.comeback_pack_02_2",
+      "name": "回归珍宝礼包",
+      "charge_vmoney_num": 0,
+      "free_vmoney_num": 0,
+      "price": 6,
+      "start_time": 4076031600,
+      "end_time": 7258089599,
+      "list_order": 119,
+      "page_kind": 0,
+      "feature": "Comeback",
+      "reason_id": 40103,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "comeback",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999003,
+          "amount": 1
+        },
+        {
+          "kind": "experience",
+          "amount": 160000
+        },
+        {
+          "kind": "mana",
+          "amount": 120000
+        },
+        {
+          "kind": "item",
+          "id": 70031,
+          "amount": 1
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.comeback_pack_03": {
+      "store_product_id": "com.leiting.wf.comeback_pack_03",
+      "name": "回归星导石礼包",
+      "charge_vmoney_num": 500,
+      "free_vmoney_num": 0,
+      "price": 25,
+      "start_time": 1716411600,
+      "end_time": 7258089599,
+      "list_order": 120,
+      "page_kind": 0,
+      "feature": "Comeback",
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "comeback",
+        "limit": 8
+      },
+      "rewards": [],
+      "entitlements": []
+    },
+    "com.leiting.wf.comeback_pack_04": {
+      "store_product_id": "com.leiting.wf.comeback_pack_04",
+      "name": "回归星导石礼盒A",
+      "charge_vmoney_num": 4900,
+      "free_vmoney_num": 0,
+      "price": 258,
+      "start_time": 1716411600,
+      "end_time": 7258089599,
+      "list_order": 121,
+      "page_kind": 0,
+      "feature": "Comeback",
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "comeback",
+        "limit": 1
+      },
+      "rewards": [],
+      "entitlements": []
+    },
+    "com.leiting.wf.comeback_pack_05": {
+      "store_product_id": "com.leiting.wf.comeback_pack_05",
+      "name": "回归星导石礼盒B",
+      "charge_vmoney_num": 10200,
+      "free_vmoney_num": 0,
+      "price": 518,
+      "start_time": 1716411600,
+      "end_time": 7258089599,
+      "list_order": 122,
+      "page_kind": 0,
+      "feature": "Comeback",
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "comeback",
+        "limit": 1
+      },
+      "rewards": [],
+      "entitlements": []
+    },
+    "com.leiting.wf.stonepack_light_treasury_1": {
+      "store_product_id": "com.leiting.wf.stonepack_light_treasury_1",
+      "name": "成长基金·莱特的小金库(A)",
+      "charge_vmoney_num": 0,
+      "free_vmoney_num": 0,
+      "price": 128,
+      "start_time": 1715227200,
+      "end_time": 7258089599,
+      "list_order": 111,
+      "page_kind": 0,
+      "feature": "LaiteFund2",
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": 3013003,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [],
+      "entitlements": [
+        {
+          "entitlement": "growth_fund",
+          "kind": "laite2"
+        }
+      ]
+    },
+    "com.leiting.wf.stonepack_light_treasury_2": {
+      "store_product_id": "com.leiting.wf.stonepack_light_treasury_2",
+      "name": "成长基金·莱特的小金库(B)",
+      "charge_vmoney_num": 0,
+      "free_vmoney_num": 0,
+      "price": 128,
+      "start_time": 1715227200,
+      "end_time": 7258089599,
+      "list_order": 112,
+      "page_kind": 0,
+      "feature": "LaiteFund3",
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": 3013003,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [],
+      "entitlements": [
+        {
+          "entitlement": "growth_fund",
+          "kind": "laite3"
+        }
+      ]
+    },
+    "jp.co.cygames.worldflipper.stone_08": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_08",
+      "name": "星導石 × 70",
+      "charge_vmoney_num": 70,
+      "free_vmoney_num": 0,
+      "price": 160,
+      "start_time": 1664986200,
+      "end_time": 1672502399,
+      "list_order": 40,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_09": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_09",
+      "name": "星導石 × 210",
+      "charge_vmoney_num": 210,
+      "free_vmoney_num": 0,
+      "price": 480,
+      "start_time": 1664986200,
+      "end_time": 1672502399,
+      "list_order": 50,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_10": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_10",
+      "name": "星導石 × 350",
+      "charge_vmoney_num": 350,
+      "free_vmoney_num": 0,
+      "price": 800,
+      "start_time": 1664986200,
+      "end_time": 1672502399,
+      "list_order": 60,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_11": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_11",
+      "name": "星導石 × 880",
+      "charge_vmoney_num": 880,
+      "free_vmoney_num": 0,
+      "price": 1900,
+      "start_time": 1664986200,
+      "end_time": 1672502399,
+      "list_order": 70,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_12": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_12",
+      "name": "星導石 × 1570",
+      "charge_vmoney_num": 1570,
+      "free_vmoney_num": 0,
+      "price": 3200,
+      "start_time": 1664986200,
+      "end_time": 1672502399,
+      "list_order": 80,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_13": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_13",
+      "name": "星導石 × 2450",
+      "charge_vmoney_num": 2450,
+      "free_vmoney_num": 0,
+      "price": 4900,
+      "start_time": 1664986200,
+      "end_time": 1672502399,
+      "list_order": 90,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_14": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_14",
+      "name": "星導石 × 5100",
+      "charge_vmoney_num": 5100,
+      "free_vmoney_num": 0,
+      "price": 10000,
+      "start_time": 1664986200,
+      "end_time": 1672502399,
+      "list_order": 100,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_22": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_22",
+      "name": "星導石 × 880 ＋ ★4以上確定ガチャチケット × 1",
+      "charge_vmoney_num": 880,
+      "free_vmoney_num": 0,
+      "price": 1900,
+      "start_time": 1664986200,
+      "end_time": 1672502399,
+      "list_order": 20,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 45,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 20003,
+          "amount": 1
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_23": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_23",
+      "name": "星導石 × 5100 ＋ ★5確定ガチャチケット × 1",
+      "charge_vmoney_num": 5100,
+      "free_vmoney_num": 0,
+      "price": 10000,
+      "start_time": 1664986200,
+      "end_time": 1672502399,
+      "list_order": 30,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 45,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 20004,
+          "amount": 1
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_24": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_24",
+      "name": "毎月更新！星導石セールA",
+      "charge_vmoney_num": 650,
+      "free_vmoney_num": 0,
+      "price": 1000,
+      "start_time": 1664986200,
+      "end_time": 1672502399,
+      "list_order": 31,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "monthly",
+        "limit": 1
+      },
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_25": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_25",
+      "name": "毎月更新！星導石セールB",
+      "charge_vmoney_num": 2300,
+      "free_vmoney_num": 0,
+      "price": 3000,
+      "start_time": 1664986200,
+      "end_time": 1672502399,
+      "list_order": 32,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "monthly",
+        "limit": 1
+      },
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.login_bonus_02": {
+      "store_product_id": "jp.co.cygames.worldflipper.login_bonus_02",
+      "name": "デイリー星導石パック",
+      "charge_vmoney_num": 510,
+      "free_vmoney_num": 0,
+      "price": 1000,
+      "start_time": 1664986200,
+      "end_time": 1672502399,
+      "list_order": 1,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": [
+        {
+          "entitlement": "subscription",
+          "id": "daily_stone_pack"
+        }
+      ]
+    },
+    "jp.co.cygames.worldflipper.stone_15": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_15",
+      "name": "星导石 × 70",
+      "charge_vmoney_num": 70,
+      "free_vmoney_num": 0,
+      "price": 160,
+      "start_time": 2556158400,
+      "end_time": 7258089599,
+      "list_order": 40,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_16": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_16",
+      "name": "星导石 × 210",
+      "charge_vmoney_num": 210,
+      "free_vmoney_num": 0,
+      "price": 480,
+      "start_time": 2556158400,
+      "end_time": 7258089599,
+      "list_order": 50,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_17": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_17",
+      "name": "星导石 × 350",
+      "charge_vmoney_num": 350,
+      "free_vmoney_num": 0,
+      "price": 800,
+      "start_time": 2556158400,
+      "end_time": 7258089599,
+      "list_order": 60,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_18": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_18",
+      "name": "星导石 × 880",
+      "charge_vmoney_num": 880,
+      "free_vmoney_num": 0,
+      "price": 1900,
+      "start_time": 2556158400,
+      "end_time": 7258089599,
+      "list_order": 70,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_19": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_19",
+      "name": "星导石 × 1570",
+      "charge_vmoney_num": 1570,
+      "free_vmoney_num": 0,
+      "price": 3200,
+      "start_time": 2556158400,
+      "end_time": 7258089599,
+      "list_order": 80,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_20": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_20",
+      "name": "星导石 × 2450",
+      "charge_vmoney_num": 2450,
+      "free_vmoney_num": 0,
+      "price": 4900,
+      "start_time": 2556158400,
+      "end_time": 7258089599,
+      "list_order": 90,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_21": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_21",
+      "name": "星导石 × 5100",
+      "charge_vmoney_num": 5100,
+      "free_vmoney_num": 0,
+      "price": 10000,
+      "start_time": 2556158400,
+      "end_time": 7258089599,
+      "list_order": 100,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_32": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_32",
+      "name": "星导石 × 880 ＋ ★4以上确定扭蛋券 × 1",
+      "charge_vmoney_num": 880,
+      "free_vmoney_num": 0,
+      "price": 1900,
+      "start_time": 2556158400,
+      "end_time": 7258089599,
+      "list_order": 20,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": 45,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 20003,
+          "amount": 1
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_33": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_33",
+      "name": "星导石 × 5100 ＋ ★5确定扭蛋券 × 1",
+      "charge_vmoney_num": 5100,
+      "free_vmoney_num": 0,
+      "price": 10000,
+      "start_time": 2556158400,
+      "end_time": 7258089599,
+      "list_order": 30,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": 45,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 20004,
+          "amount": 1
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_34": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_34",
+      "name": "每月更新！星导石セールA",
+      "charge_vmoney_num": 650,
+      "free_vmoney_num": 0,
+      "price": 1000,
+      "start_time": 2556158400,
+      "end_time": 7258089599,
+      "list_order": 31,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "monthly",
+        "limit": 1
+      },
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_35": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_35",
+      "name": "每月更新！星导石セールB",
+      "charge_vmoney_num": 2300,
+      "free_vmoney_num": 0,
+      "price": 3000,
+      "start_time": 2556158400,
+      "end_time": 7258089599,
+      "list_order": 32,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "monthly",
+        "limit": 1
+      },
+      "rewards": [],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.login_bonus_03": {
+      "store_product_id": "jp.co.cygames.worldflipper.login_bonus_03",
+      "name": "デイリー星導石パック",
+      "charge_vmoney_num": 510,
+      "free_vmoney_num": 0,
+      "price": 1000,
+      "start_time": 2556158400,
+      "end_time": 7258089599,
+      "list_order": 1,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": null,
+      "rewards": [],
+      "entitlements": [
+        {
+          "entitlement": "subscription",
+          "id": "daily_stone_pack"
+        }
+      ]
+    },
+    "jp.co.cygames.worldflipper.stone_set_21": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_21",
+      "name": "コラボ記念星導石セットB",
+      "charge_vmoney_num": 2250,
+      "free_vmoney_num": 0,
+      "price": 3060,
+      "start_time": 1656561600,
+      "end_time": 1657857599,
+      "list_order": 5,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 10003,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 20
+        },
+        {
+          "kind": "mana",
+          "amount": 200000
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_20": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_20",
+      "name": "コラボ記念星導石セットA",
+      "charge_vmoney_num": 630,
+      "free_vmoney_num": 0,
+      "price": 980,
+      "start_time": 1656561600,
+      "end_time": 1657857599,
+      "list_order": 4,
+      "page_kind": 1,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 10002,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 10
+        },
+        {
+          "kind": "mana",
+          "amount": 100000
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.ny_pack_2021": {
+      "store_product_id": "com.leiting.wf.ny_pack_2021",
+      "name": "新年福袋套装",
+      "charge_vmoney_num": 2450,
+      "free_vmoney_num": 0,
+      "price": 258,
+      "start_time": 1637812800,
+      "end_time": 1639022399,
+      "list_order": 1,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 45,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 20015,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 10003,
+          "amount": 1
+        },
+        {
+          "kind": "mana",
+          "amount": 20200
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.springfes_pack_2022": {
+      "store_product_id": "com.leiting.wf.springfes_pack_2022",
+      "name": "新春福袋套装",
+      "charge_vmoney_num": 2450,
+      "free_vmoney_num": 0,
+      "price": 258,
+      "start_time": 1643256000,
+      "end_time": 1644465599,
+      "list_order": 1,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 45,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999103,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 10003,
+          "amount": 1
+        },
+        {
+          "kind": "mana",
+          "amount": 20220
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.halfnav_pack_2022_01": {
+      "store_product_id": "com.leiting.wf.halfnav_pack_2022_01",
+      "name": "半周年礼盒1",
+      "charge_vmoney_num": 1700,
+      "free_vmoney_num": 0,
+      "price": 98,
+      "start_time": 1650340800,
+      "end_time": 1651766399,
+      "list_order": 1,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 106,
+          "amount": 1
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.halfnav_pack_2022_02": {
+      "store_product_id": "com.leiting.wf.halfnav_pack_2022_02",
+      "name": "半周年礼盒2",
+      "charge_vmoney_num": 4900,
+      "free_vmoney_num": 0,
+      "price": 258,
+      "start_time": 1650340800,
+      "end_time": 1651766399,
+      "list_order": 2,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 106,
+          "amount": 2
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.halfnav_pack_2022_03": {
+      "store_product_id": "com.leiting.wf.halfnav_pack_2022_03",
+      "name": "半周年礼盒3",
+      "charge_vmoney_num": 10200,
+      "free_vmoney_num": 0,
+      "price": 518,
+      "start_time": 1650340800,
+      "end_time": 1651766399,
+      "list_order": 3,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 106,
+          "amount": 5
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.1anv_pack_2022_01": {
+      "store_product_id": "com.leiting.wf.1anv_pack_2022_01",
+      "name": "3.5周年礼盒1",
+      "charge_vmoney_num": 1700,
+      "free_vmoney_num": 0,
+      "price": 98,
+      "start_time": 1735790400,
+      "end_time": 1737647999,
+      "list_order": 1,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "periodically",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 106,
+          "amount": 1
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.1anv_pack_2022_02": {
+      "store_product_id": "com.leiting.wf.1anv_pack_2022_02",
+      "name": "3.5周年礼盒2",
+      "charge_vmoney_num": 4900,
+      "free_vmoney_num": 0,
+      "price": 258,
+      "start_time": 1735790400,
+      "end_time": 1737647999,
+      "list_order": 2,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "periodically",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 106,
+          "amount": 2
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.1anv_pack_2022_03": {
+      "store_product_id": "com.leiting.wf.1anv_pack_2022_03",
+      "name": "3.5周年礼盒3",
+      "charge_vmoney_num": 10200,
+      "free_vmoney_num": 0,
+      "price": 518,
+      "start_time": 1735790400,
+      "end_time": 1737647999,
+      "list_order": 3,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "periodically",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 106,
+          "amount": 5
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.1halfanv_pack_2023_01": {
+      "store_product_id": "com.leiting.wf.1halfanv_pack_2023_01",
+      "name": "1.5周年礼盒1",
+      "charge_vmoney_num": 1700,
+      "free_vmoney_num": 0,
+      "price": 98,
+      "start_time": 1678334400,
+      "end_time": 1679673599,
+      "list_order": 1,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 106,
+          "amount": 1
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.1halfanv_pack_2023_02": {
+      "store_product_id": "com.leiting.wf.1halfanv_pack_2023_02",
+      "name": "1.5周年礼盒2",
+      "charge_vmoney_num": 4900,
+      "free_vmoney_num": 0,
+      "price": 258,
+      "start_time": 1678334400,
+      "end_time": 1679673599,
+      "list_order": 2,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 106,
+          "amount": 2
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.1halfanv_pack_2023_03": {
+      "store_product_id": "com.leiting.wf.1halfanv_pack_2023_03",
+      "name": "1.5周年礼盒3",
+      "charge_vmoney_num": 10200,
+      "free_vmoney_num": 0,
+      "price": 518,
+      "start_time": 1678334400,
+      "end_time": 1679673599,
+      "list_order": 3,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 106,
+          "amount": 5
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.2anv_pack_2023_01": {
+      "store_product_id": "com.leiting.wf.2anv_pack_2023_01",
+      "name": "2周年礼盒1",
+      "charge_vmoney_num": 1700,
+      "free_vmoney_num": 0,
+      "price": 98,
+      "start_time": 1720670400,
+      "end_time": 1722527999,
+      "list_order": 1,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "periodically",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 106,
+          "amount": 1
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.2anv_pack_2023_02": {
+      "store_product_id": "com.leiting.wf.2anv_pack_2023_02",
+      "name": "2周年礼盒2",
+      "charge_vmoney_num": 4900,
+      "free_vmoney_num": 0,
+      "price": 258,
+      "start_time": 1720670400,
+      "end_time": 1722527999,
+      "list_order": 2,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "periodically",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 106,
+          "amount": 2
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.2anv_pack_2023_03": {
+      "store_product_id": "com.leiting.wf.2anv_pack_2023_03",
+      "name": "2周年礼盒3",
+      "charge_vmoney_num": 10200,
+      "free_vmoney_num": 0,
+      "price": 518,
+      "start_time": 1720670400,
+      "end_time": 1722527999,
+      "list_order": 3,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": null,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "periodically",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 106,
+          "amount": 5
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_28": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_28",
+      "name": "3周年アニバーサリー纪念星导石套装C",
+      "charge_vmoney_num": 5100,
+      "free_vmoney_num": 0,
+      "price": 10000,
+      "start_time": 1669608000,
+      "end_time": 1672459199,
+      "list_order": 13,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 195,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999001,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 40
+        },
+        {
+          "kind": "item",
+          "id": 10003,
+          "amount": 1
+        },
+        {
+          "kind": "experience",
+          "amount": 200000
+        },
+        {
+          "kind": "mana",
+          "amount": 200000
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_27": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_27",
+      "name": "3周年アニバーサリー纪念星导石套装B",
+      "charge_vmoney_num": 1570,
+      "free_vmoney_num": 0,
+      "price": 3200,
+      "start_time": 1669608000,
+      "end_time": 1672459199,
+      "list_order": 12,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 194,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999004,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 20
+        },
+        {
+          "kind": "experience",
+          "amount": 100000
+        },
+        {
+          "kind": "mana",
+          "amount": 200000
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_26": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_26",
+      "name": "3周年アニバーサリー纪念星导石套装A",
+      "charge_vmoney_num": 350,
+      "free_vmoney_num": 0,
+      "price": 800,
+      "start_time": 1669608000,
+      "end_time": 1672459199,
+      "list_order": 11,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 193,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999008,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 10
+        },
+        {
+          "kind": "experience",
+          "amount": 50000
+        },
+        {
+          "kind": "mana",
+          "amount": 100000
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_19": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_19",
+      "name": "2.5周年アニバーサリー纪念星导石套装C",
+      "charge_vmoney_num": 5100,
+      "free_vmoney_num": 0,
+      "price": 10000,
+      "start_time": 1653969600,
+      "end_time": 1657857599,
+      "list_order": 3,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 186,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999001,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 40
+        },
+        {
+          "kind": "item",
+          "id": 10003,
+          "amount": 1
+        },
+        {
+          "kind": "experience",
+          "amount": 200000
+        },
+        {
+          "kind": "mana",
+          "amount": 200000
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_18": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_18",
+      "name": "2.5周年アニバーサリー纪念星导石套装B",
+      "charge_vmoney_num": 1500,
+      "free_vmoney_num": 0,
+      "price": 3060,
+      "start_time": 1653969600,
+      "end_time": 1657857599,
+      "list_order": 2,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 185,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999004,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 20
+        },
+        {
+          "kind": "experience",
+          "amount": 100000
+        },
+        {
+          "kind": "mana",
+          "amount": 200000
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_17": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_17",
+      "name": "2.5周年アニバーサリー纪念星导石套装A",
+      "charge_vmoney_num": 320,
+      "free_vmoney_num": 0,
+      "price": 730,
+      "start_time": 1653969600,
+      "end_time": 1657857599,
+      "list_order": 1,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 184,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 20003,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 999008,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 20067,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 10
+        },
+        {
+          "kind": "experience",
+          "amount": 50000
+        },
+        {
+          "kind": "mana",
+          "amount": 100000
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_11": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_11",
+      "name": "2周年アニバーサリー纪念星导石套装B",
+      "charge_vmoney_num": 5100,
+      "free_vmoney_num": 0,
+      "price": 10000,
+      "start_time": 1637985600,
+      "end_time": 1640966399,
+      "list_order": 2,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 121,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999001,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 40
+        },
+        {
+          "kind": "item",
+          "id": 10003,
+          "amount": 1
+        },
+        {
+          "kind": "experience",
+          "amount": 200000
+        },
+        {
+          "kind": "mana",
+          "amount": 200000
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_10": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_10",
+      "name": "2周年アニバーサリー纪念星导石套装A",
+      "charge_vmoney_num": 1500,
+      "free_vmoney_num": 0,
+      "price": 3060,
+      "start_time": 1637985600,
+      "end_time": 1640966399,
+      "list_order": 1,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 120,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999004,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 20
+        },
+        {
+          "kind": "experience",
+          "amount": 100000
+        },
+        {
+          "kind": "mana",
+          "amount": 200000
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_29": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_29",
+      "name": "2023年福袋套装・松",
+      "charge_vmoney_num": 5100,
+      "free_vmoney_num": 0,
+      "price": 10000,
+      "start_time": 1672459200,
+      "end_time": 1675180799,
+      "list_order": 5,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 200,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999001,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 999003,
+          "amount": 2
+        },
+        {
+          "kind": "item",
+          "id": 999005,
+          "amount": 5
+        },
+        {
+          "kind": "item",
+          "id": 999008,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 20
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_30": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_30",
+      "name": "2023年福袋套装・竹",
+      "charge_vmoney_num": 2450,
+      "free_vmoney_num": 0,
+      "price": 4900,
+      "start_time": 1672459200,
+      "end_time": 1675180799,
+      "list_order": 4,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 200,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999003,
+          "amount": 5
+        },
+        {
+          "kind": "item",
+          "id": 999005,
+          "amount": 3
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 10
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_31": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_31",
+      "name": "2023年福袋套装・梅",
+      "charge_vmoney_num": 1570,
+      "free_vmoney_num": 0,
+      "price": 3200,
+      "start_time": 1672459200,
+      "end_time": 1675180799,
+      "list_order": 3,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 200,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999003,
+          "amount": 3
+        },
+        {
+          "kind": "item",
+          "id": 999005,
+          "amount": 2
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 5
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_12": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_12",
+      "name": "2022年福袋套装・松",
+      "charge_vmoney_num": 5100,
+      "free_vmoney_num": 0,
+      "price": 10000,
+      "start_time": 1640923200,
+      "end_time": 1643644799,
+      "list_order": 5,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 126,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999001,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 999003,
+          "amount": 2
+        },
+        {
+          "kind": "item",
+          "id": 999005,
+          "amount": 5
+        },
+        {
+          "kind": "item",
+          "id": 10003,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 20
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_13": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_13",
+      "name": "2022年福袋套装・竹",
+      "charge_vmoney_num": 2450,
+      "free_vmoney_num": 0,
+      "price": 4900,
+      "start_time": 1640923200,
+      "end_time": 1643644799,
+      "list_order": 4,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 126,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999003,
+          "amount": 5
+        },
+        {
+          "kind": "item",
+          "id": 999005,
+          "amount": 3
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 10
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_14": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_14",
+      "name": "2022年福袋套装・梅",
+      "charge_vmoney_num": 1500,
+      "free_vmoney_num": 0,
+      "price": 3060,
+      "start_time": 1640923200,
+      "end_time": 1643644799,
+      "list_order": 3,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 126,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999003,
+          "amount": 3
+        },
+        {
+          "kind": "item",
+          "id": 999005,
+          "amount": 2
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 5
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_05": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_05",
+      "name": "2021年福袋セット・松",
+      "charge_vmoney_num": 5100,
+      "free_vmoney_num": 0,
+      "price": 10000,
+      "start_time": 1609387200,
+      "end_time": 1612108799,
+      "list_order": 3,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 118,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 20064,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 999005,
+          "amount": 3
+        },
+        {
+          "kind": "item",
+          "id": 10003,
+          "amount": 1
+        },
+        {
+          "kind": "mana",
+          "amount": 20210
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_06": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_06",
+      "name": "2021年福袋セット・竹",
+      "charge_vmoney_num": 2450,
+      "free_vmoney_num": 0,
+      "price": 4900,
+      "start_time": 1609387200,
+      "end_time": 1612108799,
+      "list_order": 2,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 118,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 20065,
+          "amount": 3
+        },
+        {
+          "kind": "item",
+          "id": 999005,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 10003,
+          "amount": 1
+        },
+        {
+          "kind": "mana",
+          "amount": 20210
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_07": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_07",
+      "name": "2021年福袋セット・梅",
+      "charge_vmoney_num": 850,
+      "free_vmoney_num": 0,
+      "price": 1840,
+      "start_time": 1609387200,
+      "end_time": 1612108799,
+      "list_order": 1,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 118,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999005,
+          "amount": 1
+        },
+        {
+          "kind": "mana",
+          "amount": 20210
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.ticket_pack_mei": {
+      "store_product_id": "com.leiting.wf.ticket_pack_mei",
+      "name": "扭蛋券支援礼包A",
+      "charge_vmoney_num": 1500,
+      "free_vmoney_num": 0,
+      "price": 163,
+      "start_time": 1716436800,
+      "end_time": 1717689599,
+      "list_order": 1,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 118,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "periodically",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999001,
+          "amount": 1
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.ticket_pack_zhu": {
+      "store_product_id": "com.leiting.wf.ticket_pack_zhu",
+      "name": "扭蛋券支援礼包B",
+      "charge_vmoney_num": 2450,
+      "free_vmoney_num": 0,
+      "price": 258,
+      "start_time": 1716436800,
+      "end_time": 1717689599,
+      "list_order": 2,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 118,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "periodically",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999001,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 999003,
+          "amount": 6
+        }
+      ],
+      "entitlements": []
+    },
+    "com.leiting.wf.ticket_pack_song": {
+      "store_product_id": "com.leiting.wf.ticket_pack_song",
+      "name": "扭蛋券支援礼包C",
+      "charge_vmoney_num": 5100,
+      "free_vmoney_num": 0,
+      "price": 518,
+      "start_time": 1716436800,
+      "end_time": 1717689599,
+      "list_order": 3,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 118,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "periodically",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999001,
+          "amount": 3
+        },
+        {
+          "kind": "item",
+          "id": 999003,
+          "amount": 4
+        },
+        {
+          "kind": "item",
+          "id": 10003,
+          "amount": 1
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_09": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_09",
+      "name": "1.5周年纪念星导石套装B",
+      "charge_vmoney_num": 5100,
+      "free_vmoney_num": 0,
+      "price": 10000,
+      "start_time": 1622433600,
+      "end_time": 1625068799,
+      "list_order": 2,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 45,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999001,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 30
+        },
+        {
+          "kind": "item",
+          "id": 10003,
+          "amount": 1
+        },
+        {
+          "kind": "mana",
+          "amount": 150000
+        }
+      ],
+      "entitlements": []
+    },
+    "jp.co.cygames.worldflipper.stone_set_08": {
+      "store_product_id": "jp.co.cygames.worldflipper.stone_set_08",
+      "name": "1.5周年纪念星导石套装A",
+      "charge_vmoney_num": 1500,
+      "free_vmoney_num": 0,
+      "price": 3060,
+      "start_time": 1622433600,
+      "end_time": 1625068799,
+      "list_order": 1,
+      "page_kind": 0,
+      "feature": null,
+      "reason_id": 45,
+      "required_main_quest_id": null,
+      "ios_required_main_quest_id": null,
+      "direct_purchase": true,
+      "purchase_restriction": {
+        "period": "permanently",
+        "limit": 1
+      },
+      "rewards": [
+        {
+          "kind": "item",
+          "id": 999004,
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 10
+        },
+        {
+          "kind": "mana",
+          "amount": 150000
+        }
+      ],
+      "entitlements": []
+    }
+  },
+  "subscriptions": {
+    "month_card": {
+      "kind": "month_card",
+      "duration_days": 30,
+      "daily_rewards": [
+        {
+          "kind": "free_vmoney",
+          "amount": 50
+        },
+        {
+          "kind": "item",
+          "id": 102,
+          "amount": 1
+        }
+      ],
+      "daily_quest_boost_amount": 1,
+      "boss_battle_boost_amount": 1,
+      "daily_challenge_amount": 0,
+      "enable_auto_3x": false,
+      "reason_id": null,
+      "activation_payment_total": null,
+      "repurchase_remaining_days": 0,
+      "catch_up_rewards": true
+    },
+    "weekly_bonus": {
+      "kind": "weekly_boss_boost",
+      "duration_days": 7,
+      "daily_rewards": [
+        {
+          "kind": "item",
+          "id": 999005,
+          "amount": 1
+        }
+      ],
+      "daily_quest_boost_amount": 1,
+      "boss_battle_boost_amount": 1,
+      "daily_challenge_amount": 0,
+      "enable_auto_3x": false,
+      "reason_id": null,
+      "activation_payment_total": null,
+      "repurchase_remaining_days": 3,
+      "catch_up_rewards": true
+    },
+    "weekly_bonus2": {
+      "kind": "weekly_daily_challenge",
+      "duration_days": 7,
+      "daily_rewards": [],
+      "daily_quest_boost_amount": 0,
+      "boss_battle_boost_amount": 0,
+      "daily_challenge_amount": 1,
+      "enable_auto_3x": false,
+      "reason_id": null,
+      "activation_payment_total": null,
+      "repurchase_remaining_days": 3,
+      "catch_up_rewards": false
+    },
+    "mini_month_card": {
+      "kind": "mini_month_card",
+      "duration_days": 30,
+      "daily_rewards": [
+        {
+          "kind": "free_vmoney",
+          "amount": 50
+        }
+      ],
+      "daily_quest_boost_amount": 0,
+      "boss_battle_boost_amount": 0,
+      "daily_challenge_amount": 0,
+      "enable_auto_3x": false,
+      "reason_id": null,
+      "activation_payment_total": 30,
+      "repurchase_remaining_days": 0,
+      "catch_up_rewards": true
+    },
+    "daily_stone_pack": {
+      "kind": "premium_login_bonus",
+      "duration_days": 30,
+      "daily_rewards": [
+        {
+          "kind": "free_vmoney",
+          "amount": 50
+        }
+      ],
+      "daily_quest_boost_amount": 3,
+      "boss_battle_boost_amount": 3,
+      "daily_challenge_amount": 0,
+      "enable_auto_3x": false,
+      "reason_id": 501,
+      "activation_payment_total": null,
+      "repurchase_remaining_days": 0,
+      "catch_up_rewards": true
+    }
+  }
+}

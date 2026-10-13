@@ -105,7 +105,14 @@ fn manages_two_immutable_ai_team_snapshots() {
             "level": 3,
             "protection": true,
         });
-        data["user_character_mana_node_list"]["1"] = json!([2201, 2202, 2203]);
+        data["user_character_mana_node_list"]["1"] = json!([
+            2201,
+            {"multiplied_id": 2202, "awake_level": 9},
+            {"mana_node_multiplied_id": 2202, "awake_level": 1},
+            {"mana_node_multiplied_id": 2203, "awake_level": -1},
+            {"multiplied_id": 222004201},
+            {"legacy": "preserved"}
+        ]);
         data["user_party_group_list"]["1"]["list"]["2"]["options"] = json!({
             "allow_other_players_to_heal_me": false,
         });
@@ -140,7 +147,11 @@ fn manages_two_immutable_ai_team_snapshots() {
     assert_eq!(teams[0]["data"]["equipment"]["42"]["level"], 3);
     assert_eq!(
         teams[0]["data"]["mana_nodes"]["1"],
-        json!([2201, 2202, 2203])
+        json!([
+            {"mana_node_multiplied_id": 2201, "awake_level": 0},
+            {"mana_node_multiplied_id": 2202, "awake_level": 1},
+            {"mana_node_multiplied_id": 2203, "awake_level": 0}
+        ])
     );
     assert_eq!(
         teams[0]["data"]["ability_soul_ids"],

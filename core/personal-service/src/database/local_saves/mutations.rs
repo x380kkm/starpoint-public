@@ -4,12 +4,15 @@
 // 该文件创建, 复制和恢复本地存档槽.
 // 该文件创建, 查询和恢复不可变 revision.
 // 每次恢复先保存当前状态.
+// 房主或成员释放房间后可恢复历史状态.
 // 恢复会清除不再匹配恢复状态的进行中单机战斗.
 // 自动快照按来源标记限制数量.
 
+use super::occupancy::ensure_local_save_is_outside_room;
 use super::{
-    grant_local_save_access_in_connection, local_save_storage_error, read_slot, read_snapshot,
-    LocalSaveRevision, LocalSaveSlot, LocalSaveSnapshot, LocalSaveStoreError,
+    ensure_local_save_is_idle, grant_local_save_access_in_connection, local_save_storage_error,
+    read_slot, read_snapshot, LocalSaveRevision, LocalSaveSlot, LocalSaveSnapshot,
+    LocalSaveStoreError,
 };
 use crate::database::ServiceDatabase;
 use crate::portable_save;
@@ -208,6 +211,7 @@ impl ServiceDatabase {
             .optional()
             .map_err(local_save_storage_error)?
             .ok_or(LocalSaveStoreError::NotFound)?;
+        ensure_local_save_is_outside_room(&transaction, slot_id)?;
         let current_data = transaction
             .query_row(
                 "SELECT player_snapshots.data_json
@@ -270,6 +274,7 @@ impl ServiceDatabase {
             .optional()
             .map_err(local_save_storage_error)?
             .ok_or(LocalSaveStoreError::NotFound)?;
+        ensure_local_save_is_outside_room(&transaction, slot_id)?;
         let current_data = transaction
             .query_row(
                 "SELECT player_snapshots.data_json
@@ -337,6 +342,7 @@ pub(in crate::database) fn replace_local_save_data_in_transaction(
     slot_id: i64,
     data_json: &str,
 ) -> Result<LocalSaveRevision, LocalSaveStoreError> {
+    ensure_local_save_is_idle(transaction, slot_id)?;
     let current_data = transaction
         .query_row(
             "SELECT player_snapshots.data_json
@@ -368,15 +374,6 @@ pub(in crate::database) fn replace_local_save_data_in_transaction(
     if updated != 1 {
         return Err(LocalSaveStoreError::InvalidState);
     }
-    transaction
-        .execute(
-            "DELETE FROM active_single_quests
-             WHERE account_id = (
-                 SELECT account_id FROM local_save_slots WHERE id = ?1
-             )",
-            params![slot_id],
-        )
-        .map_err(local_save_storage_error)?;
     insert_local_save_revision(transaction, slot_id, data_json, "Transfer upload")
 }
 // //// /覆盖本地存档并追加 revision ////
@@ -492,6 +489,8 @@ pub(in crate::database) fn create_local_save_slot(
         .map_err(local_save_storage_error)?;
     let slot_id = transaction.last_insert_rowid();
     insert_local_save_revision(transaction, slot_id, data_json, "Initial save")?;
+    super::local_device::initialize_single_local_save_default(transaction)
+        .map_err(local_save_storage_error)?;
     Ok(slot_id)
 }
 

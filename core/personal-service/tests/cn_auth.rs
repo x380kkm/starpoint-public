@@ -108,6 +108,21 @@ fn persists_cn_signup_and_rotates_viewer_session() {
     assert_eq!(first.data.account_name, "Player1");
     let first_viewer_id = first.data_headers.viewer_id;
     let first_create_date = first.data.create_date;
+    let database = Connection::open(root.path().join("personal-service.sqlite3"))
+        .expect("service database is opened");
+    let serialized: String = database
+        .query_row("SELECT data_json FROM player_snapshots", [], |row| row.get(0))
+        .expect("player snapshot is read");
+    let initial: Value = serde_json::from_str(&serialized).expect("player snapshot is decoded");
+    assert_eq!(initial["user_info"]["free_vmoney"], 1500);
+    let first_loaded = decode_response::<Value>(&send_cn_request(
+        service.port(),
+        "/api/index.php/load",
+        &encode_request(&LoadRequest {
+            keychain: first_viewer_id,
+            viewer_id: first_viewer_id,
+        }),
+    ));
     service.stop().expect("service stops cleanly");
 
     let service = PersonalService::start(root.path(), 0).expect("service restarts");
@@ -202,7 +217,10 @@ fn persists_cn_signup_and_rotates_viewer_session() {
         ]),
     );
     assert!(loaded.data["last_main_quest_id"].is_null());
-    assert_eq!(loaded.data["user_info"]["free_vmoney"].as_i64(), Some(1500));
+    assert_eq!(
+        loaded.data["user_info"]["free_vmoney"],
+        first_loaded.data["user_info"]["free_vmoney"]
+    );
     assert_eq!(
         loaded.data["available_asset_version"].as_str(),
         Some("1.4.99-test"),

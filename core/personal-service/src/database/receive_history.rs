@@ -2,11 +2,12 @@
 // # personal-service-receive-history-storage
 //
 // 该模块原子保存玩家奖励和领取记录. event_key 使同一奖励提交的记录保持幂等.
+// 邮件按 mail:{邮件}:{领取批次} 记录; 启动迁移只为没有批次记录的已领取邮件补写 mail:{邮件}.
 
 use super::mails::MailReward;
 use super::ServiceDatabase;
 use crate::PersonalServiceError;
-use rusqlite::{params, Connection, Transaction};
+use rusqlite::{params, Connection};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -28,6 +29,11 @@ pub(crate) struct StoredReceiveHistory {
     pub(crate) subject: Option<String>,
     pub(crate) kind: i64,
     pub(crate) type_id: Option<i64>,
+}
+
+pub(crate) struct ReceiveHistoryPage {
+    pub(crate) entries: Vec<StoredReceiveHistory>,
+    pub(crate) total_count: i64,
 }
 
 impl ReceiveHistoryEntry {
@@ -82,8 +88,9 @@ impl ServiceDatabase {
     ) -> Result<(), PersonalServiceError> {
         let transaction = self
             .connection
-            .transaction()
+            .savepoint()
             .map_err(history_database_error)?;
+        super::activity_history::record_snapshot_events(&transaction, account_id, data, created_at)?;
         save_player_snapshot(&transaction, account_id, data)?;
         insert_receive_history_in_transaction(
             &transaction,
@@ -108,8 +115,9 @@ impl ServiceDatabase {
     ) -> Result<(), PersonalServiceError> {
         let transaction = self
             .connection
-            .transaction()
+            .savepoint()
             .map_err(history_database_error)?;
+        super::activity_history::record_snapshot_events(&transaction, account_id, data, created_at)?;
         save_player_snapshot(&transaction, account_id, data)?;
         for ((category, mission_id), value) in progress {
             transaction
@@ -133,12 +141,21 @@ impl ServiceDatabase {
     }
     // //// /原子保存任务奖励, 领取记录和任务进度 ////
 
-    // //// 读取玩家领取记录 [@x380kkm 2026-08-22] ////
-    pub(crate) fn receive_history(
+    // //// 分页读取玩家领取记录并返回总数 [@x380kkm 2026-09-23] ////
+    pub(crate) fn read_receive_history_page(
         &self,
         account_id: i64,
         limit: i64,
-    ) -> Result<Vec<StoredReceiveHistory>, PersonalServiceError> {
+        offset: i64,
+    ) -> Result<ReceiveHistoryPage, PersonalServiceError> {
+        let total_count = self
+            .connection
+            .query_row(
+                "SELECT COUNT(*) FROM player_receive_history WHERE account_id = ?1",
+                params![account_id],
+                |row| row.get(0),
+            )
+            .map_err(history_database_error)?;
         let mut statement = self
             .connection
             .prepare(
@@ -146,11 +163,11 @@ impl ServiceDatabase {
                  FROM player_receive_history
                  WHERE account_id = ?1
                  ORDER BY created_at DESC, id DESC
-                 LIMIT ?2",
+                 LIMIT ?2 OFFSET ?3",
             )
             .map_err(history_database_error)?;
         let history = statement
-            .query_map(params![account_id, limit], |row| {
+            .query_map(params![account_id, limit, offset], |row| {
                 Ok(StoredReceiveHistory {
                     create_time: row.get(0)?,
                     description: row.get(1)?,
@@ -164,13 +181,16 @@ impl ServiceDatabase {
             .map_err(history_database_error)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(history_database_error)?;
-        Ok(history)
+        Ok(ReceiveHistoryPage {
+            entries: history,
+            total_count,
+        })
     }
-    // //// /读取玩家领取记录 ////
+    // //// /分页读取玩家领取记录并返回总数 ////
 }
 
 pub(in crate::database) fn insert_receive_history_in_transaction(
-    transaction: &Transaction<'_>,
+    transaction: &Connection,
     account_id: i64,
     event_key: &str,
     created_at: i64,
@@ -239,10 +259,11 @@ pub(crate) fn mail_reward_history_entries(reward: &MailReward) -> Vec<ReceiveHis
 }
 
 fn save_player_snapshot(
-    transaction: &Transaction<'_>,
+    transaction: &Connection,
     account_id: i64,
     data: &str,
 ) -> Result<(), PersonalServiceError> {
+    let data = super::reward_deliveries::prepare_snapshot(transaction, account_id, data)?;
     transaction
         .execute(
             "INSERT INTO player_snapshots (account_id, data_json) VALUES (?1, ?2)
@@ -259,6 +280,11 @@ fn backfill_received_mails(connection: &Connection) -> Result<(), PersonalServic
             "SELECT id, account_id, rewards_json, received_at
              FROM player_mails
              WHERE received_at IS NOT NULL
+               AND NOT EXISTS (
+                   SELECT 1 FROM player_receive_history
+                   WHERE player_receive_history.account_id = player_mails.account_id
+                     AND player_receive_history.event_key LIKE 'mail:' || player_mails.id || ':%'
+               )
              ORDER BY id",
         )
         .map_err(history_database_error)?;

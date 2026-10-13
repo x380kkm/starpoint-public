@@ -8,30 +8,44 @@
 // 本地存档导出不包含账号会话或管理凭据.
 // 本地存档加密密钥只保存在个人服务 SQLite 中, 密文导出不包含密钥.
 // 密文存档同步只向 HTTPS 或 loopback 目标发送远端登录凭据.
-// 每次状态变更使用 SQLite 原子语句提交. flush 在应用暂停前截断 WAL.
+// 每次状态变更使用 SQLite 原子语句提交. 显式 flush 和服务停止会截断已经提交的 WAL.
 
 mod activity_calendar;
 mod activity_catalog;
+mod activity_history;
 mod activity_projection;
 mod ai_teams;
 mod cn;
 mod cn_activity;
 mod cn_asset;
 mod cn_asset_files;
+mod cn_asset_recovery;
 mod cn_auxiliary;
 mod cn_battle;
 mod cn_battle_assets;
+mod cn_battle_history;
 mod cn_battle_rewards;
 mod cn_battle_state;
 mod cn_box_gacha;
 mod cn_character;
+mod cn_character_presentation;
 mod cn_character_reward;
+mod cn_reward_overflow;
+mod cn_crazy_gacha;
+mod cn_comic;
 mod cn_episode_trial_reading;
+mod cn_login_bonus;
 mod cn_equipment;
 mod cn_ex_boost;
 mod cn_exchange;
 mod cn_expod;
+mod cn_exp_pool;
 mod cn_gacha;
+mod cn_helper;
+mod cn_character_election;
+mod cn_payment_rebate;
+mod cn_rank_reward;
+mod cn_reward_capacity;
 mod cn_mail;
 mod cn_mana;
 mod cn_mission;
@@ -47,14 +61,19 @@ mod cn_party_group;
 mod cn_pass_card;
 mod cn_payment;
 mod cn_player;
+mod cn_player_history;
 mod cn_profile;
 mod cn_quest;
+mod cn_quest_challenge_points;
 mod cn_reference_read;
+mod cn_request_receipt;
 mod cn_reference_state_misc;
 mod cn_shop;
 mod cn_stamina;
 mod cn_story;
+mod cn_tower_dungeon;
 mod cn_tutorial;
+mod cn_vmoney;
 mod database;
 mod error;
 mod ffi;
@@ -63,6 +82,8 @@ mod http;
 mod local_saves;
 mod management;
 mod management_web;
+mod reward_history;
+mod rescue_settings;
 mod player_web;
 mod portable_save;
 mod remote_forward;
@@ -73,6 +94,7 @@ mod virtual_time;
 
 pub use error::PersonalServiceError;
 pub use ffi::{
+    starpoint_personal_service_copy_last_start_error,
     starpoint_personal_service_copy_management_token, starpoint_personal_service_flush,
     starpoint_personal_service_is_running, starpoint_personal_service_port,
     starpoint_personal_service_start, starpoint_personal_service_start_with_cdn_root,

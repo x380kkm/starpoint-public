@@ -705,6 +705,13 @@ fn rejects_slot_activation_while_current_slot_has_active_single_battle() {
     );
     assert_status(&response, "409 Conflict");
     assert_eq!(response_body(&response)["error"], "local_save_busy");
+    let before = list_local_saves(&service);
+    let local_response = authorized_request(
+        &service, "POST", &format!("/v1/local-saves/{target_slot_id}/activate-local"), None,
+    );
+    assert_status(&local_response, "409 Conflict");
+    assert_eq!(response_body(&local_response)["error"], "local_save_busy");
+    assert_eq!(list_local_saves(&service), before);
     assert_eq!(
         list_local_saves(&service)["devices"][0]["active_slot_id"].as_i64(),
         Some(source_slot_id),

@@ -243,7 +243,9 @@ fn read_expiry_candidates(
                       + (SELECT COUNT(*) FROM multiplayer_ai_mates AS mates
                          WHERE mates.room_number = rooms.room_number)
              FROM multiplayer_rooms AS rooms
-             WHERE rooms.battle_started = 0 AND rooms.raising_state != 4",
+             WHERE rooms.battle_started = 0 AND rooms.raising_state != 4
+               AND NOT EXISTS(SELECT 1 FROM multiplayer_attention_rooms AS attention
+                              WHERE attention.room_number=rooms.room_number)",
         )
         .map_err(multiplayer_database_error)?;
     let candidates = statement

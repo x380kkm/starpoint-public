@@ -494,9 +494,6 @@ fn upload_slot(
     if !database.local_save_is_owned_by_account(token.account_id, slot_id)? {
         return Ok(json_error("404 Not Found", "local_save_not_found"));
     }
-    if database.local_save_has_active_single_quest(slot_id)? {
-        return Ok(json_error("409 Conflict", "local_save_import_blocked"));
-    }
     if let Some(response) = revision_conflict(request, database, slot_id)? {
         return Ok(response);
     }
@@ -523,6 +520,9 @@ fn upload_slot(
             )?
             .with_header_value("ETag", format!("\"{portable_etag}\""));
             transfer_identity_response(response, database, token.account_id, slot_id)
+        }
+        Err(LocalSaveStoreError::Busy) => {
+            Ok(json_error("409 Conflict", "local_save_import_blocked"))
         }
         Err(error) => map_store_error(error),
     }

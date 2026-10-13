@@ -10,6 +10,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
 const TREASURE_SHOP_ASSET: &str = include_str!("../../../../assets/treasure_shop.json");
+const SPECIAL_PACK_SHOP_ASSET: &str = include_str!("../../../../assets/special_pack_shop.json");
+const MANA_SHOP_ASSET: &str = include_str!("../../../../assets/mana_shop.json");
 const GENERAL_SHOP_ASSET: &str = include_str!("../../../../assets/general_shop.json");
 const STAR_GRAIN_SHOP_ASSET: &str = include_str!("../../../../assets/star_grain_shop.json");
 const EQUIPMENT_ENHANCEMENT_SHOP_ASSET: &str =
@@ -24,12 +26,17 @@ const SHOP_MASTER_WHITELISTS_ASSET: &str =
     include_str!("../../../../assets/cdn_shop_master_whitelists.json");
 const SHOP_LIMITS_ASSET: &str = include_str!("../../../../assets/cn-shop-limits.json");
 pub(super) const SHOP_TYPE_TREASURE: i64 = 2;
+pub(super) const SHOP_TYPE_SPECIAL_PACK: i64 = 3;
 pub(super) const SHOP_TYPE_EVENT: i64 = 4;
+pub(super) const SHOP_TYPE_MANA: i64 = 5;
 pub(super) const SHOP_TYPE_BOSS_COIN: i64 = 7;
 pub(super) const SHOP_TYPE_GENERAL: i64 = 8;
 pub(super) const SHOP_TYPE_STAR_GRAIN: i64 = 9;
 pub(super) const SHOP_TYPE_EQUIPMENT_ENHANCEMENT: i64 = 10;
+pub(super) const CN_TIMEZONE_OFFSET_SECONDS: i64 = 8 * 60 * 60;
 static TREASURE_SHOP: OnceLock<Result<Value, String>> = OnceLock::new();
+static SPECIAL_PACK_SHOP: OnceLock<Result<Value, String>> = OnceLock::new();
+static MANA_SHOP: OnceLock<Result<Value, String>> = OnceLock::new();
 static GENERAL_SHOP: OnceLock<Result<Value, String>> = OnceLock::new();
 static STAR_GRAIN_SHOP: OnceLock<Result<Value, String>> = OnceLock::new();
 static EQUIPMENT_ENHANCEMENT_SHOP: OnceLock<Result<Value, String>> = OnceLock::new();
@@ -55,18 +62,17 @@ pub(super) struct ShopPurchaseLimits {
     pub(super) monthly_stock: Option<i64>,
 }
 
-impl ShopPurchaseLimits {
-    pub(super) fn has_period_limit(self) -> bool {
-        self.max_frequency.is_some() || self.daily_stock.is_some() || self.monthly_stock.is_some()
-    }
-}
-
 // //// 返回指定类型的 CN 商店静态目录 [@x380kkm 2026-08-22] ////
 pub(super) fn shop_catalog(
     shop_type: i64,
 ) -> Result<Option<&'static Map<String, Value>>, PersonalServiceError> {
     let catalog = match shop_type {
         SHOP_TYPE_TREASURE => Some(parse_shop_asset(TREASURE_SHOP_ASSET, &TREASURE_SHOP)?),
+        SHOP_TYPE_SPECIAL_PACK => Some(parse_shop_asset(
+            SPECIAL_PACK_SHOP_ASSET,
+            &SPECIAL_PACK_SHOP,
+        )?),
+        SHOP_TYPE_MANA => Some(parse_shop_asset(MANA_SHOP_ASSET, &MANA_SHOP)?),
         SHOP_TYPE_GENERAL => Some(parse_shop_asset(GENERAL_SHOP_ASSET, &GENERAL_SHOP)?),
         SHOP_TYPE_STAR_GRAIN => Some(parse_shop_asset(STAR_GRAIN_SHOP_ASSET, &STAR_GRAIN_SHOP)?),
         SHOP_TYPE_EQUIPMENT_ENHANCEMENT => Some(parse_shop_asset(
@@ -194,10 +200,13 @@ pub(super) fn event_shop_catalog(
     if let Some(catalog) = events.get(&event_id.to_string()).and_then(Value::as_object) {
         return Ok(Some(catalog));
     }
-    if (700_010..=700_019).contains(&event_id) {
-        return Ok(events
-            .get(&(event_id - 10).to_string())
-            .and_then(Value::as_object));
+    if let Some(activity_id) = event_activity_id(event_type, event_id) {
+        if let Some(alias) = event_shop_activity_alias(&activity_id)? {
+            return Ok(alias
+                .split_once(':')
+                .and_then(|(_, id)| events.get(id))
+                .and_then(Value::as_object));
+        }
     }
     Ok(None)
 }
@@ -224,7 +233,7 @@ pub(super) fn event_shop_identity(
         }))
 }
 
-pub(super) fn event_activity_id(event_type: i64, event_id: i64) -> Option<String> {
+pub(crate) fn event_activity_id(event_type: i64, event_id: i64) -> Option<String> {
     let prefix = match event_type {
         0 => "advent",
         1 => "ranking",
@@ -244,29 +253,70 @@ pub(super) fn event_activity_id(event_type: i64, event_id: i64) -> Option<String
     Some(format!("{prefix}:{event_id}"))
 }
 
-// //// 返回同一轮突进活动的原版或复刻活动编号 [@x380kkm 2026-08-29] ////
-pub(super) fn event_shop_activity_alias(activity_id: &str) -> Option<String> {
-    let event_id = activity_id.strip_prefix("rush:")?.parse::<i64>().ok()?;
-    let alias_id = match event_id {
-        700_000..=700_009 => event_id + 10,
-        700_010..=700_019 => event_id - 10,
-        _ => return None,
-    };
-    Some(format!("rush:{alias_id}"))
+// //// 返回共享同一商品集合的活动编号 [@x380kkm 2026-09-29] ////
+pub(crate) fn event_shop_activity_alias(
+    activity_id: &str,
+) -> Result<Option<String>, PersonalServiceError> {
+    if let Some(alias) = crate::activity_projection::regional_shop_activity_alias(activity_id)? {
+        return Ok(Some(alias));
+    }
+    let alias = activity_id
+        .strip_prefix("rush:")
+        .and_then(|id| id.parse::<i64>().ok())
+        .and_then(|id| match id {
+            700_000..=700_009 => Some(id + 10),
+            700_010..=700_019 => Some(id - 10),
+            _ => None,
+        });
+    Ok(alias.map(|id| format!("rush:{id}")))
 }
-// //// /返回同一轮突进活动的原版或复刻活动编号 ////
+// //// /返回共享同一商品集合的活动编号 ////
 
-pub(super) fn shop_item_is_active(item: &Map<String, Value>, now: &str) -> bool {
+pub(super) fn shop_item_is_active(item: &Map<String, Value>, response_time: i64) -> bool {
+    let now = crate::cn_tutorial::format_client_time(
+        response_time.saturating_add(CN_TIMEZONE_OFFSET_SECONDS),
+    );
     let starts_before_now = item
         .get("availableFrom")
         .and_then(Value::as_str)
-        .map_or(true, |starts_at| starts_at <= now);
+        .map_or(true, |starts_at| starts_at <= now.as_str());
     let ends_after_now = item
         .get("availableUntil")
         .and_then(Value::as_str)
-        .map_or(true, |ends_at| ends_at > now);
+        .map_or(true, |ends_at| ends_at >= now.as_str());
     starts_before_now && ends_after_now
 }
+
+// //// 按活动主表映射枚举商店商品 [@x380kkm 2026-09-21] ////
+pub(super) fn activity_shop_item_ids(activity_id: &str) -> Result<Vec<i64>, PersonalServiceError> {
+    let alias = event_shop_activity_alias(activity_id)?;
+    let mut items = super::selection::activity_item_ids(activity_id)?;
+    for (event_type, events) in event_shop_document()? {
+        let Some(event_type) = event_type.parse::<i64>().ok() else {
+            continue;
+        };
+        for (event_id, catalog) in events.as_object().into_iter().flatten() {
+            let Some(mapped_id) = event_id
+                .parse::<i64>()
+                .ok()
+                .and_then(|id| event_activity_id(event_type, id))
+            else {
+                continue;
+            };
+            if mapped_id == activity_id || alias.as_deref() == Some(mapped_id.as_str()) {
+                items.extend(
+                    catalog
+                        .as_object()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|(id, _)| id.parse::<i64>().ok()),
+                );
+            }
+        }
+    }
+    Ok(items)
+}
+// //// /按活动主表映射枚举商店商品 ////
 
 pub(super) fn shop_purchase_key(shop_type: i64, shop_item_id: i64) -> String {
     format!("{shop_type}:{shop_item_id}")

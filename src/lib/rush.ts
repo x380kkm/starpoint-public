@@ -1,6 +1,7 @@
 import { Player, PlayerRushEvent, RushEventBattleType, UserRushEventEndlessBattleMyRankingPartyMemberListItem, UserRushEventEndlessBattleRanking, UserRushEventPlayedPartyList } from "../data/types";
 import { getPlayerIdFromRushEventEndlessRankSync, getPlayerRushEventPlayedPartiesSync, getPlayerRushEventSync, getPlayerSync, serializePlayerRushEventPlayedParty } from "../data/wdfpData";
 import { SerializedPlayerRushEventPlayedPartyList, SerializedPlayerRushEventPlayedParties } from "./types";
+import { characterReference } from "./characterReference";
 
 /**
  * Gets all of a player's played parties, serializes them into client formant, and organizes them by their RushEventBattleType.
@@ -66,7 +67,7 @@ export function getPlayerRushEventEndlessBattleRankingSync(
     // build party member list
     const partyMemberList: UserRushEventEndlessBattleMyRankingPartyMemberListItem[] = []
     for (let n = 0; n < endlessCharacterIds.length; n++) {
-        const characterId = endlessCharacterIds[n]
+        const characterId = characterReference(endlessCharacterIds[n])
         if (characterId !== null) {
             partyMemberList.push({
                 character_id: characterId,

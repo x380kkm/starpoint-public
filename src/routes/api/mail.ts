@@ -129,7 +129,7 @@ function serializeReceiveAllData(playerId: number, result: PlayerMailClaimResult
         auto_sale_expired_mail_count: 0,
         deleted_mail_count: 0,
         dispose_expired_mail_count: 0,
-        max_overed_mail_count: 0,
+        max_overed_mail_count: result.maxOveredMailCount,
         outdated_mail_count: result.expiredMailCount,
         total_count: result.remainingCount,
         mail_arrived: result.remainingCount > 0,

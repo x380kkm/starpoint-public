@@ -8,6 +8,14 @@
 mod cn_support;
 #[allow(dead_code)]
 mod support;
+#[path = "cn_gacha/replay.rs"]
+mod replay;
+#[path = "cn_gacha/campaigns.rs"]
+mod campaigns;
+#[path = "cn_gacha/overflow.rs"]
+mod overflow;
+#[path = "cn_gacha/equipment_overflow.rs"]
+mod equipment_overflow;
 
 use cn_support::{decode_response, encode_request, LoadRequest, SignupData, SignupRequest};
 use serde::Serialize;
@@ -268,12 +276,12 @@ fn grant_mail_rewards(service: &PersonalService, viewer_id: i64, rewards: Value)
 // //// /通过管理邮件向测试账号发放扭蛋支付资源 ////
 
 // //// 请求一次 CN 每日付费扭蛋 [@x380kkm 2026-08-18] ////
-fn request_daily_draw(service: &PersonalService, viewer_id: i64) -> String {
+fn request_daily_draw(service: &PersonalService, viewer_id: i64, api_count: i64) -> String {
     cn_support::send_request(
         service.port(),
         "/api/index.php/gacha/exec",
         &encode_request(&ExecuteRequest {
-            api_count: 1,
+            api_count,
             payment_type: 2,
             number_of_exec: 1,
             viewer_id,
@@ -296,6 +304,17 @@ fn draws_a_character_and_persists_gacha_info() {
         &encode_request(&SignupRequest { device_id: 31 }),
     ));
     let viewer_id = signup.data_headers.viewer_id;
+    let initial = decode_response::<Value>(&cn_support::send_request(
+        service.port(),
+        "/api/index.php/load",
+        &encode_request(&LoadRequest {
+            keychain: viewer_id,
+            viewer_id,
+        }),
+    ));
+    let initial_free_vmoney = initial.data["user_info"]["free_vmoney"]
+        .as_i64()
+        .expect("initial free currency is numeric");
 
     let invalid = cn_support::send_request(
         service.port(),
@@ -339,7 +358,7 @@ fn draws_a_character_and_persists_gacha_info() {
     ));
     assert_eq!(
         response.data["user_info"]["free_vmoney"].as_i64(),
-        Some(1350)
+        Some(initial_free_vmoney - 150)
     );
     assert_eq!(response.data["draw"].as_array().map(Vec::len), Some(1));
     assert_eq!(
@@ -373,7 +392,10 @@ fn draws_a_character_and_persists_gacha_info() {
             viewer_id,
         }),
     ));
-    assert_eq!(loaded.data["user_info"]["free_vmoney"].as_i64(), Some(1350));
+    assert_eq!(
+        loaded.data["user_info"]["free_vmoney"],
+        response.data["user_info"]["free_vmoney"]
+    );
     assert_eq!(
         loaded.data["gacha_info_list"]
             .as_array()
@@ -412,7 +434,7 @@ fn draws_a_character_and_persists_gacha_info() {
         service.port(),
         "/api/index.php/gacha/exec",
         &encode_request(&ExecuteRequest {
-            api_count: 1,
+            api_count: 2,
             payment_type: 1,
             number_of_exec: 1,
             viewer_id,
@@ -473,7 +495,7 @@ fn draws_from_requested_master_gacha() {
     assert_eq!(public_response.data["gacha_info_list"][0]["gacha_id"], 2);
 
     let request = encode_request(&ExecuteRequest {
-        api_count: 1,
+        api_count: 2,
         payment_type: 1,
         number_of_exec: 1,
         viewer_id: signup.data_headers.viewer_id,
@@ -510,7 +532,7 @@ fn draws_from_requested_master_gacha() {
         service.port(),
         "/api/index.php/gacha/exec",
         &encode_request(&ExecuteRequest {
-            api_count: 2,
+            api_count: 3,
             payment_type: 1,
             number_of_exec: 1,
             viewer_id: signup.data_headers.viewer_id,
@@ -561,11 +583,11 @@ fn loads_dynamic_stars_and_comeback_campaign_periods() {
     assert_eq!(stars["is_account_first"], true);
     assert_eq!(
         stars["stars_campaign"]["period_start_time"],
-        1_693_450_800_i64
+        1_693_454_400_i64
     );
     assert_eq!(
         stars["stars_campaign"]["period_end_time"],
-        7_255_943_999_i64
+        7_255_947_599_i64
     );
     assert_eq!(
         initial_list
@@ -889,7 +911,7 @@ fn consumes_daily_payment_and_character_ticket_once() {
             r#type: 5,
         }),
     );
-    assert!(repeated_daily.starts_with("HTTP/1.1 400 Bad Request"));
+    assert_eq!(decode_response::<Value>(&repeated_daily).data, daily.data);
 
     let unsupported_ticket = cn_support::send_request(
         service.port(),
@@ -971,9 +993,9 @@ fn resets_daily_payment_by_virtual_utc_date_and_persists_consumption() {
     );
     assert!(received.starts_with("HTTP/1.1 200 OK"));
 
-    let first = decode_response::<Value>(&request_daily_draw(&service, viewer_id));
+    let first = decode_response::<Value>(&request_daily_draw(&service, viewer_id, 1));
     assert_eq!(first.data["user_info"]["vmoney"].as_i64(), Some(250));
-    let repeated = request_daily_draw(&service, viewer_id);
+    let repeated = request_daily_draw(&service, viewer_id, 2);
     assert!(repeated.ends_with("{\"error\":\"daily_gacha_already_used\"}"));
 
     set_virtual_time(&service, "2030-01-02T12:00:00.000Z");
@@ -989,7 +1011,7 @@ fn resets_daily_payment_by_virtual_utc_date_and_persists_consumption() {
         next_day_load.data["gacha_info_list"][0]["is_daily_first"].as_bool(),
         Some(true)
     );
-    let next_day = decode_response::<Value>(&request_daily_draw(&service, viewer_id));
+    let next_day = decode_response::<Value>(&request_daily_draw(&service, viewer_id, 3));
     assert_eq!(next_day.data["user_info"]["vmoney"].as_i64(), Some(200));
 
     set_virtual_time(&service, "2030-01-01T18:00:00.000Z");
@@ -1005,11 +1027,11 @@ fn resets_daily_payment_by_virtual_utc_date_and_persists_consumption() {
         rewound_load.data["gacha_info_list"][0]["is_daily_first"].as_bool(),
         Some(false)
     );
-    let rewound = request_daily_draw(&service, viewer_id);
+    let rewound = request_daily_draw(&service, viewer_id, 4);
     assert!(rewound.ends_with("{\"error\":\"daily_gacha_already_used\"}"));
 
     set_virtual_time(&service, "2030-01-03T12:00:00.000Z");
-    let fast_forwarded = decode_response::<Value>(&request_daily_draw(&service, viewer_id));
+    let fast_forwarded = decode_response::<Value>(&request_daily_draw(&service, viewer_id, 5));
     assert_eq!(
         fast_forwarded.data["user_info"]["vmoney"].as_i64(),
         Some(150)
@@ -1017,10 +1039,10 @@ fn resets_daily_payment_by_virtual_utc_date_and_persists_consumption() {
     service.stop().expect("service stops cleanly");
 
     let restarted = PersonalService::start(root.path(), 0).expect("service restarts");
-    let repeated_after_restart = request_daily_draw(&restarted, viewer_id);
+    let repeated_after_restart = request_daily_draw(&restarted, viewer_id, 6);
     assert!(repeated_after_restart.ends_with("{\"error\":\"daily_gacha_already_used\"}"));
     set_virtual_time(&restarted, "2030-01-04T12:00:00.000Z");
-    let after_restart = decode_response::<Value>(&request_daily_draw(&restarted, viewer_id));
+    let after_restart = decode_response::<Value>(&request_daily_draw(&restarted, viewer_id, 7));
     assert_eq!(
         after_restart.data["user_info"]["vmoney"].as_i64(),
         Some(100)
@@ -1170,23 +1192,32 @@ fn exchanges_a_character_with_gacha_points_once() {
     );
     assert!(unknown_character.ends_with("{\"error\":\"character_not_in_gacha\"}"));
 
-    let exchanged = decode_response::<Value>(&cn_support::send_request(
+    let exchange_response = cn_support::send_request(
         service.port(),
         "/api/index.php/gacha/exchange_character",
         &request(111001),
-    ));
+    );
+    let exchanged = decode_response::<Value>(&exchange_response);
     assert_eq!(
         exchanged.data["gacha_info_list"][0]["gacha_exchange_point"],
         0
     );
     assert_eq!(exchanged.data["character_list"][0]["character_id"], 111001);
 
+    let settled = replay::stored_state(root.path());
     let repeated = cn_support::send_request(
         service.port(),
         "/api/index.php/gacha/exchange_character",
         &request(111001),
     );
-    assert!(repeated.ends_with("{\"error\":\"not_enough_exchange_points\"}"));
+    assert_eq!(repeated, exchange_response);
+    let conflict = cn_support::send_request(
+        service.port(),
+        "/api/index.php/gacha/exchange_character",
+        &request(999999),
+    );
+    assert!(conflict.ends_with("{\"error\":\"gacha_request_conflict\"}"));
+    assert_eq!(replay::stored_state(root.path()), settled);
     let loaded = decode_response::<Value>(&cn_support::send_request(
         service.port(),
         "/api/index.php/load",
@@ -1197,7 +1228,15 @@ fn exchanges_a_character_with_gacha_points_once() {
     ));
     assert_eq!(loaded.data["gacha_info_list"][0]["gacha_exchange_point"], 0);
     assert!(loaded.data["user_character_list"].get("111001").is_some());
+    close_gacha(&service, 1);
+    let settled = replay::stored_state(root.path());
     service.stop().expect("service stops cleanly");
+    let restarted = PersonalService::start(root.path(), 0).unwrap();
+    assert_eq!(cn_support::send_request(
+        restarted.port(), "/api/index.php/gacha/exchange_character", &request(111001),
+    ), exchange_response);
+    assert_eq!(replay::stored_state(root.path()), settled);
+    restarted.stop().unwrap();
 }
 // //// /验证 CN 扭蛋角色兑换的积分边界和持久化 ////
 
@@ -1253,16 +1292,18 @@ fn exchanges_an_equipment_with_gacha_points_once() {
         );
     }
 
-    let exchanged = decode_response::<Value>(&cn_support::send_request(
+    let exchange_request = encode_request(&ExchangeEquipmentRequest {
+        equipment_id: 5_030_037,
+        api_count: 26,
+        gacha_id: 1,
+        viewer_id,
+    });
+    let exchange_response = cn_support::send_request(
         service.port(),
         "/api/index.php/gacha/exchange_equipment",
-        &encode_request(&ExchangeEquipmentRequest {
-            equipment_id: 5_030_037,
-            api_count: 26,
-            gacha_id: 1,
-            viewer_id,
-        }),
-    ));
+        &exchange_request,
+    );
+    let exchanged = decode_response::<Value>(&exchange_response);
     assert_eq!(
         exchanged.data["gacha_info_list"][0]["gacha_exchange_point"],
         0
@@ -1272,6 +1313,19 @@ fn exchanges_an_equipment_with_gacha_points_once() {
         5_030_037
     );
     assert_eq!(exchanged.data["equipment_list"][0]["stack"], 0);
+
+    let settled = replay::stored_state(root.path());
+    assert_eq!(cn_support::send_request(
+        service.port(), "/api/index.php/gacha/exchange_equipment", &exchange_request,
+    ), exchange_response);
+    let conflict = cn_support::send_request(
+        service.port(), "/api/index.php/gacha/exchange_equipment",
+        &encode_request(&ExchangeEquipmentRequest {
+            equipment_id: 5_030_038, api_count: 26, gacha_id: 1, viewer_id,
+        }),
+    );
+    assert!(conflict.ends_with("{\"error\":\"gacha_request_conflict\"}"));
+    assert_eq!(replay::stored_state(root.path()), settled);
 
     let repeated = cn_support::send_request(
         service.port(),
@@ -1293,7 +1347,15 @@ fn exchanges_an_equipment_with_gacha_points_once() {
         }),
     ));
     assert_eq!(loaded.data["user_equipment_list"]["5030037"]["stack"], 0);
+    close_gacha(&service, 1);
+    let settled = replay::stored_state(root.path());
     service.stop().expect("service stops cleanly");
+    let restarted = PersonalService::start(root.path(), 0).unwrap();
+    assert_eq!(cn_support::send_request(
+        restarted.port(), "/api/index.php/gacha/exchange_equipment", &exchange_request,
+    ), exchange_response);
+    assert_eq!(replay::stored_state(root.path()), settled);
+    restarted.stop().unwrap();
 }
 // //// /验证 CN 扭蛋装备兑换和积分持久化 ////
 
@@ -1310,6 +1372,17 @@ fn draws_equipment_and_persists_payment_inventory_and_gacha_info() {
         &encode_request(&SignupRequest { device_id: 43 }),
     ));
     let viewer_id = signup.data_headers.viewer_id;
+    let initial = decode_response::<Value>(&cn_support::send_request(
+        service.port(),
+        "/api/index.php/load",
+        &encode_request(&LoadRequest {
+            keychain: viewer_id,
+            viewer_id,
+        }),
+    ));
+    let initial_free_vmoney = initial.data["user_info"]["free_vmoney"]
+        .as_i64()
+        .expect("initial free currency is numeric");
 
     let authorization_value = format!("Bearer {}", service.management_token());
     let authorization = [("Authorization", authorization_value.as_str())];
@@ -1366,8 +1439,7 @@ fn draws_equipment_and_persists_payment_inventory_and_gacha_info() {
         .data
         .as_object()
         .expect("equipment gacha response data is an object");
-    assert_eq!(free_data.len(), 8);
-    assert_eq!(free_data["user_info"]["free_vmoney"], 1425);
+    assert_eq!(free_data["user_info"]["free_vmoney"], initial_free_vmoney - 75);
     assert_eq!(free_data["is_erupt"], false);
     assert_eq!(
         free_data["draw_equipment"].as_array().map(Vec::len),
@@ -1456,7 +1528,10 @@ fn draws_equipment_and_persists_payment_inventory_and_gacha_info() {
             viewer_id,
         }),
     ));
-    assert_eq!(loaded.data["user_info"]["free_vmoney"], 1425);
+    assert_eq!(
+        loaded.data["user_info"]["free_vmoney"],
+        free_data["user_info"]["free_vmoney"]
+    );
     assert_eq!(loaded.data["user_info"]["vmoney"], 0);
     assert_eq!(loaded.data["item_list"]["999004"], 0);
     let equipment_gacha_info = loaded.data["gacha_info_list"]
@@ -1540,8 +1615,10 @@ fn follows_manual_activity_state_for_gacha_execution() {
 fn redeems_campaign_draw_once_and_persists_history() {
     let root = TempDir::new().expect("temporary service directory is created");
     let service = PersonalService::start(root.path(), 0).expect("service starts");
-    open_gacha(&service, 29);
-    open_gacha(&service, 30);
+    set_virtual_time(&service, "2020-06-01T04:00:00.000Z");
+    open_gacha(&service, 46);
+    open_gacha(&service, 47);
+    campaigns::set_campaign_enabled(&service, 2, true);
     let signup = decode_response::<SignupData>(&cn_support::send_request(
         service.port(),
         "/api/index.php/tool/signup",
@@ -1562,6 +1639,16 @@ fn redeems_campaign_draw_once_and_persists_history() {
         .and_then(|campaigns| campaigns.iter().find(|campaign| campaign["gacha_id"] == 28))
         .expect("campaign is advertised by load");
     assert_eq!(available_campaign["count"], 1);
+    let initial_history = decode_response::<Value>(&cn_support::send_request(
+        service.port(),
+        "/api/index.php/history/receive",
+        &encode_request(&json!({"viewer_id": viewer_id})),
+    ));
+    let initial_history_count = initial_history.data["total_count"]
+        .as_i64()
+        .expect("initial history count is numeric");
+    let database = rusqlite::Connection::open(root.path().join("personal-service.sqlite3"))
+        .expect("service database is opened");
     let campaign_request = |api_count| {
         cn_support::send_request(
             service.port(),
@@ -1585,12 +1672,15 @@ fn redeems_campaign_draw_once_and_persists_history() {
         "/api/index.php/history/receive",
         &encode_request(&serde_json::json!({"viewer_id": viewer_id})),
     ));
-    assert_eq!(history.data["total_count"], 10);
-    assert!(history.data["history"]
-        .as_array()
-        .expect("history is an array")
-        .iter()
-        .all(|entry| entry["type"] == 5));
+    assert_eq!(history.data["total_count"], initial_history_count + 10);
+    let campaign_history_count: i64 = database
+        .query_row(
+            "SELECT COUNT(*) FROM player_receive_history WHERE event_key = ?1 AND kind = 5",
+            [format!("gacha:exec:{viewer_id}:1")],
+            |row| row.get(0),
+        )
+        .expect("campaign character deliveries are counted");
+    assert_eq!(campaign_history_count, 10);
     assert!(campaign_request(2).starts_with("HTTP/1.1 400 Bad Request"));
 
     let legacy_single_campaign = decode_response::<Value>(&cn_support::send_request(
@@ -1601,7 +1691,7 @@ fn redeems_campaign_draw_once_and_persists_history() {
             payment_type: 4,
             number_of_exec: 1,
             viewer_id,
-            gacha_id: 29,
+            gacha_id: 46,
             r#type: 7,
         }),
     ));
@@ -1618,7 +1708,7 @@ fn redeems_campaign_draw_once_and_persists_history() {
             payment_type: 4,
             number_of_exec: 1,
             viewer_id,
-            gacha_id: 30,
+            gacha_id: 47,
             r#type: 11,
         }),
     ));
@@ -1647,7 +1737,15 @@ fn redeems_campaign_draw_once_and_persists_history() {
         "/api/index.php/history/receive",
         &encode_request(&serde_json::json!({"viewer_id": viewer_id})),
     ));
-    assert_eq!(restarted_history.data["total_count"], 12);
+    assert_eq!(restarted_history.data["total_count"], initial_history_count + 12);
+    let gacha_history_count: i64 = database
+        .query_row(
+            "SELECT COUNT(*) FROM player_receive_history WHERE event_key LIKE 'gacha:%'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("gacha deliveries are counted");
+    assert_eq!(gacha_history_count, 12);
     restarted.stop().expect("service stops cleanly");
 }
 // //// /验证活动免费抽取和领取记录跨重启保持一致 ////

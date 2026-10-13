@@ -5,6 +5,8 @@
 // 协议时间使用虚拟时钟, 房间到期锚点使用真实墙钟.
 
 mod ai;
+mod ai_source;
+mod attention;
 mod battle_expected;
 mod battle_state;
 #[cfg(test)]
@@ -44,6 +46,8 @@ pub(crate) struct MultiplayerRoom {
     pub(crate) lobby_started: bool,
     pub(crate) is_npc_mode: bool,
     pub(crate) member_count: i64,
+    pub(crate) is_attention_room: bool,
+    pub(crate) expiry_anchor_ms: i64,
 }
 
 #[derive(Clone, Debug)]
@@ -62,15 +66,30 @@ pub(crate) struct MultiplayerAiMate {
     pub(crate) room_number: String,
     pub(crate) position: i64,
     pub(crate) owner_account_id: i64,
-    pub(crate) snapshot_id: String,
+    pub(crate) source: MultiplayerAiSource,
     pub(crate) client_mate_json: String,
     pub(crate) lobby_player_json: String,
 }
 
 pub(crate) struct MultiplayerAiMateInput {
-    pub(crate) snapshot_id: String,
+    pub(crate) source: MultiplayerAiSource,
     pub(crate) client_mate_json: String,
     pub(crate) lobby_player_json: String,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct MultiplayerAiSource {
+    pub(crate) snapshot_id: Option<String>,
+    pub(crate) template_index: Option<i64>,
+}
+
+impl MultiplayerAiSource {
+    // //// 核对房间 AI 的互斥来源 [@x380kkm 2026-09-27] ////
+    pub(crate) fn is_valid(&self) -> bool {
+        (self.snapshot_id.as_ref().is_some_and(|id| !id.is_empty()) && self.template_index.is_none())
+            || (self.snapshot_id.is_none()
+                && self.template_index.is_some_and(|index| (0..=1).contains(&index)))
+    }
 }
 
 // //// 描述房间定时器产生的会话事件 [@x380kkm 2026-08-23] ////
@@ -146,20 +165,6 @@ pub(super) fn migrate(connection: &Connection) -> Result<(), PersonalServiceErro
              CREATE UNIQUE INDEX IF NOT EXISTS multiplayer_member_connection
                  ON multiplayer_room_members (connection_id)
                  WHERE connection_id IS NOT NULL;
-             CREATE TABLE IF NOT EXISTS multiplayer_ai_mates (
-                 room_number TEXT NOT NULL,
-                 position INTEGER NOT NULL CHECK (position IN (1, 2)),
-                 owner_account_id INTEGER NOT NULL,
-                 snapshot_id TEXT NOT NULL,
-                 client_mate_json TEXT NOT NULL,
-                 lobby_player_json TEXT NOT NULL,
-                 PRIMARY KEY (room_number, position),
-                 UNIQUE (room_number, snapshot_id),
-                 FOREIGN KEY (room_number) REFERENCES multiplayer_rooms (room_number)
-                     ON DELETE CASCADE,
-                 FOREIGN KEY (owner_account_id) REFERENCES accounts (id) ON DELETE CASCADE,
-                 FOREIGN KEY (snapshot_id) REFERENCES ai_team_snapshots (id) ON DELETE RESTRICT
-             );
              CREATE TABLE IF NOT EXISTS multiplayer_battle_expected_members (
                  room_number TEXT NOT NULL,
                  room_sequence INTEGER NOT NULL CHECK (room_sequence > 0),
@@ -185,10 +190,12 @@ pub(super) fn migrate(connection: &Connection) -> Result<(), PersonalServiceErro
              );",
         )
         .map_err(multiplayer_database_error)?;
+    ai_source::migrate(connection)?;
     add_expiry_anchor_if_missing(connection)?;
     add_battle_start_delivery_if_missing(connection)?;
     add_battle_start_requirement_if_missing(connection)?;
     battle_state::migrate(connection)?;
+    attention::migrate(connection)?;
     connection
         .execute_batch(
             "UPDATE multiplayer_rooms

@@ -9,6 +9,9 @@ mod cn_support;
 #[allow(dead_code)]
 mod support;
 
+#[path = "cn_mana/mod.rs"]
+mod lifecycle;
+
 use cn_support::{decode_response, encode_request, LoadRequest, SignupData, SignupRequest};
 use serde::Serialize;
 use serde_json::Value;
@@ -86,8 +89,9 @@ fn persists_board_completion_after_free_and_paid_mana_deduction() {
         ])
     );
     assert_eq!(partial.data["evolution"], serde_json::json!([]));
-    assert_eq!(partial.data["active_mission_list"][0]["mission_id"], 11_070);
-    assert_eq!(partial.data["active_mission_list"][0]["progress_value"], 7);
+    let ability_mission = partial.data["active_mission_list"].as_array().unwrap().iter()
+        .find(|mission| mission["mission_id"] == 11_070).unwrap();
+    assert_eq!(ability_mission["progress_value"], 7);
 
     let completed = decode_response::<Value>(&cn_support::send_request(
         service.port(),
@@ -141,7 +145,7 @@ fn persists_board_completion_after_free_and_paid_mana_deduction() {
         })));
     assert_eq!(
         loaded.data["all_active_mission_list"]["11070"]["progress"],
-        23
+        18
     );
     assert_eq!(
         loaded.data["all_active_mission_list"]["11110"]["progress"],

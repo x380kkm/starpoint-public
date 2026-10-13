@@ -74,7 +74,19 @@ pub(super) fn atomic_write_json<T: Serialize>(
 // //// 绑定生成的 CN 活动 master 原始种子 [@x380kkm 2026-08-29] ////
 pub(super) fn master_seed(name: &str) -> Option<&'static [u8]> {
     Some(match name {
+        "player_history" => {
+            include_bytes!("../../assets/cn-activity-masters/player_history.orderedmap")
+        }
+        "boss_battle_quest" => {
+            include_bytes!("../../assets/cn-activity-masters/boss_battle_quest.orderedmap")
+        }
         "event_list" => include_bytes!("../../assets/cn-activity-masters/event_list.orderedmap"),
+        "event_item_shop" => {
+            include_bytes!("../../assets/cn-activity-masters/event_item_shop.orderedmap")
+        }
+        "character_election" => {
+            include_bytes!("../../assets/cn-activity-masters/character_election.orderedmap")
+        }
         "advent_event" => {
             include_bytes!("../../assets/cn-activity-masters/advent_event.orderedmap")
         }
@@ -117,6 +129,12 @@ pub(super) fn master_seed(name: &str) -> Option<&'static [u8]> {
         "collect_item_event" => {
             include_bytes!("../../assets/cn-activity-masters/collect_item_event.orderedmap")
         }
+        "collect_item_event_mission" => {
+            include_bytes!("../../assets/cn-activity-masters/collect_item_event_mission.orderedmap")
+        }
+        "event_mission" => {
+            include_bytes!("../../assets/cn-activity-masters/event_mission.orderedmap")
+        }
         "active_mission_event" => {
             include_bytes!("../../assets/cn-activity-masters/active_mission_event.orderedmap")
         }
@@ -126,9 +144,22 @@ pub(super) fn master_seed(name: &str) -> Option<&'static [u8]> {
         "box_gacha" => {
             include_bytes!("../../assets/cn-activity-masters/box_gacha.orderedmap")
         }
+        "box" => include_bytes!("../../assets/cn-activity-masters/box.orderedmap"),
         "pass_card_event" => {
             include_bytes!("../../assets/cn-activity-masters/pass_card_event.orderedmap")
         }
+        "multi_special_exchange_campaign" => include_bytes!(
+            "../../assets/cn-activity-masters/multi_special_exchange_campaign.orderedmap"
+        ),
+        "special_exchange_campaign" => {
+            include_bytes!("../../assets/cn-activity-masters/special_exchange_campaign.orderedmap")
+        }
+        "start_dash_exchange_campaign" => include_bytes!(
+            "../../assets/cn-activity-masters/start_dash_exchange_campaign.orderedmap"
+        ),
+        "treasure_vault_exchange_campaign" => include_bytes!(
+            "../../assets/cn-activity-masters/treasure_vault_exchange_campaign.orderedmap"
+        ),
         "advent_event_quest" => {
             include_bytes!("../../assets/cn-activity-masters/advent_event_quest.orderedmap")
         }

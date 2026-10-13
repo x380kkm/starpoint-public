@@ -38,7 +38,7 @@ pub(crate) fn route(
             database,
             json!({"mana_detail_items": {}, "vmoney_detail_items": {}}),
         ),
-        "/api/index.php/Payment_rebate/rebate" => payment_rebate(request, database),
+        "/api/index.php/Payment_rebate/rebate" => crate::cn_payment_rebate::receive(request, database),
         "/api/index.php/tool/agreement" => respond(
             request,
             database,
@@ -136,31 +136,6 @@ fn update_birth(
     msgpack_response_at(body.viewer_id, false, server_time(database)?, json!({}))
 }
 // //// /保存支付年龄检查使用的生日 ////
-
-fn payment_rebate(
-    request: &HttpRequest,
-    database: &mut ServiceDatabase,
-) -> Result<HttpResponse, PersonalServiceError> {
-    let viewer_id = optional_viewer_id(request)?;
-    let after_vmoney = if let Some(viewer_id) = viewer_id.filter(|viewer_id| *viewer_id > 0) {
-        match player_snapshot(database, viewer_id)? {
-            Ok(snapshot) => decode_player_data(&snapshot.data)?
-                .get("user_info")
-                .and_then(|value| value.get("vmoney"))
-                .and_then(Value::as_i64)
-                .unwrap_or_default(),
-            Err(response) => return Ok(response),
-        }
-    } else {
-        0
-    };
-    msgpack_response_at(
-        viewer_id.unwrap_or_default().max(0),
-        false,
-        server_time(database)?,
-        json!({"status": 0, "after_vmoney": after_vmoney}),
-    )
-}
 
 fn follow_search_id(
     request: &HttpRequest,

@@ -8,6 +8,7 @@
 # 输出宿主 App 保留 iPhone 方向并启用 iPad 多任务动态尺寸.
 # 输出仍是未签名实验包, 不能直接安装到设备.
 # 输出报告记录 App 内打开管理页面的手势.
+# App 和内嵌 Framework 的版本来自同一个显式发布版本.
 
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ import json
 import os
 import plistlib
 import re
+import shutil
 import struct
 import zipfile
 from collections.abc import Callable
@@ -31,6 +33,7 @@ from cn_asset_path_manifest import (
 from ios_cn_aot_patch import patch_cn_aot_endpoints
 from ios_cn_compatibility_patch import patch_cn_1_8_4_compatibility
 from ios_inventory import MH_MAGIC_64, analyze_macho, find_app_root
+from ios_package_version import apply_package_version, create_package_version
 
 
 CPU_TYPE_ARM64 = 0x0100000C
@@ -50,16 +53,12 @@ IOS_IPAD_INTERFACE_ORIENTATIONS = (
     "UIInterfaceOrientationLandscapeLeft",
     "UIInterfaceOrientationLandscapeRight",
 )
+from cn_game_resource_overlay import PNG_FILELIST_ENTRY, merge_png_filelist, validate_gacha_banner_assets
 CN_CDN_BUNDLE_ARCHIVE_PATH = "StarpointCNCDN"
 CN_CDN_BUNDLE_INFO_PLIST_KEY = "StarpointCNCDNBundlePath"
 CN_CDN_BUNDLE_MODE_INFO_PLIST_KEY = "StarpointCNCDNBundleMode"
 CN_CDN_BUNDLE_MODE_DIRECT = "direct"
 BUNDLE_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$")
-GACHA_BANNER_KEY_PATTERN = re.compile(r"^[0-9a-f]{40}\.png$")
-STANDARD_PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
-PSEUDO_PNG_SIGNATURE = b"\x89png\r\n\x1a\n"
-GACHA_BANNER_DIMENSIONS = (510, 180)
-GENERATED_GACHA_BANNER_TAG = "banner:generated"
 
 
 @dataclass(frozen=True)
@@ -249,6 +248,7 @@ def add_framework_files(
     framework_path: Path,
     framework_binary: Path,
     app_root: str,
+    framework_info: bytes,
 ) -> None:
     for source in sorted(framework_path.rglob("*")):
         if source.is_symlink():
@@ -264,86 +264,8 @@ def add_framework_files(
         mode = 0o100755 if source == framework_binary else 0o100644
         archive_info.external_attr = mode << 16
         archive_info.compress_type = zipfile.ZIP_DEFLATED
-        output.writestr(archive_info, source.read_bytes())
-
-
-def read_banner_dimensions(data: bytes, signature: bytes, path: Path) -> tuple[int, int]:
-    if len(data) < 24 or data[:8] != signature or data[12:16] != b"IHDR":
-        raise ValueError(f"CN 卡池 banner 格式无效: {path}.")
-    return struct.unpack_from(">II", data, 16)
-
-
-def validate_gacha_banner_assets(cdn_bundle_path: Path) -> list[Path]:
-    catalog_path = cdn_bundle_path / "activity-catalog.json"
-    if not catalog_path.is_file():
-        return []
-    try:
-        catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
-        raise ValueError(f"CN 活动目录无法读取: {catalog_path}.") from error
-    activities = catalog.get("activities") if isinstance(catalog, dict) else None
-    if not isinstance(activities, list):
-        raise ValueError("CN 活动目录缺少 activities 数组.")
-
-    banner_keys: set[str] = set()
-    generated_banner_keys: set[str] = set()
-    for activity in activities:
-        if not isinstance(activity, dict) or activity.get("kind") != "gacha":
-            continue
-        banner_key = activity.get("banner_key")
-        if not isinstance(banner_key, str) or not GACHA_BANNER_KEY_PATTERN.fullmatch(
-            banner_key
-        ):
-            raise ValueError("CN 卡池活动缺少有效 banner_key.")
-        candidates = activity.get("image_candidates")
-        if not isinstance(candidates, list) or not any(
-            isinstance(candidate, dict) and candidate.get("key") == banner_key
-            for candidate in candidates
-        ):
-            raise ValueError(f"CN 卡池活动缺少 banner 候选: {banner_key}.")
-        banner_keys.add(banner_key)
-        tags = activity.get("tags")
-        if isinstance(tags, list) and GENERATED_GACHA_BANNER_TAG in tags:
-            generated_banner_keys.add(banner_key)
-
-    for banner_key in sorted(banner_keys):
-        asset_hash = Path(banner_key).stem
-        management_path = cdn_bundle_path / "activity-banners" / banner_key
-        game_path = (
-            cdn_bundle_path
-            / "production"
-            / "bundle"
-            / asset_hash[:2]
-            / asset_hash[2:]
-        )
-        if not management_path.is_file():
-            raise ValueError(f"CN 卡池 banner 资源对不完整: {banner_key}.")
-        management = management_path.read_bytes()
-        if (
-            read_banner_dimensions(management, STANDARD_PNG_SIGNATURE, management_path)
-            != GACHA_BANNER_DIMENSIONS
-        ):
-            raise ValueError(f"CN 卡池 banner 尺寸必须为 510x180: {banner_key}.")
-        if banner_key not in generated_banner_keys:
-            continue
-        if not game_path.is_file():
-            raise ValueError(f"CN 卡池 banner 资源对不完整: {banner_key}.")
-        game = game_path.read_bytes()
-        if (
-            read_banner_dimensions(game, PSEUDO_PNG_SIGNATURE, game_path)
-            != GACHA_BANNER_DIMENSIONS
-        ):
-            raise ValueError(f"CN 卡池 banner 尺寸必须为 510x180: {banner_key}.")
-        if len(management) != len(game) or management[8:] != game[8:]:
-            raise ValueError(f"CN 卡池 banner 管理页与游戏资源不一致: {banner_key}.")
-    return sorted(
-        cdn_bundle_path
-        / "production"
-        / "bundle"
-        / Path(banner_key).stem[:2]
-        / Path(banner_key).stem[2:]
-        for banner_key in generated_banner_keys
-    )
+        data = framework_info if relative == "Info.plist" else source.read_bytes()
+        output.writestr(archive_info, data)
 
 
 def validate_cn_cdn_bundle(
@@ -388,14 +310,13 @@ def add_cn_cdn_bundle_files(
             if source.suffix.lower() == ".zip"
             else zipfile.ZIP_DEFLATED
         )
-        content = (
-            synchronized_manifest
-            if relative == PATH_MANIFEST_NAME and synchronized_manifest is not None
-            else source.read_bytes()
-        )
-        if relative == PATH_MANIFEST_NAME:
-            total_size_delta += len(content) - source.stat().st_size
-        output.writestr(archive_info, content)
+        if relative == PATH_MANIFEST_NAME and synchronized_manifest is not None:
+            total_size_delta += len(synchronized_manifest) - source.stat().st_size
+            output.writestr(archive_info, synchronized_manifest)
+        else:
+            archive_info.file_size = source.stat().st_size
+            with source.open("rb") as stream, output.open(archive_info, "w") as destination:
+                shutil.copyfileobj(stream, destination)
     return total_size_delta
 
 
@@ -405,6 +326,7 @@ def add_gacha_banner_bundle_files(
     cdn_bundle_path: Path,
     banner_files: list[Path],
     app_root: str,
+    original_filelist: bytes = b"",
 ) -> int:
     total_size = 0
     bundle_root = cdn_bundle_path / "production" / "bundle"
@@ -418,6 +340,10 @@ def add_gacha_banner_bundle_files(
         content = source.read_bytes()
         output.writestr(archive_info, content)
         total_size += len(content)
+    if banner_files:
+        hashed_paths = [source.relative_to(bundle_root).as_posix() for source in banner_files]
+        filelist = merge_png_filelist(original_filelist, hashed_paths)
+        output.writestr(f"{app_root}/asset/{PNG_FILELIST_ENTRY}", filelist)
     return total_size
 # //// /将生成的卡池 banner 加入 App asset bundle ////
 
@@ -429,6 +355,7 @@ def package_personal_service_ipa(
     output_ipa: Path,
     bundle_id: str,
     display_name: str,
+    release_version: str,
     cn_cdn_bundle_path: Path | None = None,
 ) -> dict[str, Any]:
     return package_transformed_personal_service_ipa(
@@ -437,6 +364,7 @@ def package_personal_service_ipa(
         output_ipa,
         bundle_id,
         display_name,
+        release_version,
         preserve_client_executable,
         cn_cdn_bundle_path,
     )
@@ -448,6 +376,7 @@ def package_cn_personal_service_ipa(
     output_ipa: Path,
     bundle_id: str,
     display_name: str,
+    release_version: str,
     cn_cdn_bundle_path: Path | None = None,
 ) -> dict[str, Any]:
     return package_transformed_personal_service_ipa(
@@ -456,6 +385,7 @@ def package_cn_personal_service_ipa(
         output_ipa,
         bundle_id,
         display_name,
+        release_version,
         transform_cn_executable,
         cn_cdn_bundle_path,
     )
@@ -501,6 +431,7 @@ def package_transformed_personal_service_ipa(
     output_ipa: Path,
     bundle_id: str,
     display_name: str,
+    release_version: str,
     transform_executable: ExecutableTransform,
     cn_cdn_bundle_path: Path | None = None,
 ) -> dict[str, Any]:
@@ -535,6 +466,15 @@ def package_transformed_personal_service_ipa(
                 raise ValueError("Info.plist 缺少 CFBundleExecutable.")
             if bundle_id == info.get("CFBundleIdentifier"):
                 raise ValueError("实验 IPA 必须使用不同于原包的 bundle ID.")
+            package_version = create_package_version(
+                info.get("CFBundleShortVersionString", ""), release_version
+            )
+            framework_info = plistlib.loads((framework_path / "Info.plist").read_bytes())
+            apply_package_version(info, package_version)
+            apply_package_version(framework_info, package_version)
+            updated_framework_info = plistlib.dumps(
+                framework_info, fmt=plistlib.FMT_BINARY, sort_keys=False
+            )
             executable_path = f"{app_root}/{executable_name}"
             executable = source.read(executable_path)
             executable_analysis = analyze_macho(executable)
@@ -572,6 +512,10 @@ def package_transformed_personal_service_ipa(
                 )
                 for source in gacha_banner_files
             }
+            filelist_path = f"{app_root}/asset/{PNG_FILELIST_ENTRY}"
+            original_filelist = source.read(filelist_path) if filelist_path in source.namelist() else b""
+            if gacha_banner_files:
+                embedded_gacha_banner_paths.add(filelist_path)
 
             with zipfile.ZipFile(temporary_output, "w") as output:
                 for entry in source.infolist():
@@ -588,7 +532,9 @@ def package_transformed_personal_service_ipa(
                         output.writestr(entry, updated_info)
                     else:
                         output.writestr(entry, source.read(entry.filename))
-                add_framework_files(output, framework_path, framework_binary, app_root)
+                add_framework_files(
+                    output, framework_path, framework_binary, app_root, updated_framework_info
+                )
                 if cn_cdn_bundle_path is not None:
                     cn_cdn_total_size += add_cn_cdn_bundle_files(
                         output,
@@ -601,6 +547,7 @@ def package_transformed_personal_service_ipa(
                         cn_cdn_bundle_path,
                         gacha_banner_files,
                         app_root,
+                        original_filelist,
                     )
                 else:
                     embedded_gacha_banner_size = 0
@@ -616,7 +563,12 @@ def package_transformed_personal_service_ipa(
         "output_sha256": sha256_file(output_ipa),
         "bundle_id": bundle_id,
         "display_name": display_name,
+        "release_version": package_version.release,
+        "bundle_version": package_version.bundle,
+        "build_version": package_version.bundle,
         "framework": framework_path.name,
+        "framework_bundle_version": framework_info["CFBundleShortVersionString"],
+        "framework_build_version": framework_info["CFBundleVersion"],
         "framework_sha256": sha256_file(framework_binary),
         "framework_architecture": framework_analysis["slices"][0]["architecture"],
         "load_path": load_path,
@@ -651,6 +603,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--bundle-id", required=True)
     parser.add_argument("--display-name", required=True)
+    parser.add_argument("--release-version", required=True)
     parser.add_argument("--patch-cn-endpoints", action="store_true")
     parser.add_argument("--cn-cdn-bundle", type=Path)
     parser.add_argument("--report", type=Path)
@@ -683,6 +636,7 @@ def main() -> None:
         args.output,
         args.bundle_id,
         args.display_name,
+        args.release_version,
         args.cn_cdn_bundle,
     )
     if args.report is not None:

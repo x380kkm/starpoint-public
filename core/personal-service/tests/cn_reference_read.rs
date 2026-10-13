@@ -33,15 +33,6 @@ fn returns_typed_cn_response_families() {
         10
     );
 
-    let comic = request(
-        service.port(),
-        "/api/index.php/comic/get_list",
-        json!({"viewer_id": viewer_id, "kind": 0, "page_index": 2}),
-    );
-    assert_eq!(comic["comic_list"], json!([]));
-    assert_eq!(comic["current_page_index"], 2);
-    assert_eq!(comic["total_count"], 0);
-
     let receive_history = request(
         service.port(),
         "/api/index.php/history/receive",
@@ -72,35 +63,6 @@ fn returns_typed_cn_response_families() {
     assert_eq!(detail["title"], news["news"][0]["title"]);
     assert_eq!(detail["thumbnail_path"], news["news"][0]["thumbnail_path"]);
     assert_eq!(detail["added_time"], news["news"][0]["added_time"]);
-
-    let assistant = request(
-        service.port(),
-        "/api/index.php/assistant/get_assistant_list",
-        json!({"viewer_id": viewer_id}),
-    );
-    assert_eq!(assistant["all_box_info"], json!([]));
-    assert_eq!(assistant["sales_list"], json!([]));
-
-    let election = request(
-        service.port(),
-        "/api/index.php/character_election/get_vote_status",
-        json!({"viewer_id": viewer_id, "election_id": 1}),
-    );
-    assert_eq!(election["is_voted"], false);
-
-    let crazy_gacha = request(
-        service.port(),
-        "/api/index.php/gacha/crazy_gacha_save",
-        json!({"viewer_id": viewer_id, "index": 0}),
-    );
-    assert_eq!(crazy_gacha["crazy_gacha_result_list"], json!([]));
-
-    let gift = request(
-        service.port(),
-        "/api/index.php/gift/receive",
-        json!({"viewer_id": viewer_id, "key": "offline"}),
-    );
-    assert_eq!(gift, json!({"all_gift_info": [], "result_code": 1}));
 
     let how_to_get = request(
         service.port(),

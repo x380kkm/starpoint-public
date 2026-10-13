@@ -9,14 +9,15 @@
   <meta name="color-scheme" content="light">
   <title>星点个人服务</title>
   <link rel="stylesheet" href="/manage/style.css">
-  <script src="/manage/app.js" type="module"></script>
+  <link rel="stylesheet" href="/manage/rescue.css">
+  <script src="/manage/browser-app.js" defer></script>
 </head>
 <body>
   <header class="hero">
     <div>
-      <p class="eyebrow">STARPOINT LOCAL CONTROL</p>
+      <p class="eyebrow">STARPOINT</p>
       <h1>星点个人服务</h1>
-      <p class="hero-copy">在当前设备管理活动, 邮件和存档. 需要时再连接远程服务器.</p>
+      <p class="hero-copy">活动, 队伍与存档管理</p>
     </div>
     <div class="hero-actions">
       <span id="connection-state" class="status-pill offline">未连接</span>
@@ -28,6 +29,7 @@
     <div id="dashboard">
       <div class="management-tablist" role="tablist" aria-label="管理功能" aria-orientation="horizontal">
         <button id="management-tab-activity" class="management-tab button secondary" type="button" role="tab" aria-selected="true" aria-controls="management-panel-activity" data-management-tab="activity">活动与时间</button>
+        <button id="management-tab-competition" class="management-tab button secondary" type="button" role="tab" aria-selected="false" aria-controls="management-panel-competition" data-management-tab="competition" tabindex="-1">竞赛与发奖</button>
         <button id="management-tab-ai" class="management-tab button secondary" type="button" role="tab" aria-selected="false" aria-controls="management-panel-ai" data-management-tab="ai" tabindex="-1">AI</button>
         <button id="management-tab-server" class="management-tab button secondary" type="button" role="tab" aria-selected="false" aria-controls="management-panel-server" data-management-tab="server" tabindex="-1">服务器与存档</button>
         <button id="management-tab-other" class="management-tab button secondary" type="button" role="tab" aria-selected="false" aria-controls="management-panel-other" data-management-tab="other" tabindex="-1">其他信息</button>
@@ -107,23 +109,48 @@
           <div>
             <p class="section-kicker">设备数据</p>
             <h2>本地存档</h2>
+            <p class="section-description">导出的 JSON 存档中, <code>data</code> 保存可编辑的游戏内容. 文件在 Android 和 iOS 间通用.</p>
           </div>
           <label class="device-picker">
             <span>操作设备</span>
-            <select id="device-select"></select>
+            <select id="device-select"><option value="local">本机</option></select>
           </label>
         </div>
         <div id="save-list" class="save-list"></div>
+      </section>
+
+      <section class="panel stack-form" aria-labelledby="reward-history-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">奖励记录</p>
+            <h2 id="reward-history-heading">领取与投递</h2>
+            <p class="section-description">到账记录列出实际资产, 商品记录包含资格发放和完成界面确认, 邮件记录保留投递和领取状态.</p>
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="grow"><span>存档</span><select id="reward-history-save"><option value="">选择存档</option></select></label>
+          <label><span>记录类型</span><select id="reward-history-view"><option value="received">已到账资产</option><option value="products">商品领取</option><option value="deliveries">邮件投递</option></select></label>
+          <button id="reward-history-refresh" class="button secondary" type="button">刷新记录</button>
+        </div>
+        <p id="reward-history-state" class="meta" role="status">选择存档后查看奖励记录.</p>
+        <div id="reward-history-list" class="card-list"></div>
+        <button id="reward-history-more" class="button secondary" type="button" hidden>加载更多</button>
       </section>
 
       <section class="utility-grid">
         <article class="panel">
           <p class="section-kicker">文件迁移</p>
           <h2>导入存档</h2>
+          <p class="section-description">可导入修改后的 JSON 存档. 导入后会创建独立存档. 选择"使用此存档"后, 重新进入游戏.</p>
           <form id="import-form" class="stack-form">
             <label><span>新存档名称, 可选</span><input name="name" maxlength="64" placeholder="从朋友设备导入"></label>
-            <label class="file-input"><span>Starpoint 存档文件</span><input name="file" type="file" accept="application/json,.json,.starpoint-save" required></label>
-            <button class="button primary" type="submit">导入为隔离存档</button>
+            <label class="file-input"><span>JSON 存档或备份文件</span><input name="file" type="file" accept="application/json,.json,.starpoint-save" required></label>
+            <details class="form-drawer">
+              <summary>加密备份与旧恢复包, 可选</summary>
+              <label><span>备份密码</span><input name="password" type="password" autocomplete="current-password"></label>
+              <label class="file-input"><span>原设备导出的旧加密恢复包, 可选</span><input name="recovery" type="file" accept="application/json,.json,.starpoint-recovery"></label>
+            </details>
+            <button class="button primary" type="submit">导入为新存档</button>
           </form>
         </article>
 
@@ -138,6 +165,64 @@
           </form>
         </article>
       </section>
+      </div>
+
+      <div id="management-panel-competition" class="management-tab-panel" role="tabpanel" aria-labelledby="management-tab-competition" data-management-tab-panel="competition" tabindex="0" hidden>
+        <section class="panel stack-form" aria-labelledby="competition-heading">
+          <div class="section-heading">
+            <div><p class="section-kicker">成绩与奖励</p><h2 id="competition-heading">竞赛与发奖</h2>
+              <p class="section-description">管理竞速挑战, 狂热激战排名和全服讨伐奖励. 普通关卡掉落与通关档位奖励仍在战斗结算时获得.</p></div>
+            <button id="competition-refresh" class="button secondary" type="button">刷新</button>
+          </div>
+          <div class="form-row">
+            <label class="grow"><span>存档</span><select id="competition-save"><option value="">选择存档</option></select></label>
+            <label><span>竞赛类型</span><select id="competition-family"><option value="">全部类型</option><option value="ranking">竞速挑战</option><option value="rush">狂热激战</option><option value="raid">全服讨伐</option></select></label>
+            <label class="grow"><span>搜索活动</span><input id="competition-search" type="search" placeholder="名称或活动 ID" autocomplete="off"></label>
+          </div>
+          <label><span>活动</span><select id="competition-event"><option value="">选择活动</option></select></label>
+          <p id="competition-state" class="meta" role="status">选择存档后查看竞赛活动.</p>
+          <div id="competition-detail" class="stack-form" hidden>
+            <div><h3 id="competition-title"></h3><p id="competition-meta" class="meta"></p></div>
+            <div class="card-actions">
+              <button id="competition-open" class="button primary" type="button">开放 24 小时</button>
+              <button id="competition-always" class="button secondary" type="button">始终开放</button>
+              <button id="competition-close" class="button danger" type="button">关闭活动</button>
+            </div>
+            <p id="competition-summary" class="activity-description"></p>
+            <div class="form-row">
+              <label class="grow"><span>此存档的发奖方式</span><select id="competition-policy"><option value="automatic">游戏内领取</option><option value="manual">管理页手动发奖</option></select></label>
+              <button id="competition-policy-save" class="button secondary" type="button">保存发奖方式</button>
+            </div>
+            <p id="competition-policy-state" class="meta"></p>
+            <section id="competition-global" class="stack-form" aria-labelledby="competition-global-heading" hidden>
+              <h4 id="competition-global-heading">当前期别的全服数据</h4>
+              <p class="meta">本机所有存档共享全服数据. 手动发奖存档在下方结算, 游戏内领取存档沿用原活动流程.</p>
+              <form id="competition-global-form" class="stack-form">
+                <div class="form-row">
+                  <label class="grow"><span>全服总讨伐数</span><input id="competition-kills" type="number" min="0" max="9007199254740991" step="1" required></label>
+                  <label><span>Boss 剩余血量 (%)</span><input id="competition-hp" type="number" min="0" max="100" step="1" required></label>
+                  <button id="competition-stats-save" class="button secondary" type="submit">保存全服数据</button>
+                </div>
+              </form>
+            </section>
+            <label id="competition-ranking-options" hidden><span>奖励档位</span><select id="competition-tier"><option value="">按当前成绩计算</option></select></label>
+            <label id="competition-rush-options" hidden><span>用于发奖的排名</span><input id="competition-rank" type="number" min="1" max="9007199254740991" step="1" value="1"></label>
+            <section class="stack-form" aria-labelledby="competition-preview-heading">
+              <h4 id="competition-preview-heading">奖励预览</h4>
+              <div id="competition-preview" class="card-list"></div>
+              <button id="competition-settle" class="button primary" type="button" disabled>结算并发放奖励</button>
+              <p class="meta">人工结算会保存当前成绩, 发奖档位和全服统计. 同期同轮已发奖励保留, 新达成的全服档位可以继续领取.</p>
+            </section>
+          </div>
+        </section>
+        <section class="panel stack-form" aria-labelledby="competition-history-heading">
+          <div class="section-heading"><h3 id="competition-history-heading">成绩与发奖记录</h3><button id="competition-history-refresh" class="button secondary" type="button">刷新记录</button></div>
+          <label hidden><span>记录存档</span><select id="competition-history-save" tabindex="-1"><option value="">选择存档</option></select></label>
+          <p id="competition-history-state" class="meta" role="status">选择活动后查看记录.</p>
+          <div id="competition-history-list"></div>
+          <div class="card-actions"><button id="competition-history-more" class="button ghost" type="button" hidden>加载更早记录</button><button id="competition-history-reset" class="button danger" type="button" disabled>重置此存档的活动</button></div>
+          <p class="meta">重置保留历史, 邮件和已获得资产, 新轮次可重新参赛和领奖. 重置后返回游戏标题画面重新加载存档.</p>
+        </section>
       </div>
 
       <div id="management-panel-activity" class="management-tab-panel" role="tabpanel" aria-labelledby="management-tab-activity" data-management-tab-panel="activity" tabindex="0">
@@ -164,9 +249,19 @@
         <div class="section-heading">
           <div>
             <p class="section-kicker">活动管理</p>
-            <h2>活动目录</h2>
+            <h2>关卡与活动管理</h2>
           </div>
           <p id="activity-catalog-state" class="meta">连接后加载活动目录</p>
+        </div>
+        <div class="management-tabs" role="tablist" aria-label="活动管理分类">
+          <button class="management-tab button secondary" type="button" role="tab" aria-selected="true" data-activity-section="events">限时活动轮换</button>
+          <button class="management-tab button secondary" type="button" role="tab" aria-selected="false" data-activity-section="boss">领主战</button>
+          <button class="management-tab button secondary" type="button" role="tab" aria-selected="false" data-activity-section="daily">日常素材</button>
+          <button class="management-tab button secondary" type="button" role="tab" aria-selected="false" data-activity-section="commerce">内购与兑换</button>
+        </div>
+        <div class="form-row" aria-label="关卡与难度选择">
+          <label class="grow"><span>关卡或活动</span><select id="activity-group"><option value="">连接后选择</option></select></label>
+          <label id="activity-difficulty-label"><span>难度</span><select id="activity-difficulty"><option value="">选择难度</option></select></label>
         </div>
         <div class="activity-toolbar" aria-label="活动筛选">
           <label class="grow"><span>搜索活动</span><input id="activity-search" type="search" autocomplete="off" placeholder="名称, ID 或标签"></label>
@@ -181,7 +276,7 @@
         </div>
         <div id="activityQuickFilters" class="activity-filter-group activity-quick-filters" aria-label="快捷筛选"></div>
         <div id="activityTagFilters" class="activity-filter-group activity-tag-filters" aria-label="标签筛选"></div>
-        <div class="activity-calendar-toolbar">
+        <div id="activity-calendar-toolbar" class="activity-calendar-toolbar">
           <div class="activity-calendar-nav activity-calendar-nav-previous" role="group" aria-label="向前切换活动日历">
             <button id="activity-calendar-previous-year" class="button ghost" type="button" aria-label="上一年" title="上一年">«</button>
             <button id="activity-calendar-previous" class="button ghost" type="button" aria-label="上个月">‹</button>
@@ -219,6 +314,27 @@
               <p id="activity-temporary-state" class="meta">当前没有临时开放.</p>
             </div>
           </div>
+          <section id="activity-rescue" class="stack-form" hidden aria-label="关卡铃铛">
+            <h4>关卡铃铛</h4>
+            <div class="form-row">
+              <label class="grow"><span>协战关卡</span><select id="activity-rescue-stage"></select></label>
+              <label><span>难度</span><select id="activity-rescue-difficulty"></select></label>
+              <label class="check-row"><input id="activity-rescue-enabled" type="checkbox"><span>开启此关卡铃铛</span></label>
+            </div>
+            <p id="activity-rescue-state" class="meta" role="status"></p>
+          </section>
+          <section class="stack-form" aria-labelledby="activity-history-title">
+            <h4 id="activity-history-title">成绩与奖励记录</h4>
+            <div class="form-row">
+              <label class="grow"><span>存档</span><select id="activity-history-save"><option value="">选择存档</option></select></label>
+              <button id="activity-history-refresh" class="button ghost" type="button">刷新记录</button>
+              <button id="activity-history-reset" class="button danger" type="button" disabled>重置此存档的活动</button>
+            </div>
+            <p class="meta">重置会保留历史记录, 邮件和已获得资产. 重置后重新加载游戏存档即可再次参加和领奖.</p>
+            <p id="activity-history-state" class="meta" aria-live="polite">选择存档后查看活动记录.</p>
+            <div id="activity-history-list"></div>
+            <button id="activity-history-more" class="button ghost" type="button" hidden>加载更早记录</button>
+          </section>
           <details class="form-drawer">
             <summary>选择活动模式</summary>
             <form id="activity-mode-form" class="stack-form">
@@ -284,26 +400,77 @@
         </div>
         <div class="ai-team-layout">
           <div class="stack-form">
-            <p class="meta">本机保存两个编队快照. 真实联机由所连接服务器的 COM 配置读取服务器账号编队.</p>
-            <label><span>本地存档槽</span><select id="ai-team-slot" required></select></label>
+            <p id="ai-team-source" class="meta">正在读取实际 AI 来源.</p>
+            <p class="meta">选择存档并保存后, 本机建房和铃铛救援使用它的两个编队快照. 已有房间保留原队友.</p>
+            <label><span>所选存档</span><select id="ai-team-slot" required></select></label>
             <div class="ai-team-selectors">
               <label><span>AI A 编队</span><select id="ai-team-a" required></select></label>
               <label><span>AI B 编队</span><select id="ai-team-b" required></select></label>
             </div>
             <div class="form-row">
-              <button id="ai-team-save" class="button primary" type="button">保存编队模板</button>
+              <button id="ai-team-save" class="button primary" type="button">保存并使用所选存档</button>
               <button id="ai-team-default" class="button ghost" type="button">使用前两个有效编队</button>
+              <button id="ai-team-follow" class="button ghost" type="button">跟随当前游戏存档</button>
             </div>
           </div>
           <section aria-labelledby="ai-team-candidate-title">
             <div class="mail-list-head">
-              <h3 id="ai-team-candidate-title">当前存档的编队</h3>
+              <h3 id="ai-team-candidate-title">所选存档的编队</h3>
             </div>
             <div id="ai-team-candidates" class="ai-party-candidates">
               <p class="empty-state">尚未读取编队.</p>
             </div>
           </section>
         </div>
+      </section>
+      <section id="rescue-management" class="panel rescue-panel">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">协战邀请</p>
+            <h2>机器人救援</h2>
+          </div>
+          <button id="rescue-refresh" class="button ghost" type="button">刷新救援状态</button>
+        </div>
+        <p id="rescue-state" class="meta" role="status">正在读取救援设置.</p>
+        <p class="section-description">救援房默认连续挑战, 可随时退出. 活动结束后, 当前战斗照常完成, 随后停止新房和续战.</p>
+        <form id="rescue-form" class="stack-form">
+          <fieldset id="rescue-settings-controls" class="rescue-controls stack-form" aria-label="救援设置" disabled>
+            <label class="check-row"><input id="rescue-enabled" type="checkbox"><span>开启机器人救援</span></label>
+            <div class="rescue-numbers">
+              <label><span>生成间隔 (秒)</span><input id="rescue-spawn-interval" type="number" min="5" max="3600" step="1" value="60" required></label>
+              <label><span>空房保留时间 (秒)</span><input id="rescue-room-lifetime" type="number" min="30" max="3600" step="1" value="180" required></label>
+              <label><span>同时开放房间数</span><input id="rescue-max-rooms" type="number" min="1" max="10" step="1" value="3" required></label>
+            </div>
+            <div class="rescue-toolbar">
+              <button class="button primary" type="submit">保存设置与选择</button>
+              <button id="rescue-disable" class="button danger" type="button" disabled>一键关闭</button>
+            </div>
+          </fieldset>
+        </form>
+        <fieldset id="rescue-quest-controls" class="rescue-controls rescue-quest-controls" aria-label="可选救援关卡" disabled>
+          <div class="rescue-filters">
+            <label><span>名称</span><input id="rescue-search" type="search" placeholder="搜索关卡或活动"></label>
+            <label><span>玩法类型</span><select id="rescue-category"><option value="">全部类型</option></select></label>
+            <label><span>活动</span><select id="rescue-activity"><option value="">全部活动</option></select></label>
+            <label><span>关卡</span><select id="rescue-stage"><option value="">全部关卡</option></select></label>
+            <label><span>难度</span><select id="rescue-difficulty"><option value="">全部难度</option></select></label>
+            <label><span>显示范围</span><select id="rescue-status"><option value="open">可进入</option><option value="">全部关卡</option><option value="closed">暂不可进入</option></select></label>
+            <label class="check-row"><input id="rescue-selected-only" type="checkbox"><span>只看已选 (含暂不可进入)</span></label>
+          </div>
+          <p id="rescue-selection-state" class="meta" aria-live="polite">尚未读取关卡选择.</p>
+          <div class="rescue-toolbar">
+            <button id="rescue-select-page" class="button ghost" type="button">选择本页</button>
+            <button id="rescue-clear-page" class="button ghost" type="button">取消本页</button>
+            <button id="rescue-clear-all" class="button ghost" type="button">清空已选</button>
+          </div>
+          <div id="rescue-list" class="rescue-list"><p class="empty-state">正在读取关卡.</p></div>
+          <div class="rescue-pagination">
+            <button id="rescue-previous" class="button ghost" type="button">上一页</button>
+            <span id="rescue-page-state" class="meta" aria-live="polite"></span>
+            <button id="rescue-next" class="button ghost" type="button">下一页</button>
+            <button class="button primary" type="submit" form="rescue-form">保存设置与选择</button>
+          </div>
+        </fieldset>
       </section>
       </div>
 
@@ -428,6 +595,19 @@
       <section class="panel">
         <div class="section-heading">
           <div>
+            <p class="section-kicker">故障诊断</p>
+            <h2>最近错误报告</h2>
+          </div>
+          <p class="meta">展开可查看错误内容, 资源版本和调用信息</p>
+        </div>
+        <div id="client-report-list" class="card-list">
+          <p class="empty-state">正在读取错误报告.</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <div>
             <p class="section-kicker">本地网络记录</p>
             <h2>最近请求</h2>
           </div>
@@ -441,6 +621,21 @@
     </div>
   </main>
 
+  <dialog id="save-delete-dialog" class="confirmation-dialog" aria-labelledby="save-delete-title" aria-describedby="save-delete-warning">
+    <form method="dialog">
+      <p class="section-kicker">存档管理</p>
+      <h2 id="save-delete-title">确认删除此存档?</h2>
+      <div class="confirmation-target">
+        <strong id="save-delete-name"></strong>
+        <p id="save-delete-detail" class="meta"></p>
+      </div>
+      <p id="save-delete-warning">此存档的进度, 本地快照和 AI 编队将永久删除. 已导出的文件和远程副本会保留.</p>
+      <div class="confirmation-actions">
+        <button class="button secondary" type="submit" value="cancel" autofocus>保留存档</button>
+        <button class="button danger" type="submit" value="delete">确认删除</button>
+      </div>
+    </form>
+  </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>

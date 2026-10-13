@@ -1,0 +1,696 @@
+{
+  "rows": [
+    {
+      "bonus_id": 1,
+      "fund_kind": "laite",
+      "required_rank": 1,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 1500,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 2,
+      "fund_kind": "laite",
+      "required_rank": 10,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 300,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 3,
+      "fund_kind": "laite",
+      "required_rank": 20,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 500,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 4,
+      "fund_kind": "laite",
+      "required_rank": 30,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 700,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 5,
+      "fund_kind": "laite",
+      "required_rank": 40,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 900,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 6,
+      "fund_kind": "laite",
+      "required_rank": 50,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 1100,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 7,
+      "fund_kind": "laite",
+      "required_rank": 60,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 1500,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 8,
+      "fund_kind": "laite",
+      "required_rank": 70,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 1500,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 12,
+      "fund_kind": "main_quest",
+      "required_rank": null,
+      "quest_category": 1,
+      "quest_id": 2009007,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 150,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        },
+        {
+          "kind": 1,
+          "amount": 1,
+          "item_id": 999003,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 13,
+      "fund_kind": "main_quest",
+      "required_rank": null,
+      "quest_category": 1,
+      "quest_id": 3013003,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 150,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        },
+        {
+          "kind": 1,
+          "amount": 1,
+          "item_id": 999003,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 14,
+      "fund_kind": "main_quest",
+      "required_rank": null,
+      "quest_category": 1,
+      "quest_id": 4011005,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 150,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        },
+        {
+          "kind": 1,
+          "amount": 1,
+          "item_id": 999003,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 15,
+      "fund_kind": "main_quest",
+      "required_rank": null,
+      "quest_category": 1,
+      "quest_id": 5013004,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 150,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        },
+        {
+          "kind": 1,
+          "amount": 1,
+          "item_id": 999003,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 16,
+      "fund_kind": "main_quest",
+      "required_rank": null,
+      "quest_category": 1,
+      "quest_id": 6010006,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 150,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        },
+        {
+          "kind": 1,
+          "amount": 1,
+          "item_id": 999003,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 18,
+      "fund_kind": "ex_quest",
+      "required_rank": null,
+      "quest_category": 4,
+      "quest_id": 2009003,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 150,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        },
+        {
+          "kind": 1,
+          "amount": 1,
+          "item_id": 999003,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 19,
+      "fund_kind": "ex_quest",
+      "required_rank": null,
+      "quest_category": 4,
+      "quest_id": 3013001,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 150,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        },
+        {
+          "kind": 1,
+          "amount": 1,
+          "item_id": 999003,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 20,
+      "fund_kind": "ex_quest",
+      "required_rank": null,
+      "quest_category": 4,
+      "quest_id": 4011003,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 150,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        },
+        {
+          "kind": 1,
+          "amount": 1,
+          "item_id": 999003,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 21,
+      "fund_kind": "ex_quest",
+      "required_rank": null,
+      "quest_category": 4,
+      "quest_id": 5013001,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 150,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        },
+        {
+          "kind": 1,
+          "amount": 1,
+          "item_id": 999003,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 22,
+      "fund_kind": "ex_quest",
+      "required_rank": null,
+      "quest_category": 4,
+      "quest_id": 6010002,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 150,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        },
+        {
+          "kind": 1,
+          "amount": 1,
+          "item_id": 999003,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 37,
+      "fund_kind": "laite2",
+      "required_rank": 80,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 1500,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 38,
+      "fund_kind": "laite2",
+      "required_rank": 90,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 200,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 39,
+      "fund_kind": "laite2",
+      "required_rank": 100,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 300,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 40,
+      "fund_kind": "laite2",
+      "required_rank": 110,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 400,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 41,
+      "fund_kind": "laite2",
+      "required_rank": 120,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 500,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 42,
+      "fund_kind": "laite2",
+      "required_rank": 130,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 600,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 43,
+      "fund_kind": "laite2",
+      "required_rank": 140,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 700,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 44,
+      "fund_kind": "laite2",
+      "required_rank": 150,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 800,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 45,
+      "fund_kind": "laite2",
+      "required_rank": 160,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 1500,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 46,
+      "fund_kind": "laite2",
+      "required_rank": 170,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 1500,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 47,
+      "fund_kind": "laite3",
+      "required_rank": 180,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 1500,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 48,
+      "fund_kind": "laite3",
+      "required_rank": 190,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 300,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 49,
+      "fund_kind": "laite3",
+      "required_rank": 200,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 500,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 50,
+      "fund_kind": "laite3",
+      "required_rank": 210,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 700,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 51,
+      "fund_kind": "laite3",
+      "required_rank": 220,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 900,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 52,
+      "fund_kind": "laite3",
+      "required_rank": 230,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 1100,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 53,
+      "fund_kind": "laite3",
+      "required_rank": 240,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 1500,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    },
+    {
+      "bonus_id": 54,
+      "fund_kind": "laite3",
+      "required_rank": 250,
+      "quest_category": null,
+      "quest_id": null,
+      "rewards": [
+        {
+          "kind": 0,
+          "amount": 1500,
+          "item_id": null,
+          "character_id": null,
+          "equipment_id": null,
+          "degree_id": null
+        }
+      ]
+    }
+  ]
+}

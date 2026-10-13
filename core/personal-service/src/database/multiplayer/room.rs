@@ -34,7 +34,9 @@ impl ServiceDatabase {
             .map_err(multiplayer_database_error)?;
         transaction
             .execute(
-                "DELETE FROM multiplayer_rooms WHERE host_account_id = ?1",
+                "DELETE FROM multiplayer_rooms WHERE host_account_id = ?1
+                   AND NOT EXISTS (SELECT 1 FROM multiplayer_attention_rooms AS attention
+                                   WHERE attention.room_number = multiplayer_rooms.room_number)",
                 params![host_account_id],
             )
             .map_err(multiplayer_database_error)?;
@@ -200,7 +202,7 @@ impl ServiceDatabase {
 }
 
 // //// 分配持久单调房间序号 [@x380kkm 2026-08-23] ////
-fn allocate_room_sequence(transaction: &Transaction<'_>) -> Result<i64, PersonalServiceError> {
+pub(super) fn allocate_room_sequence(transaction: &Transaction<'_>) -> Result<i64, PersonalServiceError> {
     transaction
         .query_row(
             "UPDATE multiplayer_room_sequence
@@ -214,7 +216,7 @@ fn allocate_room_sequence(transaction: &Transaction<'_>) -> Result<i64, Personal
 }
 // //// /分配持久单调房间序号 ////
 
-fn room_select() -> &'static str {
+pub(super) fn room_select() -> &'static str {
     "SELECT rooms.room_number, rooms.room_sequence, rooms.access_token,
             rooms.host_account_id, rooms.host_viewer_id,
             (SELECT id FROM players WHERE account_id = rooms.host_account_id),
@@ -225,7 +227,9 @@ fn room_select() -> &'static str {
             (SELECT COUNT(*) FROM multiplayer_room_members AS members
              WHERE members.room_number = rooms.room_number)
               + (SELECT COUNT(*) FROM multiplayer_ai_mates AS mates
-                 WHERE mates.room_number = rooms.room_number)
+                 WHERE mates.room_number = rooms.room_number),
+            EXISTS(SELECT 1 FROM multiplayer_attention_rooms AS attention
+                   WHERE attention.room_number = rooms.room_number), rooms.expiry_anchor_ms
      FROM multiplayer_rooms AS rooms"
 }
 
@@ -244,7 +248,7 @@ fn read_room_by(
         .map_err(multiplayer_database_error)
 }
 
-fn read_room(row: &rusqlite::Row<'_>) -> rusqlite::Result<MultiplayerRoom> {
+pub(super) fn read_room(row: &rusqlite::Row<'_>) -> rusqlite::Result<MultiplayerRoom> {
     Ok(MultiplayerRoom {
         room_number: row.get(0)?,
         room_sequence: row.get(1)?,
@@ -263,6 +267,8 @@ fn read_room(row: &rusqlite::Row<'_>) -> rusqlite::Result<MultiplayerRoom> {
         lobby_started: row.get(14)?,
         is_npc_mode: row.get(15)?,
         member_count: row.get(16)?,
+        is_attention_room: row.get(17)?,
+        expiry_anchor_ms: row.get(18)?,
     })
 }
 

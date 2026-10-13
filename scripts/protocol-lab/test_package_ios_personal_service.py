@@ -16,6 +16,7 @@ import zipfile
 from pathlib import Path
 
 from ios_inventory import MH_MAGIC_64
+from cn_game_resource_overlay import PNG_FILELIST_ENTRY
 from ios_cn_aot_patch import (
     CN_API_STRING_POOL_PATTERN,
     CN_BACKUP_VERSION_CANDIDATES,
@@ -177,6 +178,8 @@ class PersonalServiceIpaPackagingTest(unittest.TestCase):
             framework_binary.write_bytes(create_arm64_macho(6))
             framework_plist = {
                 "CFBundlePackageType": "FMWK",
+                "CFBundleShortVersionString": "0.1.0",
+                "CFBundleVersion": "1",
                 "UIDeviceFamily": [9],
                 "UISupportedInterfaceOrientations~ipad": ["framework-value"],
                 "UIRequiresFullScreen": True,
@@ -189,6 +192,8 @@ class PersonalServiceIpaPackagingTest(unittest.TestCase):
                 "CFBundleExecutable": "worldflipper",
                 "CFBundleIdentifier": "com.example.original",
                 "CFBundleDisplayName": "Original",
+                "CFBundleShortVersionString": "1.8.4",
+                "CFBundleVersion": "1.8.4",
                 "UIDeviceFamily": [1],
                 "UISupportedInterfaceOrientations": [
                     "UIInterfaceOrientationPortrait",
@@ -240,6 +245,7 @@ class PersonalServiceIpaPackagingTest(unittest.TestCase):
                 output_ipa,
                 "dev.starpoint.offline",
                 "Starpoint Offline",
+                "0.0.22",
             )
             report_path = root / "package-report.json"
             write_report(report_path, result)
@@ -267,6 +273,13 @@ class PersonalServiceIpaPackagingTest(unittest.TestCase):
                 "dev.starpoint.offline", packaged_info["CFBundleIdentifier"]
             )
             self.assertEqual("Starpoint Offline", packaged_info["CFBundleDisplayName"])
+            for bundle_info in (packaged_info, packaged_framework_plist):
+                self.assertEqual("0.0.22", bundle_info["StarpointReleaseVersion"])
+                self.assertEqual("2.0.22", bundle_info["CFBundleShortVersionString"])
+                self.assertEqual("2.0.22", bundle_info["CFBundleVersion"])
+            self.assertEqual("0.0.22", result["release_version"])
+            self.assertEqual("2.0.22", result["bundle_version"])
+            self.assertEqual("2.0.22", result["framework_bundle_version"])
             self.assertEqual([1, 2], packaged_info["UIDeviceFamily"])
             self.assertEqual(
                 [
@@ -286,7 +299,15 @@ class PersonalServiceIpaPackagingTest(unittest.TestCase):
             )
             self.assertFalse(packaged_info["UIRequiresFullScreen"])
             self.assertEqual({}, packaged_info["UILaunchScreen"])
-            self.assertEqual(framework_plist, packaged_framework_plist)
+            self.assertEqual(
+                {
+                    **framework_plist,
+                    "CFBundleShortVersionString": "2.0.22",
+                    "CFBundleVersion": "2.0.22",
+                    "StarpointReleaseVersion": "0.0.22",
+                },
+                packaged_framework_plist,
+            )
             self.assertTrue(
                 packaged_info["NSAppTransportSecurity"]["NSAllowsLocalNetworking"]
             )
@@ -350,6 +371,7 @@ class PersonalServiceIpaPackagingTest(unittest.TestCase):
             framework.mkdir()
             (framework / "PersonalServiceBootstrap").write_bytes(create_arm64_macho(6))
             cdn_bundle = root / "cn"
+            (framework / "Info.plist").write_bytes(plistlib.dumps({"CFBundlePackageType": "FMWK"}))
             (cdn_bundle / "entities").mkdir(parents=True)
             (cdn_bundle / "entities" / "fixture.csv").write_bytes(b"id,name\n1,test\n")
             (cdn_bundle / "archive-common-full").mkdir()
@@ -422,6 +444,7 @@ class PersonalServiceIpaPackagingTest(unittest.TestCase):
                         {
                             "CFBundleExecutable": "worldflipper",
                             "CFBundleIdentifier": "com.example.original",
+                            "CFBundleShortVersionString": "1.8.4",
                         }
                     ),
                 )
@@ -440,6 +463,7 @@ class PersonalServiceIpaPackagingTest(unittest.TestCase):
                 output_ipa,
                 "dev.starpoint.offline",
                 "Starpoint Offline",
+                "0.0.22",
                 cdn_bundle,
             )
 
@@ -457,6 +481,8 @@ class PersonalServiceIpaPackagingTest(unittest.TestCase):
                 packaged_banner = archive.read(
                     f"Payload/Test.app/asset/production/bundle/{banner_hash[:2]}/{banner_hash[2:]}"
                 )
+                bundled_pngs = archive.read(f"Payload/Test.app/asset/{PNG_FILELIST_ENTRY}").decode("utf-8").splitlines()
+                self.assertIn(f"{banner_hash[:2]}/{banner_hash[2:]}", bundled_pngs)
 
             self.assertEqual(
                 "StarpointCNCDN",
@@ -505,6 +531,7 @@ class PersonalServiceIpaPackagingTest(unittest.TestCase):
                     root / "output.ipa",
                     "dev.starpoint.offline",
                     "Starpoint Offline",
+                    "0.0.22",
                     empty_bundle,
                 )
 
@@ -555,6 +582,7 @@ class PersonalServiceIpaPackagingTest(unittest.TestCase):
                     root / "output.ipa",
                     "com.example.original",
                     "Starpoint Offline",
+                    "0.0.22",
                 )
 
 

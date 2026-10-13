@@ -4,9 +4,7 @@
 // 该模块实现 CN 编队组颜色编辑协议, 并保存编队组快照.
 
 use crate::cn::{decode_request, msgpack_response_at, server_time};
-use crate::cn_tutorial::{
-    decode_player_data, encode_player_data, player_snapshot, require_object, require_root,
-};
+use crate::cn_tutorial::{decode_player_data, encode_player_data, player_snapshot, require_root};
 use crate::database::ServiceDatabase;
 use crate::http::{HttpRequest, HttpResponse};
 use crate::PersonalServiceError;
@@ -26,8 +24,7 @@ struct PartyGroupEditRequest {
 #[derive(Deserialize)]
 struct PartyGroupEdit {
     party_group_id: i64,
-    #[serde(rename = "party_category")]
-    _party_category: i64,
+    party_category: i64,
     party_group_color_id: i64,
 }
 
@@ -43,6 +40,7 @@ pub(crate) fn route(
 }
 // //// /分派 CN 编队组编辑请求 ////
 
+// //// 按编队类别保存分组颜色 [@x380kkm 2026-09-23] ////
 fn edit(
     request: &HttpRequest,
     database: &mut ServiceDatabase,
@@ -64,26 +62,33 @@ fn edit(
     };
     let mut player_data = decode_player_data(&snapshot.data)?;
     let root = require_root(&mut player_data)?;
-    let groups = require_object(root, "user_party_group_list")?;
+    if body
+        .party_group_edit_params_list
+        .iter()
+        .any(|edit| edit.party_category == 1)
+    {
+        crate::cn_player::ensure_normal_party_groups(root)?;
+    }
     for edit in &body.party_group_edit_params_list {
-        if edit.party_group_id <= 0 || edit.party_group_color_id < 0 {
+        if edit.party_group_id <= 0
+            || crate::cn_party::normalize_group_color(edit.party_group_color_id)?
+                != edit.party_group_color_id
+        {
             return Ok(error_response("400 Bad Request", "invalid_party_group"));
         }
-        let Some(group) = groups.get_mut(&edit.party_group_id.to_string()) else {
-            return Ok(error_response("400 Bad Request", "party_group_not_found"));
+        let Some(mut storage) = crate::cn_party::storage::open(root, edit.party_category)? else {
+            return Ok(error_response("400 Bad Request", "invalid_party_category"));
         };
-        let group = group
-            .as_object_mut()
-            .ok_or_else(|| PersonalServiceError::new("stored CN party group is invalid"))?;
-        group.insert(
-            "color_id".to_owned(),
-            serde_json::Value::from(edit.party_group_color_id),
-        );
+        if !storage.set_group_color(edit.party_group_id, edit.party_group_color_id) {
+            return Ok(error_response("400 Bad Request", "party_group_not_found"));
+        }
     }
+    crate::cn_player::rebuild_favorite_party_group_list(root)?;
     let response_time = server_time(database)?;
     database.save_player_snapshot(snapshot.account_id, &encode_player_data(&player_data)?)?;
     msgpack_response_at(body.viewer_id, false, response_time, json!({}))
 }
+// //// /按编队类别保存分组颜色 ////
 
 fn error_response(status: &'static str, code: &str) -> HttpResponse {
     HttpResponse::json(status, format!("{{\"error\":\"{code}\"}}"))

@@ -115,7 +115,7 @@ function verifyGenerator() {
             wildcardCharacterTicketAvailable: true,
             canBeStartDashExchange: true,
             wildcardEquipmentTicketAvailable: false,
-            ticketExpiryAtMs: Date.parse("2024-02-01T00:00:00+09:00"),
+            ticketExpiryAtMs: Date.parse("2024-02-01T00:00:00+08:00"),
             showPeriod: true,
             isComeback: true,
             isStarsGacha: true,
@@ -219,7 +219,7 @@ assert.deepEqual(runtimeGachas["157"].rankRates, {
     normal: [75, 250, 675],
     multiGuarantee: [231, 769],
 })
-assert.equal(runtimeGachas["157"].startAtMs, Date.parse("2023-01-31T12:00:00+09:00"))
+assert.equal(runtimeGachas["157"].startAtMs, Date.parse("2023-01-31T12:00:00+08:00"))
 assert.deepEqual(
     Object.values(runtimeGachas["157"].pool).flat()
         .filter((item) => item.isRateUp)
@@ -239,7 +239,7 @@ assert.deepEqual({
 }, {
     pageKind: 5,
     crazyTenTimesTicketItemId: 999012,
-    ticketExpiryAtMs: Date.parse("2050-12-16T11:59:59+09:00"),
+    ticketExpiryAtMs: Date.parse("2050-12-16T11:59:59+08:00"),
 })
 assert.deepEqual({
     pageKind: runtimeGachas["800000"].pageKind,

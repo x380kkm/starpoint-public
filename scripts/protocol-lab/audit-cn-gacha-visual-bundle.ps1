@@ -427,6 +427,9 @@ function Get-CnGachaPools {
             throw "gacha master 行列不足: $PoolId"
         }
         $Features = @()
+        if (-not $FeatureMaster.Contains($PoolId) -or $FeatureMaster[$PoolId].Count -eq 0) {
+            throw "gacha feature content 缺少客户端卡池关联: $PoolId"
+        }
         if ($FeatureMaster.Contains($PoolId)) {
             foreach ($FeatureEntry in $FeatureMaster[$PoolId].GetEnumerator()) {
                 $FeatureRow = @($FeatureEntry.Value)

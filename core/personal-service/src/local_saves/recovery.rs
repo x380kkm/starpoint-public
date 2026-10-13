@@ -1,7 +1,7 @@
 // audience: internal | external
 // # local-save-recovery
 //
-// 该模块用密码保护跨设备恢复包. 恢复包只包含加密后的本地密钥和玩家远端作用域.
+// 该模块用密码保护存档数据和跨设备恢复包. 数据导入创建独立槽位, 并保留目标实例的本地密钥.
 
 use super::{json_error, parse_json, serialize_json};
 use crate::database::ServiceDatabase;
@@ -12,13 +12,14 @@ use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use pbkdf2::pbkdf2_hmac;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::Sha256;
 
 const RECOVERY_EXPORT_PATH: &str = "/v1/player/recovery/export";
 const RECOVERY_IMPORT_PATH: &str = "/v1/player/recovery/import";
 const ADMIN_RECOVERY_PREFIX: &str = "/v1/player-recovery/";
 const RECOVERY_FORMAT: &str = "starpoint-save-recovery";
+const PASSWORD_SAVE_FORMAT: &str = "starpoint-password-save";
 const RECOVERY_VERSION: i64 = 1;
 const RECOVERY_KDF: &str = "PBKDF2-HMAC-SHA256";
 const RECOVERY_ALGORITHM: &str = "AES-256-GCM";
@@ -65,6 +66,136 @@ struct RecoveryMaterial {
 struct ExportResponse {
     exported: bool,
     package: RecoveryPackage,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct PasswordSaveData {
+    data: serde_json::Value,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PasswordSaveImport {
+    #[serde(default)]
+    name: Option<String>,
+    password: String,
+    package: RecoveryPackage,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EncryptedRecoveryImport {
+    #[serde(default)]
+    name: Option<String>,
+    password: String,
+    envelope: super::encryption::EncryptedSaveEnvelope,
+    recovery: RecoveryPackage,
+}
+
+// //// 使用密码导出可跨设备导入的存档 [@x380kkm 2026-09-26] ////
+pub(super) fn export_password_save(
+    request: &HttpRequest,
+    database: &mut ServiceDatabase,
+    slot_id: &str,
+) -> Result<HttpResponse, PersonalServiceError> {
+    let Some(slot_id) = super::parse_id(slot_id) else {
+        return Ok(json_error("400 Bad Request", "invalid_local_save_id"));
+    };
+    let Some(body) = parse_json::<PasswordRequest>(request) else {
+        return Ok(json_error("400 Bad Request", "invalid_recovery_request"));
+    };
+    if !is_valid_password(&body.password) {
+        return Ok(json_error("400 Bad Request", "recovery_password_invalid"));
+    }
+    let Some(export) = database.export_local_save(slot_id)? else {
+        return Ok(json_error("404 Not Found", "local_save_not_found"));
+    };
+    let data_json = super::sanitize_serialized_game_data(&export.data_json)?;
+    let data = serde_json::from_str(&data_json).map_err(|error| {
+        PersonalServiceError::new(format!("failed to decode password save: {error}"))
+    })?;
+    let plaintext = serde_json::to_vec(&PasswordSaveData { data }).map_err(|error| {
+        PersonalServiceError::new(format!("failed to encode password save: {error}"))
+    })?;
+    serialize_json("200 OK", encrypt_package(&body.password, &plaintext, PASSWORD_SAVE_FORMAT)?)
+}
+
+// //// 为本地存档导出兼容旧文件的恢复包 [@x380kkm 2026-09-26] ////
+pub(super) fn export_local_recovery(
+    request: &HttpRequest,
+    database: &mut ServiceDatabase,
+    slot_id: &str,
+) -> Result<HttpResponse, PersonalServiceError> {
+    let Some(slot_id) = super::parse_id(slot_id) else {
+        return Ok(json_error("400 Bad Request", "invalid_local_save_id"));
+    };
+    let Some(context) = database.local_save_context(slot_id)? else {
+        return Ok(json_error("404 Not Found", "local_save_not_found"));
+    };
+    export_recovery_package(request, database, context.account_id)
+}
+
+// //// 将密码存档导入独立槽位 [@x380kkm 2026-09-26] ////
+pub(super) fn import_password_save(
+    request: &HttpRequest,
+    database: &mut ServiceDatabase,
+) -> Result<HttpResponse, PersonalServiceError> {
+    let Some(body) = parse_json::<PasswordSaveImport>(request) else {
+        return Ok(json_error("400 Bad Request", "invalid_recovery_request"));
+    };
+    if !is_valid_password(&body.password) {
+        return Ok(json_error("400 Bad Request", "recovery_password_invalid"));
+    }
+    let Some(save) = decrypt_package::<PasswordSaveData>(&body.password, &body.package, PASSWORD_SAVE_FORMAT) else {
+        return Ok(json_error("400 Bad Request", "recovery_package_invalid"));
+    };
+    import_recovered_data(database, body.name.as_deref(), save.data)
+}
+
+// //// 用恢复包解密旧存档并导入独立槽位 [@x380kkm 2026-09-26] ////
+pub(super) fn import_encrypted_recovery(
+    request: &HttpRequest,
+    database: &mut ServiceDatabase,
+) -> Result<HttpResponse, PersonalServiceError> {
+    let Some(body) = parse_json::<EncryptedRecoveryImport>(request) else {
+        return Ok(json_error("400 Bad Request", "invalid_recovery_request"));
+    };
+    if !is_valid_password(&body.password) {
+        return Ok(json_error("400 Bad Request", "recovery_password_invalid"));
+    }
+    let Some(material) = decrypt_package::<RecoveryMaterial>(&body.password, &body.recovery, RECOVERY_FORMAT) else {
+        return Ok(json_error("400 Bad Request", "recovery_package_invalid"));
+    };
+    let key_bytes = decode_canonical(&material.key_bytes)
+        .and_then(|bytes| <[u8; KEY_BYTES]>::try_from(bytes).ok());
+    let Some(key_bytes) = key_bytes.filter(|_| is_valid_key_id(&material.key_id)) else {
+        return Ok(json_error("400 Bad Request", "recovery_package_invalid"));
+    };
+    let key = crate::database::LocalSaveEncryptionKey { key_id: material.key_id, key_bytes };
+    let data = super::encryption::decrypt_player_data(&body.envelope, &key)
+        .and_then(|data| serde_json::from_str(&data).ok());
+    let Some(data) = data else {
+        return Ok(json_error("400 Bad Request", "invalid_encrypted_local_save"));
+    };
+    import_recovered_data(database, body.name.as_deref(), data)
+}
+
+fn import_recovered_data(
+    database: &mut ServiceDatabase,
+    name: Option<&str>,
+    data: serde_json::Value,
+) -> Result<HttpResponse, PersonalServiceError> {
+    let Some(name) = super::normalize_import_name(name) else {
+        return Ok(json_error("400 Bad Request", "invalid_local_save_name"));
+    };
+    let Some(data) = crate::portable_save::sanitize_game_data(data) else {
+        return Ok(json_error("400 Bad Request", "invalid_local_save_data"));
+    };
+    let data_json = serde_json::to_string(&data).map_err(|error| {
+        PersonalServiceError::new(format!("failed to encode recovered save: {error}"))
+    })?;
+    super::map_slot_result(database.import_local_save(&name, &data_json))
 }
 
 pub(super) fn is_player_path(path: &str) -> bool {
@@ -154,7 +285,7 @@ fn export_recovery_package(
     let plaintext = serde_json::to_vec(&material).map_err(|error| {
         PersonalServiceError::new(format!("failed to encode recovery material: {error}"))
     })?;
-    let package = encrypt_package(&body.password, &plaintext)?;
+    let package = encrypt_package(&body.password, &plaintext, RECOVERY_FORMAT)?;
     serialize_json(
         "200 OK",
         ExportResponse {
@@ -177,7 +308,7 @@ fn import_recovery_package(
     if !is_valid_password(&body.password) {
         return Ok(json_error("400 Bad Request", "recovery_password_invalid"));
     }
-    let Some(material) = decrypt_package(&body.password, &body.package) else {
+    let Some(material) = decrypt_package::<RecoveryMaterial>(&body.password, &body.package, RECOVERY_FORMAT) else {
         return Ok(json_error("400 Bad Request", "recovery_package_invalid"));
     };
     let Some(key_bytes) = decode_canonical(&material.key_bytes) else {
@@ -210,6 +341,7 @@ fn import_recovery_package(
 fn encrypt_package(
     password: &str,
     plaintext: &[u8],
+    format: &str,
 ) -> Result<RecoveryPackage, PersonalServiceError> {
     let mut salt = [0_u8; SALT_BYTES];
     let mut nonce = [0_u8; NONCE_BYTES];
@@ -227,12 +359,12 @@ fn encrypt_package(
             Nonce::from_slice(&nonce),
             Payload {
                 msg: plaintext,
-                aad: recovery_associated_data().as_bytes(),
+                aad: recovery_associated_data(format).as_bytes(),
             },
         )
         .map_err(|_| PersonalServiceError::new("failed to encrypt recovery package"))?;
     Ok(RecoveryPackage {
-        format: RECOVERY_FORMAT.to_owned(),
+        format: format.to_owned(),
         version: RECOVERY_VERSION,
         kdf: RECOVERY_KDF.to_owned(),
         algorithm: RECOVERY_ALGORITHM.to_owned(),
@@ -243,8 +375,8 @@ fn encrypt_package(
     })
 }
 
-fn decrypt_package(password: &str, package: &RecoveryPackage) -> Option<RecoveryMaterial> {
-    if package.format != RECOVERY_FORMAT
+fn decrypt_package<T: DeserializeOwned>(password: &str, package: &RecoveryPackage, format: &str) -> Option<T> {
+    if package.format != format
         || package.version != RECOVERY_VERSION
         || package.kdf != RECOVERY_KDF
         || package.algorithm != RECOVERY_ALGORITHM
@@ -268,7 +400,7 @@ fn decrypt_package(password: &str, package: &RecoveryPackage) -> Option<Recovery
             Nonce::from_slice(&nonce),
             Payload {
                 msg: &ciphertext,
-                aad: recovery_associated_data().as_bytes(),
+                aad: recovery_associated_data(format).as_bytes(),
             },
         )
         .ok()?;
@@ -281,8 +413,8 @@ fn derive_key(password: &str, salt: &[u8]) -> [u8; KEY_BYTES] {
     key
 }
 
-fn recovery_associated_data() -> String {
-    format!("{RECOVERY_FORMAT}:{RECOVERY_VERSION}:{RECOVERY_KDF}:{RECOVERY_ALGORITHM}")
+fn recovery_associated_data(format: &str) -> String {
+    format!("{format}:{RECOVERY_VERSION}:{RECOVERY_KDF}:{RECOVERY_ALGORITHM}")
 }
 
 fn decode_canonical(value: &str) -> Option<Vec<u8>> {

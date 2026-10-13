@@ -15,6 +15,22 @@ const REPOSITORY_ROOT = path.resolve(SCRIPT_DIRECTORY, "..", "..")
 
 export const SHOP_CONTRACT_SCHEMAS = [
     {
+        name: "special_pack_shop",
+        shopType: 3,
+        logicalPath: "master/shop/special_pack_shop.orderedmap",
+        assetFile: "special_pack_shop.json",
+        costOffset: 12,
+        rewardOffset: 27,
+    },
+    {
+        name: "mana_shop",
+        shopType: 5,
+        logicalPath: "master/shop/mana_shop.orderedmap",
+        assetFile: "mana_shop.json",
+        costOffset: 6,
+        rewardOffset: 20,
+    },
+    {
         name: "treasure_shop",
         shopType: 2,
         logicalPath: "master/shop/treasure_shop.orderedmap",
@@ -57,11 +73,15 @@ export const SHOP_CONTRACT_SCHEMAS = [
         costOffset: 10,
         rewardOffset: 25,
     },
+    {
+        name: "equipment_enhancement_shop",
+        shopType: 10,
+        logicalPath: "master/equipment_enhancement/equipment_enhancement_shop.orderedmap",
+        assetFile: "equipment_enhancement_shop.json",
+        costOffset: 14,
+        rewardOffset: 32,
+    },
 ]
-
-const TREASURE_SCHEMA = SHOP_CONTRACT_SCHEMAS.find((schema) => schema.shopType === 2)
-const BOSS_COIN_SCHEMA = SHOP_CONTRACT_SCHEMAS.find((schema) => schema.shopType === 7)
-const STAR_GRAIN_SCHEMA = SHOP_CONTRACT_SCHEMAS.find((schema) => schema.shopType === 9)
 
 // //// 解析生成器参数 [@x380kkm 2026-08-31] ////
 function parseArguments(argv) {
@@ -111,12 +131,28 @@ export function parseShopContract(row, schema, shopItemId) {
         })
     }
     const rewards = []
+    const userCostOffset = schema.costOffset - 3
+    const userCost = isEmptyField(row[userCostOffset]) ? undefined : {
+        type: parseInteger(row[userCostOffset], `${schema.name}:${shopItemId}:user-cost-type`),
+        amount: parseInteger(row[userCostOffset + 1], `${schema.name}:${shopItemId}:user-cost-amount`, { minimum: 1 }),
+    }
+    const contract = {
+        costs, rewards, userCost,
+        availableFrom: parseOptionalTime(row[schema.costOffset + 8]),
+        availableUntil: parseOptionalTime(row[schema.costOffset + 9]),
+    }
+    if (schema.shopType === 3) contract.paidOnly = true
+    if (schema.shopType === 5) {
+        rewards.push({ type: 2, count: parseInteger(row[20], `${schema.name}:${shopItemId}:purchase-count`) + parseInteger(row[21], `${schema.name}:${shopItemId}:additional-count`) })
+        return contract
+    }
+    if (schema.shopType === 10 && row[4] === "1") return contract
     for (let offset = schema.rewardOffset; offset < schema.rewardOffset + 18; offset += 3) {
         if (isEmptyField(row[offset])) continue
         const reward = {
             type: parseInteger(row[offset], `${schema.logicalPath}:${shopItemId}:reward-type`),
         }
-        if (reward.type > 4) {
+        if (reward.type > 4 && reward.type !== 6) {
             throw new Error(`CN shop master reward type is unsupported: ${schema.logicalPath}:${shopItemId}:${reward.type}`)
         }
         if (!isEmptyField(row[offset + 1])) {
@@ -130,7 +166,7 @@ export function parseShopContract(row, schema, shopItemId) {
     if (rewards.length === 0) {
         throw new Error(`CN shop master reward list is empty: ${schema.logicalPath}:${shopItemId}`)
     }
-    return { costs, rewards }
+    return contract
 }
 // //// /读取客户端商品的成本和奖励 ////
 
@@ -159,21 +195,33 @@ export function resolveServerShopItem(document, shopItemId, row, schema) {
 }
 // //// /定位服务端商店商品 ////
 
+// //// 投影装备强化阶段和逐级消耗 [@x380kkm 2026-09-21] ////
+export function projectEquipmentEnhancementItem(contract, shopItemId) {
+    const { row } = contract
+    if (row[4] !== "1") throw new Error(`CN equipment enhancement kind is unsupported: ${shopItemId}:${row[4]}`)
+    const item = {
+        costs: contract.costs,
+        rewards: contract.rewards,
+        availableFrom: parseOptionalTime(row[22]),
+        availableUntil: parseOptionalTime(row[23]),
+        stock: -1,
+        shopCategoryId: parseInteger(row[0], `equipment-enhancement:${shopItemId}:category`),
+        groupId: parseInteger(row[2], `equipment-enhancement:${shopItemId}:group`),
+        stage: parseInteger(row[3], `equipment-enhancement:${shopItemId}:stage`),
+        equipmentId: parseInteger(row[29], `equipment-enhancement:${shopItemId}:equipment`),
+        enhancementMaxLevel: parseInteger(row[30], `equipment-enhancement:${shopItemId}:max-level`),
+        requireAwakeningLevel: parseInteger(row[31], `equipment-enhancement:${shopItemId}:awakening`),
+    }
+    if (contract.userCost !== undefined) item.userCost = contract.userCost
+    return item
+}
+// //// /投影装备强化阶段和逐级消耗 ////
+
 // //// 解析 master 可选时间 [@x380kkm 2026-08-31] ////
 function parseOptionalTime(value) {
     return isEmptyField(value) ? null : String(value)
 }
 // //// /解析 master 可选时间 ////
-
-// //// 解析宝物商店用户成本 [@x380kkm 2026-08-31] ////
-function parseUserCost(row, shopItemId) {
-    if (isEmptyField(row[7])) return undefined
-    return {
-        type: parseInteger(row[7], `treasure-shop:${shopItemId}:user-cost-type`),
-        amount: parseInteger(row[8], `treasure-shop:${shopItemId}:user-cost-amount`, { minimum: 1 }),
-    }
-}
-// //// /解析宝物商店用户成本 ////
 
 // //// 投影宝物商店完整商品 [@x380kkm 2026-08-31] ////
 export function projectTreasureItem(contract, shopItemId) {
@@ -184,7 +232,7 @@ export function projectTreasureItem(contract, shopItemId) {
         availableUntil: parseOptionalTime(contract.row[19]),
         stock: parseInteger(contract.row[21], `treasure-shop:${shopItemId}:stock`, { minimum: 1 }),
     }
-    const userCost = parseUserCost(contract.row, shopItemId)
+    const userCost = contract.userCost
     if (userCost !== undefined) item.userCost = userCost
     return item
 }
@@ -208,6 +256,10 @@ function synchronizeCatalogContracts(document, contracts, schema) {
         }
         item.costs = contract.costs
         item.rewards = contract.rewards
+        item.availableFrom = contract.availableFrom
+        item.availableUntil = contract.availableUntil
+        if (contract.userCost === undefined) delete item.userCost
+        else item.userCost = contract.userCost
     }
     return document
 }
@@ -221,23 +273,22 @@ function writeJson(filePath, document) {
 
 // //// 生成个人服务商店契约资产 [@x380kkm 2026-08-31] ////
 export async function generateShopContracts(cdnRoot, assetRoot) {
-    const schemas = [TREASURE_SCHEMA, BOSS_COIN_SCHEMA, STAR_GRAIN_SCHEMA]
-    const buffers = await readMasterBuffers(cdnRoot, readEntityRecords(cdnRoot), schemas)
-    const treasureContracts = decodeShopContracts(buffers.get(TREASURE_SCHEMA.name), TREASURE_SCHEMA)
-    const bossCoinContracts = decodeShopContracts(buffers.get(BOSS_COIN_SCHEMA.name), BOSS_COIN_SCHEMA)
-    const starGrainContracts = decodeShopContracts(buffers.get(STAR_GRAIN_SCHEMA.name), STAR_GRAIN_SCHEMA)
-    const bossCoinPath = path.join(assetRoot, BOSS_COIN_SCHEMA.assetFile)
-    const starGrainPath = path.join(assetRoot, STAR_GRAIN_SCHEMA.assetFile)
-    const bossCoinCatalog = JSON.parse(fs.readFileSync(bossCoinPath, "utf8"))
-    const starGrainCatalog = JSON.parse(fs.readFileSync(starGrainPath, "utf8"))
-
-    writeJson(path.join(assetRoot, TREASURE_SCHEMA.assetFile), buildTreasureCatalog(treasureContracts))
-    writeJson(bossCoinPath, synchronizeCatalogContracts(bossCoinCatalog, bossCoinContracts, BOSS_COIN_SCHEMA))
-    writeJson(starGrainPath, synchronizeCatalogContracts(starGrainCatalog, starGrainContracts, STAR_GRAIN_SCHEMA))
+    const buffers = await readMasterBuffers(cdnRoot, readEntityRecords(cdnRoot), SHOP_CONTRACT_SCHEMAS)
+    const counts = {}
+    for (const schema of SHOP_CONTRACT_SCHEMAS) {
+        const contracts = decodeShopContracts(buffers.get(schema.name), schema)
+        const outputPath = path.join(assetRoot, schema.assetFile)
+        const document = schema.shopType === 2 ? buildTreasureCatalog(contracts)
+            : [3, 5].includes(schema.shopType) ? Object.fromEntries(Object.entries(contracts).map(([id, { row, ...item }]) => [id, item]))
+            : synchronizeCatalogContracts(JSON.parse(fs.readFileSync(outputPath, "utf8")), contracts, schema)
+        writeJson(outputPath, document)
+        counts[schema.shopType] = Object.keys(contracts).length
+    }
     return {
-        treasure_item_count: Object.keys(treasureContracts).length,
-        boss_coin_item_count: Object.keys(bossCoinContracts).length,
-        star_grain_item_count: Object.keys(starGrainContracts).length,
+        treasure_item_count: counts[2],
+        boss_coin_item_count: counts[7],
+        star_grain_item_count: counts[9],
+        shop_counts: counts,
     }
 }
 // //// /生成个人服务商店契约资产 ////

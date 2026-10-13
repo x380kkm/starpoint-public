@@ -1,38 +1,153 @@
 // audience: internal
 // # personal-service-multiplayer-ai
 //
-// 该模块解析当前存档槽并冻结房间使用的 AI 队伍快照.
+// 该模块解析实例所选存档或当前存档, 按保存快照或内置模板冻结房间使用的 AI 队伍.
 
 use super::{
-    multiplayer_database_error, MultiplayerAiMate, MultiplayerAiMateInput, MAX_ROOM_MEMBERS,
+    multiplayer_database_error, MultiplayerAiMate, MultiplayerAiMateInput, MultiplayerAiSource,
+    MAX_ROOM_MEMBERS,
 };
 use crate::database::ServiceDatabase;
 use crate::PersonalServiceError;
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
 
+// //// 在房间事务内保存归属和容量有效的 AI 队伍 [@x380kkm 2026-09-24] ////
+pub(super) fn save_ai_mates(
+    connection: &Connection,
+    room_number: &str,
+    owner_account_id: i64,
+    inputs: &[MultiplayerAiMateInput],
+) -> Result<bool, PersonalServiceError> {
+    if inputs.len() > 2 {
+        return Err(PersonalServiceError::new(
+            "multiplayer AI mate count exceeds room capacity",
+        ));
+    }
+    let owns_room = connection
+        .query_row(
+            "SELECT EXISTS(
+                 SELECT 1 FROM multiplayer_rooms
+                 WHERE room_number = ?1 AND host_account_id = ?2
+             )",
+            params![room_number, owner_account_id],
+            |row| row.get::<_, bool>(0),
+        )
+        .map_err(multiplayer_database_error)?;
+    if !owns_room {
+        return Ok(false);
+    }
+    let source_slot_id = resolve_ai_source_slot_id(connection, owner_account_id)?;
+    let prepared_member_count = connection
+        .query_row(
+            "SELECT COUNT(*) FROM multiplayer_room_members WHERE room_number = ?1",
+            params![room_number],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(multiplayer_database_error)?;
+    let available = (MAX_ROOM_MEMBERS - prepared_member_count).clamp(0, 2);
+    if inputs.len() as i64 > available {
+        return Err(PersonalServiceError::new(
+            "multiplayer AI mate count exceeds prepared room capacity",
+        ));
+    }
+    connection
+        .execute(
+            "DELETE FROM multiplayer_ai_mates WHERE room_number = ?1",
+            params![room_number],
+        )
+        .map_err(multiplayer_database_error)?;
+    for (index, input) in inputs.iter().enumerate() {
+        if !input.source.is_valid() {
+            return Err(PersonalServiceError::new(
+                "multiplayer AI source is invalid",
+            ));
+        }
+        if let Some(snapshot_id) = &input.source.snapshot_id {
+            let selected_snapshot = connection
+                .query_row(
+                    "SELECT EXISTS(
+                     SELECT 1
+                     FROM ai_team_snapshot_heads AS heads
+                     JOIN ai_team_snapshots AS snapshots
+                       ON snapshots.id = heads.snapshot_id
+                      AND snapshots.slot_id = heads.slot_id
+                      AND snapshots.team_index = heads.team_index
+                     WHERE snapshots.id = ?1 AND snapshots.slot_id = ?2
+                 )",
+                    params![snapshot_id, source_slot_id],
+                    |row| row.get::<_, bool>(0),
+                )
+                .map_err(multiplayer_database_error)?;
+            if !selected_snapshot {
+                return Err(PersonalServiceError::new(
+                    "multiplayer AI snapshot does not match the selected source",
+                ));
+            }
+        }
+        connection
+            .execute(
+                "INSERT INTO multiplayer_ai_mates (
+                     room_number, position, owner_account_id, snapshot_id,
+                     client_mate_json, lobby_player_json, template_index
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    room_number,
+                    index as i64 + 1,
+                    owner_account_id,
+                    input.source.snapshot_id,
+                    input.client_mate_json,
+                    input.lobby_player_json,
+                    input.source.template_index,
+                ],
+            )
+            .map_err(multiplayer_database_error)?;
+    }
+    connection
+        .execute(
+            "UPDATE multiplayer_rooms SET is_npc_mode = ?1
+             WHERE room_number = ?2",
+            params![!inputs.is_empty(), room_number],
+        )
+        .map_err(multiplayer_database_error)?;
+    Ok(true)
+}
+
+// //// 优先使用实例所选存档并保留当前账号来源 [@x380kkm 2026-09-29] ////
+fn resolve_ai_source_slot_id(
+    connection: &Connection,
+    account_id: i64,
+) -> Result<Option<i64>, PersonalServiceError> {
+    connection
+        .query_row(
+            "SELECT slots.id
+             FROM local_save_slots AS slots
+             JOIN accounts ON accounts.id = ?1
+             LEFT JOIN ai_team_source AS source ON source.id = 1
+             LEFT JOIN active_local_save_slots AS active
+               ON active.slot_id = slots.id
+              AND active.device_id = CAST(substr(accounts.idp_id, 4) AS INTEGER)
+             WHERE slots.id = source.slot_id OR EXISTS (
+                 SELECT 1 FROM local_save_access AS access
+                 WHERE access.slot_id = slots.id AND access.account_id = ?1
+             )
+             ORDER BY slots.id = COALESCE(source.slot_id, -1) DESC,
+                      active.slot_id IS NULL, slots.updated_at DESC, slots.id
+             LIMIT 1",
+            params![account_id],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(multiplayer_database_error)
+}
+
 impl ServiceDatabase {
-    pub(crate) fn multiplayer_current_slot_id(
+    // //// 解析本场玩家使用的 AI 来源存档 [@x380kkm 2026-09-29] ////
+    pub(crate) fn multiplayer_ai_source_slot_id(
         &self,
         account_id: i64,
     ) -> Result<Option<i64>, PersonalServiceError> {
-        self.connection
-            .query_row(
-                "SELECT slots.id
-                 FROM local_save_slots AS slots
-                 JOIN local_save_access AS access
-                   ON access.slot_id = slots.id AND access.account_id = ?1
-                 JOIN accounts ON accounts.id = ?1
-                 LEFT JOIN active_local_save_slots AS active
-                   ON active.slot_id = slots.id
-                  AND active.device_id = CAST(substr(accounts.idp_id, 4) AS INTEGER)
-                 ORDER BY active.slot_id IS NULL, slots.updated_at DESC, slots.id
-                 LIMIT 1",
-                params![account_id],
-                |row| row.get(0),
-            )
-            .optional()
-            .map_err(multiplayer_database_error)
+        resolve_ai_source_slot_id(&self.connection, account_id)
     }
 
     pub(crate) fn stage_multiplayer_ai_mates(
@@ -41,94 +156,13 @@ impl ServiceDatabase {
         owner_account_id: i64,
         inputs: &[MultiplayerAiMateInput],
     ) -> Result<Option<Vec<MultiplayerAiMate>>, PersonalServiceError> {
-        if inputs.len() > 2 {
-            return Err(PersonalServiceError::new(
-                "multiplayer AI mate count exceeds room capacity",
-            ));
-        }
         let transaction = self
             .connection
             .transaction()
             .map_err(multiplayer_database_error)?;
-        let owns_room = transaction
-            .query_row(
-                "SELECT EXISTS(
-                     SELECT 1 FROM multiplayer_rooms
-                     WHERE room_number = ?1 AND host_account_id = ?2
-                 )",
-                params![room_number, owner_account_id],
-                |row| row.get::<_, bool>(0),
-            )
-            .map_err(multiplayer_database_error)?;
-        if !owns_room {
+        if !save_ai_mates(&transaction, room_number, owner_account_id, inputs)? {
             return Ok(None);
         }
-        let prepared_member_count = transaction
-            .query_row(
-                "SELECT COUNT(*) FROM multiplayer_room_members WHERE room_number = ?1",
-                params![room_number],
-                |row| row.get::<_, i64>(0),
-            )
-            .map_err(multiplayer_database_error)?;
-        let available = (MAX_ROOM_MEMBERS - prepared_member_count).clamp(0, 2);
-        if inputs.len() as i64 > available {
-            return Err(PersonalServiceError::new(
-                "multiplayer AI mate count exceeds prepared room capacity",
-            ));
-        }
-        transaction
-            .execute(
-                "DELETE FROM multiplayer_ai_mates WHERE room_number = ?1",
-                params![room_number],
-            )
-            .map_err(multiplayer_database_error)?;
-        for (index, input) in inputs.iter().enumerate() {
-            let owns_snapshot = transaction
-                .query_row(
-                    "SELECT EXISTS(
-                         SELECT 1
-                         FROM ai_team_snapshot_heads AS heads
-                         JOIN ai_team_snapshots AS snapshots
-                           ON snapshots.id = heads.snapshot_id
-                          AND snapshots.slot_id = heads.slot_id
-                          AND snapshots.team_index = heads.team_index
-                         JOIN local_save_access AS access
-                           ON access.slot_id = snapshots.slot_id
-                         WHERE snapshots.id = ?1 AND access.account_id = ?2
-                     )",
-                    params![input.snapshot_id, owner_account_id],
-                    |row| row.get::<_, bool>(0),
-                )
-                .map_err(multiplayer_database_error)?;
-            if !owns_snapshot {
-                return Err(PersonalServiceError::new(
-                    "multiplayer AI snapshot does not belong to the room owner",
-                ));
-            }
-            transaction
-                .execute(
-                    "INSERT INTO multiplayer_ai_mates (
-                         room_number, position, owner_account_id, snapshot_id,
-                         client_mate_json, lobby_player_json
-                     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                    params![
-                        room_number,
-                        index as i64 + 1,
-                        owner_account_id,
-                        input.snapshot_id,
-                        input.client_mate_json,
-                        input.lobby_player_json,
-                    ],
-                )
-                .map_err(multiplayer_database_error)?;
-        }
-        transaction
-            .execute(
-                "UPDATE multiplayer_rooms SET is_npc_mode = ?1
-                 WHERE room_number = ?2",
-                params![!inputs.is_empty(), room_number],
-            )
-            .map_err(multiplayer_database_error)?;
         transaction.commit().map_err(multiplayer_database_error)?;
         self.list_multiplayer_ai_mates(room_number).map(Some)
     }
@@ -180,7 +214,7 @@ impl ServiceDatabase {
             .connection
             .prepare(
                 "SELECT room_number, position, owner_account_id, snapshot_id,
-                        client_mate_json, lobby_player_json
+                        client_mate_json, lobby_player_json, template_index
                  FROM multiplayer_ai_mates
                  WHERE room_number = ?1 ORDER BY position",
             )
@@ -191,7 +225,10 @@ impl ServiceDatabase {
                     room_number: row.get(0)?,
                     position: row.get(1)?,
                     owner_account_id: row.get(2)?,
-                    snapshot_id: row.get(3)?,
+                    source: MultiplayerAiSource {
+                        snapshot_id: row.get(3)?,
+                        template_index: row.get(6)?,
+                    },
                     client_mate_json: row.get(4)?,
                     lobby_player_json: row.get(5)?,
                 })

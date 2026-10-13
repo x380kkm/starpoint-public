@@ -4,14 +4,26 @@
 // 该模块保存活动日历和可由管理 API 调整的活动 Boss 状态, 并返回 CN 客户端活动查询结果.
 // 未配置日历的活动保持开放, 已配置活动按当前虚拟时间判断状态.
 
+mod battle;
 mod carnival;
+mod competition;
+pub(crate) use competition::route as competition_management_route;
+pub(crate) use carnival::records as carnival_records;
 mod party;
+pub(crate) use party::{
+    carnival_party_groups, normalize_raid_party_groups, raid_party_groups, rush_party_groups,
+};
 mod raid;
+mod ranking;
+pub(crate) use ranking::record_battle_result as record_ranking_battle_result;
 mod rush;
+pub(crate) use rush::normalize_played_parties;
 mod state;
+pub(crate) use state::{current_event_id, event_state, event_state_mut};
+pub(crate) use state::{activate_battle_period, event_period_start, reset_event_state, reward_scope, select_period};
 
 use crate::cn::{decode_request, msgpack_response_at, server_time};
-use crate::cn_tutorial::{decode_player_data, player_snapshot};
+use crate::cn_tutorial::player_snapshot;
 use crate::database::{ActivityWindowStatus, ServiceDatabase};
 use crate::http::{HttpRequest, HttpResponse};
 use crate::management;
@@ -21,7 +33,6 @@ use serde_json::{json, Map, Value};
 use std::path::Path;
 
 const RAID_BOSS_MANAGEMENT_PREFIX: &str = "/v1/activities/raid-boss/";
-const RANKING_EVENT_CATEGORY: i64 = 14;
 
 // //// 提供活动战斗结算状态 [@x380kkm 2026-08-25] ////
 pub(crate) fn activate_battle_event_state<'a>(
@@ -53,14 +64,6 @@ struct UpdateRaidBossRequest {
     total_kill_count: i64,
 }
 
-#[derive(Deserialize)]
-struct RankingEventRequest {
-    viewer_id: i64,
-    ranking_event_id: i64,
-    quest_kind: Option<i64>,
-    api_count: Option<i64>,
-}
-
 // //// 分派 CN 活动查询请求 [@x380kkm 2026-07-24] ////
 pub(crate) fn route(
     request: &HttpRequest,
@@ -72,16 +75,13 @@ pub(crate) fn route(
     }
     let existing = match request.path() {
         "/api/index.php/event/raid/get_boss" => Some(get_raid_boss(request, database, asset_root)),
-        "/api/index.php/ranking_event/get_summary" => {
-            Some(get_ranking_summary(request, database, asset_root, false))
-        }
-        "/api/index.php/ranking_event/receive_reward" => {
-            Some(get_ranking_summary(request, database, asset_root, true))
-        }
         _ => None,
     };
     if existing.is_some() {
         return existing;
+    }
+    if let Some(response) = ranking::route(request, database) {
+        return Some(response);
     }
     if let Some(response) = carnival::route(request, database, asset_root) {
         return Some(response);
@@ -166,58 +166,6 @@ fn get_raid_boss(
     )
 }
 
-fn get_ranking_summary(
-    request: &HttpRequest,
-    database: &mut ServiceDatabase,
-    asset_root: &Path,
-    receive_reward: bool,
-) -> Result<HttpResponse, PersonalServiceError> {
-    let body = match decode_request::<RankingEventRequest>(request) {
-        Ok(body)
-            if body.viewer_id > 0
-                && body.ranking_event_id > 0
-                && body.quest_kind.unwrap_or(RANKING_EVENT_CATEGORY) > 0
-                && body.api_count.unwrap_or(0) >= 0 =>
-        {
-            body
-        }
-        Ok(_) | Err(_) => return Ok(error_response("400 Bad Request", "invalid_request_body")),
-    };
-    let (quest_id, top_time) = match ranking_event_definition(body.ranking_event_id) {
-        Some(definition) => definition,
-        None => return Ok(error_response("400 Bad Request", "ranking_event_not_found")),
-    };
-    let snapshot = match player_snapshot(database, body.viewer_id)? {
-        Ok(snapshot) => snapshot,
-        Err(response) => return Ok(response),
-    };
-    if let Some(response) = closed_activity_response(
-        database,
-        asset_root,
-        &format!("ranking:{}", body.ranking_event_id),
-    )? {
-        return Ok(response);
-    }
-    let player_data = decode_player_data(&snapshot.data)?;
-    let root = player_data
-        .as_object()
-        .ok_or_else(|| PersonalServiceError::new("stored CN player data is not an object"))?;
-    let summary = ranking_summary(root, quest_id, top_time);
-    let mut data = summary
-        .as_object()
-        .cloned()
-        .ok_or_else(|| PersonalServiceError::new("CN ranking summary is not an object"))?;
-    if receive_reward {
-        data.insert("status".to_owned(), Value::from(1));
-    }
-    msgpack_response_at(
-        body.viewer_id,
-        false,
-        server_time(database)?,
-        Value::Object(data),
-    )
-}
-
 pub(super) fn closed_activity_response(
     database: &ServiceDatabase,
     _asset_root: &Path,
@@ -232,59 +180,6 @@ pub(super) fn closed_activity_response(
         ActivityWindowStatus::Ended => "activity_ended",
     };
     Ok(Some(error_response("400 Bad Request", code)))
-}
-
-fn ranking_summary(root: &Map<String, Value>, quest_id: i64, top_time: i64) -> Value {
-    let progress = root
-        .get("quest_progress")
-        .and_then(Value::as_object)
-        .and_then(|progress| progress.get(&RANKING_EVENT_CATEGORY.to_string()))
-        .and_then(Value::as_array)
-        .and_then(|progress_list| {
-            progress_list
-                .iter()
-                .find(|entry| entry.get("quest_id").and_then(Value::as_i64) == Some(quest_id))
-        });
-    let best_time = progress
-        .and_then(|entry| entry.get("best_elapsed_time_ms"))
-        .and_then(Value::as_i64)
-        .filter(|time| *time > 0);
-    let accomplished = best_time.is_some();
-    let elapsed_time = best_time.unwrap_or_default();
-    let rank_percentage = best_time
-        .map(|time| 1.0 - (top_time as f64 / time as f64))
-        .unwrap_or(100.0);
-    json!({
-        "best_record": {
-            "elapsed_time_ms": elapsed_time,
-            "is_accomplished": accomplished,
-            "score": progress
-                .and_then(|entry| entry.get("high_score"))
-                .and_then(Value::as_i64)
-                .unwrap_or_default(),
-        },
-        "leader_character_evolution_img_level": 1,
-        "leader_character_id": 1,
-        "rank_border_top": {
-            "elapsed_time_ms": top_time,
-            "is_accomplished": true,
-            "score": 1_110_111,
-        },
-        "rank_percentage": rank_percentage,
-    })
-}
-
-fn ranking_event_definition(event_id: i64) -> Option<(i64, i64)> {
-    match event_id {
-        1 => Some((1_001, 54_410)),
-        2 => Some((2_001, 25_800)),
-        3 => Some((3_001, 18_880)),
-        4 => Some((4_001, 31_720)),
-        5 => Some((5_001, 6_540)),
-        1_000 => Some((1_000_001, 0)),
-        1_001 => Some((1_001_001, 0)),
-        _ => None,
-    }
 }
 
 fn read_raid_boss(

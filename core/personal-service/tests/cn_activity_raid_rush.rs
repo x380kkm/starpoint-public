@@ -8,6 +8,8 @@
 mod cn_support;
 #[allow(dead_code)]
 mod support;
+#[path = "cn_activity_raid_rush/reward_period.rs"]
+mod reward_period;
 
 use cn_support::{decode_response, encode_request, SignupData, SignupRequest};
 use rusqlite::{params, Connection};
@@ -28,6 +30,19 @@ fn signup(service: &PersonalService, device_id: i64) -> i64 {
 
 fn send(service: &PersonalService, path: &str, body: Value) -> String {
     cn_support::send_request(service.port(), path, &encode_request(&body))
+}
+
+fn open_activity(service: &PersonalService, family: &str, event_id: i64) {
+    let authorization = format!("Bearer {}", service.management_token());
+    let response = support::request_with_headers(
+        service.port(),
+        "PUT",
+        &format!("/v1/activities/{family}:{event_id}/mode"),
+        "application/json",
+        &[("Authorization", &authorization)],
+        br#"{"mode":"always"}"#,
+    );
+    assert!(response.starts_with("HTTP/1.1 200"), "{response}");
 }
 
 fn seed_rush_ranking_state(root: &Path, event_id: i64) {
@@ -69,7 +84,8 @@ fn returns_raid_contract_and_persists_folder_battle_state() {
     let root = TempDir::new().expect("temporary service directory is created");
     let service = PersonalService::start(root.path(), 0).expect("service starts");
     let viewer_id = signup(&service, 68);
-    let event_id = 9_004;
+    let event_id = 1;
+    open_activity(&service, "raid", event_id);
 
     let party = decode_response::<Value>(&send(
         &service,
@@ -148,14 +164,13 @@ fn returns_raid_contract_and_persists_folder_battle_state() {
             "is_auto_start_mode": false,
             "party_group_id": 1,
             "play_id": "raid-contract",
-            "quest_id": 9_004_001,
+            "quest_id": 1001,
             "viewer_id": viewer_id,
         }),
     ));
-    assert!(battle
-        .data
-        .as_object()
-        .is_some_and(serde_json::Map::is_empty));
+    assert_eq!(battle.data_headers.result_code, 1);
+    assert!(battle.data["user_info"]["stamina"].is_number());
+    assert!(battle.data["user_info"]["stamina_heal_time"].is_number());
     service.stop().expect("service stops cleanly");
     let service = PersonalService::start(root.path(), 0).expect("service restarts");
     let persisted_summary = decode_response::<Value>(&send(
@@ -190,6 +205,7 @@ fn returns_rush_contract_and_persists_endless_state() {
     let service = PersonalService::start(root.path(), 0).expect("service starts");
     let viewer_id = signup(&service, 69);
     let event_id = 700_001;
+    open_activity(&service, "rush", event_id);
 
     let unopened = decode_response::<Value>(&send(
         &service,
@@ -198,7 +214,9 @@ fn returns_rush_contract_and_persists_endless_state() {
     ));
     assert!(unopened.data["endless_battle_max_round"].is_null());
     assert_eq!(unopened.data["endless_battle_next_round"], 1);
-    assert!(unopened.data["endless_battle_played_party_list"].is_null());
+    assert!(unopened.data["endless_battle_played_party_list"]
+        .as_object()
+        .is_some_and(serde_json::Map::is_empty));
     let early_select = send(
         &service,
         "/api/index.php/event/rush/select_folder",
@@ -274,7 +292,7 @@ fn returns_rush_contract_and_persists_endless_state() {
     ));
     assert!(reward.data["rank_number"].is_null());
     assert!(reward.data["ranking_reward"]["reward_list"].is_array());
-    assert_eq!(reward.data["ranking_reward"]["status"], 0);
+    assert_eq!(reward.data["ranking_reward"]["status"], 3);
 
     let invalid_battle = send(
         &service,
@@ -339,12 +357,12 @@ fn returns_rush_contract_and_persists_endless_state() {
         json!({"event_id": event_id, "page": 0, "viewer_id": viewer_id}),
     ));
     assert_eq!(ranked.data["page_max"], 1);
-    assert_eq!(ranked.data["my_data"]["rank_number"], 0);
-    assert_eq!(ranked.data["ranking_list"][0]["rank_number"], 1);
+    assert_eq!(ranked.data["my_data"]["rank_number"], 2);
+    assert_eq!(ranked.data["ranking_list"][0]["rank_number"], 2);
     let ranked_party = decode_response::<Value>(&send(
         &service,
         "/api/index.php/event/rush/ranking/played_party",
-        json!({"event_id": event_id, "rank_number": 1, "viewer_id": viewer_id}),
+        json!({"event_id": event_id, "rank_number": 2, "viewer_id": viewer_id}),
     ));
     assert!(ranked_party.data["rush_ranking_party"].is_object());
     assert!(ranked_party.data["rush_ranking_party"]["1"].is_object());
@@ -356,7 +374,7 @@ fn returns_rush_contract_and_persists_endless_state() {
     assert_eq!(ranked_reward.data["rank_number"], 2);
     assert_eq!(
         ranked_reward.data["ranking_reward"]["reward_list"][0]["kind"],
-        7
+        13
     );
     assert_eq!(
         ranked_reward.data["ranking_reward"]["reward_list"][0]["kind_id"],
@@ -367,19 +385,21 @@ fn returns_rush_contract_and_persists_endless_state() {
         "/api/index.php/mail/index",
         json!({"viewer_id": viewer_id, "current_page": 1}),
     ));
-    assert_eq!(mail.data["total_count"], 1);
-    assert_eq!(mail.data["mail"][0]["type_id"], 64_000);
-    decode_response::<Value>(&send(
+    assert_eq!(ranked_reward.data["ranking_reward"]["status"], 1);
+    assert_eq!(ranked_reward.data["degree_list"][0]["degree_id"], 64_000);
+    assert_eq!(mail.data["total_count"], 0);
+    let repeated_reward = decode_response::<Value>(&send(
         &service,
         "/api/index.php/event/rush/reward",
         json!({"event_id": event_id, "viewer_id": viewer_id}),
     ));
+    assert_eq!(repeated_reward.data["ranking_reward"]["status"], 2);
     let repeated_mail = decode_response::<Value>(&send(
         &service,
         "/api/index.php/mail/index",
         json!({"viewer_id": viewer_id, "current_page": 1}),
     ));
-    assert_eq!(repeated_mail.data["total_count"], 1);
+    assert_eq!(repeated_mail.data["total_count"], 0);
     let endless = decode_response::<Value>(&send(
         &service,
         "/api/index.php/event/rush/endless_battle",

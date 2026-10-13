@@ -1,6 +1,6 @@
 // audience: internal
 // # test-cn-activity-catalog
-// 此测试验证 CN 活动 master 反射枚举、JST 时间和多来源图片元数据.
+// 此测试验证 CN 活动 master 反射枚举, UTC+8 时间和多来源图片元数据.
 
 import assert from "node:assert/strict"
 import fs from "node:fs"
@@ -17,6 +17,21 @@ import {
     readMasterBuffers,
 } from "./generate-cn-activity-catalog.mjs"
 import { ACTIVITY_SCHEMA_BY_NAME, FEATURE_BANNER_RELATION_SCHEMAS } from "./cn-activity-master-schema.mjs"
+import { replaceActivityKind } from "./refresh-cn-activity-catalog-kind.mjs"
+
+// //// 免费活动目录保留原活动并识别客户端别名 [@x380kkm 2026-09-28] ////
+const campaignCatalog = buildActivityCatalogSource({
+    masterMaps: new Map([["gacha_campaign", {
+        1: ["campaign", "免费十连", "2", "2022-05-02 12:00:00", "2022-05-13 23:59:59", "28", "(None)", ""],
+        2: ["shared", "共用免费十连", "2", "2022-05-02 12:00:00", "2022-05-13 23:59:59", "28,1000028", "(None)", ""],
+        1000028: ["temporary", "免费十连", "2", "1970-01-01 00:00:00", "2200-12-31 23:59:59", "1000028", "(None)", ""],
+        4000028: ["campaign_temporary_28", "免费十连", "2", "1970-01-01 00:00:00", "2200-12-31 23:59:59", "28,1000028", "(None)", ""],
+    }]]),
+    entityRecords: new Map(),
+    regionPolicy: { excludedRegionalAliases: {}, normalizedCoverageAliases: {}, temporaryAliases: { 1000028: 28 }, bannerPathOverrides: {} },
+})
+assert.deepEqual(campaignCatalog.activities.map((activity) => activity.activity_id), ["gacha-campaign:1", "gacha-campaign:2"])
+// //// /免费活动目录保留原活动并识别客户端别名 ////
 
 // //// 验证活动目录源数据生成 [@x380kkm 2026-08-19] ////
 const raidBannerPath = "quest/event/banner/raid_event/raid_event_banner_01_001.png"
@@ -30,7 +45,8 @@ const unrelatedHomeBannerPath = "banner/home/unrelated_ranking.png"
 const ambiguousRankingHomePathA = "banner/home/ambiguous_ranking_a.png"
 const ambiguousRankingHomePathB = "banner/home/ambiguous_ranking_b.png"
 assert.equal(hashCnAssetPath(raidBannerPath), "fb3424f666f94ef9cf5822a109d3da8560ae6624")
-assert.equal(parseCnMasterTimestamp("2023-09-07 12:00:00"), Date.parse("2023-09-07T03:00:00.000Z"))
+assert.equal(parseCnMasterTimestamp("2023-09-07 12:00:00"), Date.parse("2023-09-07T04:00:00.000Z"))
+assert.equal(parseCnMasterTimestamp("1970-01-01 00:00:00"), Date.parse("1969-12-31T16:00:00.000Z"))
 assert.equal(parseCnMasterTimestamp("(None)"), null)
 const entityBuffer = Buffer.from("current entity")
 const entityDigest = computeCnEntityDigest(entityBuffer)
@@ -170,8 +186,8 @@ const entryCandidate = source.activities[0].image_candidates
     .find((candidate) => candidate.logical_path === raidEntryPath)
 assert.equal(entryCandidate.source_type, "activity_entry")
 assert.equal(entryCandidate.evidence, "master:banner_image:string_id:raid_banner_image_01:field:6")
-assert.equal(source.activities[0].default_start_at_ms, Date.parse("2023-09-07T03:00:00.000Z"))
-assert.equal(source.activities[0].default_end_at_ms, Date.parse("2023-09-28T02:59:59.000Z"))
+assert.equal(source.activities[0].default_start_at_ms, Date.parse("2023-09-07T04:00:00.000Z"))
+assert.equal(source.activities[0].default_end_at_ms, Date.parse("2023-09-28T03:59:59.000Z"))
 assert.equal(source.activities[1].banner_logical_path, rankingBannerPath)
 assert.equal(source.activities[2].banner_logical_path, rankingBannerPath)
 assert.deepEqual(source.activities[3].image_candidates, [])
@@ -287,6 +303,7 @@ const featureEntityRecords = new Map(Object.values(featureRelationPaths)
     .map((logicalPath) => [assetEntryPaths(hashCnAssetPath(logicalPath))[0], bannerRecord]))
 const collectItemRow = Array(22).fill("")
 collectItemRow[0] = "collect_item_1"
+collectItemRow[1] = "寻宝猎人任务"
 const gachaRow = Array(31).fill("")
 Object.assign(gachaRow, {
     1: "测试 Gacha",
@@ -392,7 +409,7 @@ assert.equal(featureRelationSource.activities.length, 4)
 assert.equal(featureRelationSource.activities.find((activity) => activity.activity_id === "gacha:1").name, "测试 Gacha")
 assert.equal(
     featureRelationSource.activities.find((activity) => activity.activity_id === "collect-item:1").name,
-    "未命名活动 1",
+    "寻宝猎人任务",
 )
 assert.equal(featureRelationSource.activities
     .filter((activity) => activity.kind !== "gacha")
@@ -578,5 +595,26 @@ try {
     fs.rmSync(fixtureRoot, { recursive: true, force: true })
 }
 // //// /验证 full 和 diff 资源按当前 EntityLists 记录选择 ////
+
+// //// 验证指定活动类型刷新保留其余活动和目录顺序 [@x380kkm 2026-09-21] ////
+const refreshedCollectActivity = {
+    ...featureRelationSource.activities.find((activity) => activity.kind === "collect-item"),
+    name: "特别活动任务",
+}
+const refreshedCollectSource = {
+    ...featureRelationSource,
+    activities: [refreshedCollectActivity],
+}
+const refreshedCatalog = replaceActivityKind(featureRelationSource, refreshedCollectSource, "collect-item")
+assert.deepEqual(
+    refreshedCatalog.activities,
+    featureRelationSource.activities.map((activity) =>
+        activity.kind === "collect-item" ? refreshedCollectActivity : activity),
+)
+assert.throws(
+    () => replaceActivityKind(featureRelationSource, { ...refreshedCollectSource, activities: [] }, "collect-item"),
+    /activity master and catalog IDs differ/,
+)
+// //// /验证指定活动类型刷新保留其余活动和目录顺序 ////
 
 console.log("CN activity catalog tests passed.")

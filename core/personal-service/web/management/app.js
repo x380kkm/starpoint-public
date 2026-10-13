@@ -4,9 +4,15 @@
 // 此脚本只调用当前 origin 的个人服务 API. 页面打开后直接载入本机管理状态.
 
 import { createActivityController } from "/manage/activity-controller.js"
+import { createActivityHistory } from "/manage/activity-history.js"
 import { createAiTeamController } from "/manage/ai-team-controller.js"
+import { createRescueController } from "/manage/rescue-controller.js"
+import { createActivityRescue } from "/manage/activity-rescue.js"
 import { createMailRewardController } from "/manage/mail-reward-controller.js"
-import { renderManagement } from "/manage/views.js"
+import { createRewardHistory } from "/manage/reward-history.js"
+import { createCompetitionController } from "/manage/competition-controller.js"
+import { renderManagement, selectedDeviceSlotId } from "/manage/views.js"
+import { importSaveFile } from "/manage/password-backup.js"
 
 // //// 管理页面连接和表单提交 [@x380kkm 2026-07-24] ////
 const elements = {
@@ -14,10 +20,17 @@ const elements = {
     aiTeamB: document.querySelector("#ai-team-b"),
     aiTeamCandidates: document.querySelector("#ai-team-candidates"),
     aiTeamDefault: document.querySelector("#ai-team-default"),
+    aiTeamFollow: document.querySelector("#ai-team-follow"),
     aiTeamSave: document.querySelector("#ai-team-save"),
     aiTeamSlot: document.querySelector("#ai-team-slot"),
+    aiTeamSource: document.querySelector("#ai-team-source"),
     aiTeamState: document.querySelector("#ai-team-state"),
     activityCalendar: document.querySelector("#activity-calendar"),
+    activityCalendarToolbar: document.querySelector("#activity-calendar-toolbar"),
+    activitySections: [...document.querySelectorAll("[data-activity-section]")],
+    activityGroup: document.querySelector("#activity-group"),
+    activityDifficulty: document.querySelector("#activity-difficulty"),
+    activityDifficultyLabel: document.querySelector("#activity-difficulty-label"),
     activityCalendarNext: document.querySelector("#activity-calendar-next"),
     activityCalendarNextYear: document.querySelector("#activity-calendar-next-year"),
     activityCalendarPrevious: document.querySelector("#activity-calendar-previous"),
@@ -116,6 +129,9 @@ const elements = {
 }
 
 const errorMessages = {
+    recovery_password_invalid: "密码需为 8 到 128 个字符.",
+    recovery_package_invalid: "密码不正确或备份文件已损坏.",
+    invalid_encrypted_local_save: "此加密备份需要原设备的恢复包和密码. 请在下方选择恢复包.",
     save_sync_authentication_failed: "存档服务器拒绝了用户名或密码.",
     save_sync_remote_capacity_exceeded: "存档服务器容量已满.",
     save_sync_remote_conflict: "远端存档已经变化, 请先下载为新槽位后再处理.",
@@ -144,11 +160,32 @@ const errorMessages = {
     invalid_raid_boss_state: "Raid Boss 状态无效.",
     invalid_local_save_id: "本地存档槽 ID 无效.",
     local_save_not_found: "本地存档槽不存在.",
+    local_save_active: "此存档正在使用. 请先为使用它的设备切换到其他存档.",
+    local_save_last_slot: "请先导入另一份存档并启用, 再删除此存档.",
+    local_save_busy: "此存档仍有战斗或联机房间在使用. 请先退出战斗和房间.",
+    local_save_import_blocked: "此存档正在战斗或联机房间中使用, 退出后可恢复或同步.",
+    save_revision_conflict: "存档已变化, 请重新查看版本历史后再选择恢复.",
+    invalid_transfer_binding: "请检查目标实例, 槽授权和同步模式.",
+    invalid_transfer_slot_token: "请检查槽授权权限和到期时间.",
+    transfer_binding_changed: "同步设置已变化, 请刷新后重试.",
+    local_save_delete_confirmation_required: "请在删除确认窗口中确认目标存档.",
+    local_save_delete_confirmation_mismatch: "存档名称已变化. 请刷新后重新确认删除.",
     viewer_not_found: "Viewer ID 不存在或当前会话已失效.",
     activity_catalog_unavailable: "活动目录暂时不可用, 仍可以使用旧版活动状态管理.",
     activity_not_found: "活动不存在或已经从目录移除.",
     activity_action_unavailable: "当前服务版本不支持这个活动操作.",
+    activity_round_changed: "活动轮次已经变化, 请刷新记录后重新确认.",
+    competition_period_changed: "活动期别已经变化, 请刷新竞赛信息后重新操作.",
+    invalid_reward_selection: "请选择当前活动目录中的奖励档位或有效排名.",
+    invalid_reward_mode: "请选择游戏内领取或管理页手动发奖.",
+    invalid_server_state: "请填写有效的全服讨伐数和血量百分比.",
+    competition_not_found: "该竞赛活动不存在, 请刷新目录.",
+    activity_battle_active: "该活动仍有战斗进行中, 请先结束战斗.",
+    activity_reset_unavailable: "此活动类型没有可重置的参赛记录.",
     ai_team_snapshot_invalid_state: "当前存档无法建立 AI 编队快照.",
+    invalid_rescue_settings: "救援间隔, 空房保留时间或房间数超出允许范围.",
+    invalid_rescue_quest: "救援关卡已变化, 请刷新目录后重新选择.",
+    rescue_quest_closed: "该关卡当前关闭, 开放后可以开启铃铛.",
     shop_item_not_found: "商店商品不存在或当前版本未收录.",
 }
 
@@ -157,6 +194,7 @@ const model = {
     bindings: new Map(),
     contexts: new Map(),
     httpObservations: [],
+    clientReports: [],
     gameplaySettings: { drop_multiplier: 1 },
     profiles: { active_profile_id: 0, profiles: [] },
     saves: { devices: [], slots: [] },
@@ -236,6 +274,8 @@ function activateManagementTab(tabName, focusTab = false) {
         panel.hidden = panel.dataset.managementTabPanel !== activeName
     }
     storeManagementTab(activeName)
+    if (activeName === "competition") competitionController.activate()
+    activeTab.scrollIntoView({ block: "nearest", inline: "nearest" })
     if (focusTab) activeTab.focus()
 }
 
@@ -357,9 +397,7 @@ function renderSelectedMailSlotContext() {
 
 function renderMailSlotContexts(saves) {
     const selectedSlotId = Number(elements.mailSlotId.value)
-    const selectedDeviceId = Number(elements.deviceSelect.value)
-    const activeSlotId = saves.devices.find((device) => device.device_id === selectedDeviceId)?.active_slot_id
-        ?? saves.devices[0]?.active_slot_id
+    const activeSlotId = selectedDeviceSlotId(saves, elements.deviceSelect.value)
     elements.mailSlotId.replaceChildren()
     for (const slot of saves.slots) {
         const option = document.createElement("option")
@@ -378,9 +416,7 @@ function renderMailSlotContexts(saves) {
 
 function renderShopStockSlotContexts(saves) {
     const selectedSlotId = Number(elements.shopStockSlotId.value)
-    const selectedDeviceId = Number(elements.deviceSelect.value)
-    const activeSlotId = saves.devices.find((device) => device.device_id === selectedDeviceId)?.active_slot_id
-        ?? saves.devices[0]?.active_slot_id
+    const activeSlotId = selectedDeviceSlotId(saves, elements.deviceSelect.value)
     elements.shopStockSlotId.replaceChildren()
     for (const slot of saves.slots) {
         const option = document.createElement("option")
@@ -408,7 +444,7 @@ function updateShopStockViewer() {
 }
 
 async function requestApi(requestPath, options = {}) {
-    const headers = {}
+    const headers = { ...options.headers }
     if (options.body !== undefined) headers["Content-Type"] = "application/json"
     const response = await fetch(requestPath, {
         method: options.method ?? "GET",
@@ -443,17 +479,43 @@ async function runAction(control, action) {
     }
 }
 
+const activityHistory = createActivityHistory({ requestApi, runAction })
+const rewardHistory = createRewardHistory({ requestApi, runAction })
+const competitionHistory = createActivityHistory({
+    requestApi, runAction, prefix: "competition-history",
+    onReset: () => competitionController.refresh(),
+})
+const competitionController = createCompetitionController({
+    requestApi, runAction,
+    onSelect: (activity, slot) => competitionHistory.selectContext({ activity, slot }),
+    onChange: () => activityController.load(),
+})
 const activityController = createActivityController({
     elements,
     requestApi,
     ApiError,
     runAction,
+    onSelect: activity => {
+        activityHistory.selectActivity(activity)
+        runAction(null, () => activityRescue.selectActivity(activity))
+    },
 })
 
 const aiTeamController = createAiTeamController({
     elements,
     requestApi,
     runAction,
+})
+
+const rescueController = createRescueController({
+    panel: document.querySelector("#rescue-management"),
+    requestApi,
+    runAction,
+})
+
+const activityRescue = createActivityRescue({
+    panel: document.querySelector("#activity-rescue"), requestApi, runAction,
+    onChange: change => rescueController.load(change),
 })
 
 const mailRewardController = createMailRewardController({
@@ -495,8 +557,10 @@ async function refreshManagementState() {
         ])
         model.profiles = profiles
         model.saves = saves
+        activityHistory.setSaves(saves.slots)
         model.targets = targets
         model.httpObservations = httpObservations.observations
+        model.clientReports = httpObservations.client_reports ?? []
         renderGameplaySettings(gameplaySettings)
         renderTimeState(time)
         activityController.setCurrentTime(time.unix_time_ms)
@@ -524,14 +588,15 @@ async function refreshManagementState() {
             requestApi,
             runAction,
         })
-        const selectedDeviceId = Number(elements.deviceSelect.value)
-        const activeSlotId = saves.devices.find((device) => device.device_id === selectedDeviceId)?.active_slot_id
-            ?? saves.devices[0]?.active_slot_id
+        const activeSlotId = selectedDeviceSlotId(saves, elements.deviceSelect.value)
         aiTeamController.setSlots(saves.slots, activeSlotId)
         await Promise.all([
             activityController.load(),
             aiTeamController.load(),
+            rescueController.load(),
             mailRewardController.load(),
+            rewardHistory.setSaves(saves.slots, activeSlotId),
+            competitionController.setSaves(saves.slots, activeSlotId),
         ])
         renderMailSlotContexts(saves)
         renderShopStockSlotContexts(saves)
@@ -656,8 +721,7 @@ elements.mailSlotId.addEventListener("change", renderSelectedMailSlotContext)
 elements.shopStockSlotId.addEventListener("change", updateShopStockViewer)
 
 elements.deviceSelect.addEventListener("change", () => {
-    const selectedDeviceId = Number(elements.deviceSelect.value)
-    const activeSlotId = model.saves.devices.find((device) => device.device_id === selectedDeviceId)?.active_slot_id
+    const activeSlotId = selectedDeviceSlotId(model.saves, elements.deviceSelect.value)
     if (activeSlotId === undefined || !model.contexts.has(activeSlotId)) return
     elements.mailSlotId.value = String(activeSlotId)
     renderSelectedMailSlotContext()
@@ -752,21 +816,7 @@ elements.importForm.addEventListener("submit", async (event) => {
     const formElement = event.currentTarget
     const form = new FormData(formElement)
     await runAction(event.submitter, async () => {
-        const file = form.get("file")
-        if (!(file instanceof File)) throw new Error("请选择存档文件.")
-        const name = String(form.get("name") ?? "").trim()
-        const payload = JSON.parse(await file.text())
-        if (payload.format === "starpoint-encrypted-save") {
-            await requestApi("/v1/local-saves/import-encrypted", {
-                method: "POST",
-                body: { name, envelope: payload },
-            })
-        } else {
-            await requestApi("/v1/local-saves/import", {
-                method: "POST",
-                body: { name, data: payload },
-            })
-        }
+        await importSaveFile(form, requestApi)
         formElement.reset()
         await refreshManagementState()
         return "存档已导入为新槽位."

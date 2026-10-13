@@ -1,0 +1,405 @@
+{
+  "70033": {
+    "name": "始之宝箱",
+    "start_time": 1451577599,
+    "end_time": 7258089599,
+    "choices": [
+      {
+        "item_id": 1,
+        "amount": 420
+      },
+      {
+        "item_id": 5,
+        "amount": 420
+      },
+      {
+        "item_id": 9,
+        "amount": 420
+      },
+      {
+        "item_id": 13,
+        "amount": 420
+      },
+      {
+        "item_id": 42,
+        "amount": 420
+      },
+      {
+        "item_id": 46,
+        "amount": 420
+      }
+    ]
+  },
+  "70034": {
+    "name": "力之宝箱",
+    "start_time": 1451577599,
+    "end_time": 7258089599,
+    "choices": [
+      {
+        "item_id": 2,
+        "amount": 385
+      },
+      {
+        "item_id": 6,
+        "amount": 385
+      },
+      {
+        "item_id": 10,
+        "amount": 385
+      },
+      {
+        "item_id": 14,
+        "amount": 385
+      },
+      {
+        "item_id": 43,
+        "amount": 385
+      },
+      {
+        "item_id": 47,
+        "amount": 385
+      }
+    ]
+  },
+  "70035": {
+    "name": "真之宝箱",
+    "start_time": 1451577599,
+    "end_time": 7258089599,
+    "choices": [
+      {
+        "item_id": 3,
+        "amount": 200
+      },
+      {
+        "item_id": 7,
+        "amount": 200
+      },
+      {
+        "item_id": 11,
+        "amount": 200
+      },
+      {
+        "item_id": 15,
+        "amount": 200
+      },
+      {
+        "item_id": 44,
+        "amount": 200
+      },
+      {
+        "item_id": 48,
+        "amount": 200
+      }
+    ]
+  },
+  "70036": {
+    "name": "极之宝箱",
+    "start_time": 1451577599,
+    "end_time": 7258089599,
+    "choices": [
+      {
+        "item_id": 4,
+        "amount": 46
+      },
+      {
+        "item_id": 8,
+        "amount": 46
+      },
+      {
+        "item_id": 12,
+        "amount": 46
+      },
+      {
+        "item_id": 16,
+        "amount": 46
+      },
+      {
+        "item_id": 45,
+        "amount": 46
+      },
+      {
+        "item_id": 49,
+        "amount": 46
+      }
+    ]
+  },
+  "70037": {
+    "name": "心之宝箱",
+    "start_time": 1451577599,
+    "end_time": 7258089599,
+    "choices": [
+      {
+        "item_id": 50,
+        "amount": 152
+      },
+      {
+        "item_id": 53,
+        "amount": 152
+      },
+      {
+        "item_id": 56,
+        "amount": 152
+      },
+      {
+        "item_id": 59,
+        "amount": 152
+      },
+      {
+        "item_id": 62,
+        "amount": 152
+      },
+      {
+        "item_id": 65,
+        "amount": 152
+      }
+    ]
+  },
+  "70038": {
+    "name": "意之宝箱",
+    "start_time": 1451577599,
+    "end_time": 7258089599,
+    "choices": [
+      {
+        "item_id": 51,
+        "amount": 71
+      },
+      {
+        "item_id": 54,
+        "amount": 71
+      },
+      {
+        "item_id": 57,
+        "amount": 71
+      },
+      {
+        "item_id": 60,
+        "amount": 71
+      },
+      {
+        "item_id": 63,
+        "amount": 71
+      },
+      {
+        "item_id": 66,
+        "amount": 71
+      }
+    ]
+  },
+  "70039": {
+    "name": "空之宝箱",
+    "start_time": 1451577599,
+    "end_time": 7258089599,
+    "choices": [
+      {
+        "item_id": 52,
+        "amount": 37
+      },
+      {
+        "item_id": 55,
+        "amount": 37
+      },
+      {
+        "item_id": 58,
+        "amount": 37
+      },
+      {
+        "item_id": 61,
+        "amount": 37
+      },
+      {
+        "item_id": 64,
+        "amount": 37
+      },
+      {
+        "item_id": 67,
+        "amount": 37
+      }
+    ]
+  },
+  "70040": {
+    "name": "★3崇高辉石自选箱",
+    "start_time": 1451577599,
+    "end_time": 7258089599,
+    "choices": [
+      {
+        "item_id": 14001,
+        "amount": 25
+      },
+      {
+        "item_id": 14004,
+        "amount": 25
+      },
+      {
+        "item_id": 14007,
+        "amount": 25
+      },
+      {
+        "item_id": 14010,
+        "amount": 25
+      },
+      {
+        "item_id": 14013,
+        "amount": 25
+      },
+      {
+        "item_id": 14016,
+        "amount": 25
+      }
+    ]
+  },
+  "70041": {
+    "name": "★4崇高辉石自选箱",
+    "start_time": 1451577599,
+    "end_time": 7258089599,
+    "choices": [
+      {
+        "item_id": 14002,
+        "amount": 5
+      },
+      {
+        "item_id": 14005,
+        "amount": 5
+      },
+      {
+        "item_id": 14008,
+        "amount": 5
+      },
+      {
+        "item_id": 14011,
+        "amount": 5
+      },
+      {
+        "item_id": 14014,
+        "amount": 5
+      },
+      {
+        "item_id": 14017,
+        "amount": 5
+      }
+    ]
+  },
+  "70042": {
+    "name": "★5崇高辉石自选箱",
+    "start_time": 1451577599,
+    "end_time": 7258089599,
+    "choices": [
+      {
+        "item_id": 14003,
+        "amount": 3
+      },
+      {
+        "item_id": 14006,
+        "amount": 3
+      },
+      {
+        "item_id": 14009,
+        "amount": 3
+      },
+      {
+        "item_id": 14012,
+        "amount": 3
+      },
+      {
+        "item_id": 14015,
+        "amount": 3
+      },
+      {
+        "item_id": 14018,
+        "amount": 3
+      }
+    ]
+  },
+  "999100": {
+    "name": "初级养成素材宝箱",
+    "start_time": 1451577599,
+    "end_time": 7258089599,
+    "choices": [
+      {
+        "item_id": 2,
+        "amount": 300
+      },
+      {
+        "item_id": 6,
+        "amount": 300
+      },
+      {
+        "item_id": 10,
+        "amount": 300
+      },
+      {
+        "item_id": 14,
+        "amount": 300
+      },
+      {
+        "item_id": 43,
+        "amount": 300
+      },
+      {
+        "item_id": 47,
+        "amount": 300
+      }
+    ]
+  },
+  "999101": {
+    "name": "中级养成素材宝箱",
+    "start_time": 1451577599,
+    "end_time": 7258089599,
+    "choices": [
+      {
+        "item_id": 3,
+        "amount": 200
+      },
+      {
+        "item_id": 7,
+        "amount": 200
+      },
+      {
+        "item_id": 11,
+        "amount": 200
+      },
+      {
+        "item_id": 15,
+        "amount": 200
+      },
+      {
+        "item_id": 44,
+        "amount": 200
+      },
+      {
+        "item_id": 48,
+        "amount": 200
+      }
+    ]
+  },
+  "999102": {
+    "name": "高级养成素材宝箱",
+    "start_time": 1451577599,
+    "end_time": 7258089599,
+    "choices": [
+      {
+        "item_id": 4,
+        "amount": 30
+      },
+      {
+        "item_id": 8,
+        "amount": 30
+      },
+      {
+        "item_id": 12,
+        "amount": 30
+      },
+      {
+        "item_id": 16,
+        "amount": 30
+      },
+      {
+        "item_id": 45,
+        "amount": 30
+      },
+      {
+        "item_id": 49,
+        "amount": 30
+      }
+    ]
+  }
+}

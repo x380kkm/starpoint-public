@@ -17,8 +17,6 @@ use starpoint_personal_service::PersonalService;
 use std::fs;
 use std::path::Path;
 use std::sync::Mutex;
-use std::thread;
-use std::time::Duration;
 use tempfile::TempDir;
 
 static RESOURCE_VERSION_ENV: Mutex<()> = Mutex::new(());
@@ -296,7 +294,7 @@ fn completes_daily_week_drawn_quests_without_changing_the_snapshot() {
 
 // //// 仅在载入响应过滤未知主动任务 [@x380kkm 2026-08-28] ////
 #[test]
-fn filters_unknown_active_missions_without_changing_the_snapshot() {
+fn filters_unknown_active_missions_and_preserves_stored_progress() {
     let root = TempDir::new().expect("temporary service directory is created");
     let service = PersonalService::start(root.path(), 0).expect("service starts");
     let viewer_id = signup(service.port(), 24).data_headers.viewer_id;
@@ -314,15 +312,16 @@ fn filters_unknown_active_missions_without_changing_the_snapshot() {
     let loaded =
         load_with_resource_version(service.port(), viewer_id, "1.4.99-active-mission-filter");
     assert_eq!(
-        loaded.data["all_active_mission_list"],
-        json!({"11010": {"progress": 1, "stages": {"1": true}}})
+        loaded.data["all_active_mission_list"]["11010"],
+        stored_missions["11010"]
     );
+    assert!(loaded.data["all_active_mission_list"].get("999999").is_none());
     service.stop().expect("service stops cleanly");
 
-    assert_eq!(
-        read_only_player_snapshot(root.path())["all_active_mission_list"],
-        stored_missions
-    );
+    let persisted = read_only_player_snapshot(root.path());
+    for (id, mission) in stored_missions.as_object().unwrap() {
+        assert_eq!(&persisted["all_active_mission_list"][id], mission);
+    }
 }
 // //// /仅在载入响应过滤未知主动任务 ////
 
@@ -519,13 +518,13 @@ fn persists_main_quest_progress_and_party_battle_power() {
     let favorite_groups = loaded.data["favorite_party_group_list"]
         .as_array()
         .expect("favorite party groups are an array");
-    assert_eq!(favorite_groups.len(), party_groups.len());
+    assert_eq!(favorite_groups.len(), 1);
     assert_eq!(favorite_groups[0]["party_group_id"], 1);
     assert_eq!(favorite_groups[0]["party_list"][0]["party_id"], 1);
-    assert_eq!(favorite_groups[0]["party_list"][0]["party_name"], "Party A");
+    assert_eq!(favorite_groups[0]["party_list"][0]["party_name"], "喜爱角色");
     assert_eq!(
-        favorite_groups[0]["party_list"][0]["current_battle_power"],
-        4_321,
+        favorite_groups[0]["party_list"][0]["character_ids"],
+        json!([1, null, null]),
     );
     assert_eq!(loaded.data["config"]["summon_com_seconds"], 5);
 
@@ -553,8 +552,8 @@ fn persists_main_quest_progress_and_party_battle_power() {
         expected_main_quest_progress,
     );
     assert_eq!(
-        persisted["favorite_party_group_list"][0]["party_list"][0]["current_battle_power"],
-        4_321,
+        persisted["favorite_party_group_list"][0]["party_list"][0]["character_ids"],
+        json!([1, null, null]),
     );
     assert_eq!(persisted["config"]["summon_com_seconds"], 5);
 }
@@ -566,6 +565,7 @@ fn persists_creation_times_and_accumulates_pooled_exp() {
     let root = TempDir::new().expect("temporary service directory is created");
     let service = PersonalService::start(root.path(), 0).expect("service starts");
     assert!(support::request(service.port(), "GET", "/health").starts_with("HTTP/1.1 200 OK"));
+    set_virtual_time(&service, "2030-01-01T12:00:00.000Z");
     let viewer_id = signup(service.port(), 1).data_headers.viewer_id;
     let loaded = load_with_resource_version(service.port(), viewer_id, "1.4.99-state");
     let stamina_heal_time = loaded.data["user_info"]["stamina_heal_time"]
@@ -590,19 +590,22 @@ fn persists_creation_times_and_accumulates_pooled_exp() {
     assert_eq!(join_time, update_time);
     service.stop().expect("service stops cleanly");
 
+    let capacities: Value = serde_json::from_str(include_str!("../assets/cn-shop-capacities.json")).unwrap();
+    let interval = capacities["exp_pool_gain_seconds"].as_i64().unwrap();
+    let gain = capacities["exp_pool_gain_value"].as_i64().unwrap();
     update_only_player_snapshot(root.path(), |player_data| {
         player_data["user_info"]["exp_pool"] = Value::from(0);
         player_data["user_info"]["exp_pooled_time"] =
-            Value::from(loaded.data_headers.servertime - 120);
+            Value::from(loaded.data_headers.servertime - 2 * interval);
     });
-    thread::sleep(Duration::from_millis(1_100));
     let service = PersonalService::start(root.path(), 0).expect("service restarts");
+    set_virtual_time(&service, "2030-01-01T12:01:00.000Z");
     let reloaded = load_with_resource_version(service.port(), viewer_id, "1.4.99-state");
     assert!(reloaded.data_headers.servertime > loaded.data_headers.servertime);
-    assert_eq!(reloaded.data["user_info"]["exp_pool"].as_i64(), Some(2));
+    assert_eq!(reloaded.data["user_info"]["exp_pool"].as_i64(), Some(2 * gain));
     assert_eq!(
         reloaded.data["user_info"]["exp_pooled_time"].as_i64(),
-        Some(reloaded.data_headers.servertime),
+        Some(loaded.data_headers.servertime),
     );
     assert_eq!(
         reloaded.data["user_info"]["stamina_heal_time"].as_i64(),
@@ -631,6 +634,13 @@ fn resets_daily_player_state_once_per_virtual_date() {
     let root = TempDir::new().expect("temporary service directory is created");
     let service = PersonalService::start(root.path(), 0).expect("service starts");
     set_virtual_time(&service, "2030-01-01T12:00:00.000Z");
+    let bearer = format!("Bearer {}", service.management_token());
+    let opened = support::request_with_headers(
+        service.port(), "PUT", "/v1/activities/calendar/gacha-campaign%3A12",
+        "application/json", &[("Authorization", &bearer)],
+        br#"{"enabled":true,"start_at_ms":0,"end_at_ms":253402300799000}"#,
+    );
+    assert!(opened.starts_with("HTTP/1.1 200 OK"), "{opened}");
     let viewer_id = signup(service.port(), 4).data_headers.viewer_id;
     service.stop().expect("service stops cleanly");
 
@@ -691,7 +701,7 @@ fn resets_daily_player_state_once_per_virtual_date() {
         .iter()
         .find(|campaign| campaign["gacha_id"] == 80000)
         .expect("active campaign is retained");
-    assert_eq!(refreshed_campaign["campaign_id"], 12);
+    assert_eq!(refreshed_campaign["campaign_id"], 14_080_000);
     assert_eq!(refreshed_campaign["count"], 1);
     assert!(campaigns
         .iter()
@@ -710,9 +720,15 @@ fn resets_daily_player_state_once_per_virtual_date() {
     let challenge_points = same_day.data["user_daily_challenge_point_list"]
         .as_array()
         .expect("challenge points are an array");
-    assert_eq!(challenge_points.len(), 2);
-    assert_eq!(challenge_points[0]["point"], 0);
-    assert_eq!(challenge_points[1]["point"], 7);
+    let point = |challenge_id| {
+        challenge_points
+            .iter()
+            .find(|entry| entry["id"].as_i64() == Some(challenge_id))
+            .and_then(|entry| entry["point"].as_i64())
+    };
+    assert_eq!(point(1), Some(0));
+    assert_eq!(point(999_999), Some(7));
+    assert_eq!(point(401), Some(1));
     assert_eq!(
         same_day.data["gacha_info_list"][0]["is_daily_first"].as_bool(),
         Some(false),
@@ -724,7 +740,7 @@ fn resets_daily_player_state_once_per_virtual_date() {
         .iter()
         .find(|campaign| campaign["gacha_id"] == 80000)
         .expect("active campaign is retained");
-    assert_eq!(preserved_campaign["campaign_id"], 12);
+    assert_eq!(preserved_campaign["campaign_id"], 14_080_000);
     assert_eq!(preserved_campaign["count"], 0);
     assert!(campaigns
         .iter()

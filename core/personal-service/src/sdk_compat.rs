@@ -102,11 +102,12 @@ const MICRO_RED_HIDDEN_BODY: &str = r#"{"code":2000,"data":{"isShow":false}}"#;
 const MICRO_RED_LOGIN_INFO_PATH: &str = "/api/micro/login/enter_info";
 const MY_IP_PATH: &str = "/myip";
 const IP_COUNTRY_PATH: &str = "/ip/getIpContry.do";
+const IP_COUNTRY_BODY: &str = r#"{"status":"success","data":"unKnow"}"#;
 const FAVICON_PATH: &str = "/favicon.ico";
 const SOBOT_IMAGE_PATH: &str = "/chat/common/res/83f5636f-51b7-48d6-9d63-40eba0963bda.png";
 const SOBOT_LOCALIZATION_PREFIX: &str = "/mobile/multilingual/ios/ios_";
 const SKAN_QUERY_DETAIL_PATH: &str = "/api/skan/query_detail";
-const SKAN_EXPIRED_SIGNATURE_BODY: &str = "{status=1, message=签名已过失效时间}";
+const SKAN_QUERY_DETAIL_BODY: &str = r#"{"status":0,"data":{"installVerSwitch":0,"converValuesSwitch":0,"converValuesWindowPeriod":0,"eventList":[]}}"#;
 const SYNC_DATA_PATH: &str = "/sync_data";
 const SYNC_DATA_BODY: &str = "{\"code\":0}";
 const TEXT_CONTENT_TYPE: &str = "text/plain; charset=utf-8";
@@ -221,10 +222,9 @@ fn route_method_path(method: &str, path: &str) -> Option<HttpResponse> {
             TEXT_CONTENT_TYPE,
             b"127.0.0.1".to_vec(),
         ))),
-        ("GET", IP_COUNTRY_PATH) => Some(no_store(HttpResponse::bytes(
+        ("GET", IP_COUNTRY_PATH) => Some(no_store(HttpResponse::json(
             "200 OK",
-            TEXT_CONTENT_TYPE,
-            b"127.0.0.1".to_vec(),
+            IP_COUNTRY_BODY.to_owned(),
         ))),
         ("GET", IP138_PATH) => Some(no_store(HttpResponse::bytes(
             "200 OK",
@@ -251,10 +251,9 @@ fn route_method_path(method: &str, path: &str) -> Option<HttpResponse> {
             HTML_CONTENT_TYPE,
             Vec::new(),
         ))),
-        ("GET", SKAN_QUERY_DETAIL_PATH) => Some(no_store(HttpResponse::bytes(
+        ("GET", SKAN_QUERY_DETAIL_PATH) => Some(no_store(HttpResponse::json(
             "200 OK",
-            TEXT_CONTENT_TYPE,
-            SKAN_EXPIRED_SIGNATURE_BODY.as_bytes().to_vec(),
+            SKAN_QUERY_DETAIL_BODY.to_owned(),
         ))),
         _ => None,
     }
@@ -490,9 +489,10 @@ mod tests {
             json!({"code": 0, "data": {"is_vip": false}}),
         );
 
-        let country = route_method_path("GET", IP_COUNTRY_PATH).expect("route returns a response");
-        assert_eq!(country.header("Content-Type"), Some(TEXT_CONTENT_TYPE));
-        assert_eq!(country.body(), b"127.0.0.1");
+        assert_eq!(
+            json_response_with_method("GET", IP_COUNTRY_PATH),
+            json!({"status": "success", "data": "unKnow"}),
+        );
 
         let ip138 = route_method_path("GET", IP138_PATH).expect("route returns a response");
         assert_eq!(ip138.header("Content-Type"), Some(HTML_CONTENT_TYPE));

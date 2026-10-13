@@ -1,0 +1,1205 @@
+{
+  "category_id": 2,
+  "difficulty_id": 4,
+  "master_source": {
+    "package": "sp-0.0.29.apk",
+    "logical_path": "master/quest/boss_battle_quest.orderedmap",
+    "start_index": 5,
+    "end_index": 6,
+    "difficulty_index": 107,
+    "hidden_index": 123,
+    "serialized_timezone": "+08:00",
+    "archive": "archive-common-diff/pinball-1.4.48-1.4.49-1-4c2dd780.zip",
+    "entry": "production/upload/eb/f8ef19148af9c1330b78c7fb3ce75e3f202e64"
+  },
+  "announcement_timezone": "+09:00",
+  "sources": [
+    {
+      "id": "1217291579548786688",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1217291579548786688",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1217291579548786688",
+      "release_at": "2020-01-15T12:00:00+09:00",
+      "scope": "super_added",
+      "quote": "1月15日 12:00より、ボスバトルにて「ルインゴーレム超級」を追加しました！"
+    },
+    {
+      "id": "1241922641256042497",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1241922641256042497",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1241922641256042497",
+      "release_at": "2020-03-23T12:00:00+09:00",
+      "scope": "super_added",
+      "quote": "3月23日12:00よりボスバトル「カースアークエギル上級+」、「カースアークエギル超級」を追加しました！"
+    },
+    {
+      "id": "1250258054471225348",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1250258054471225348",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1250258054471225348",
+      "release_at": "2020-04-15T12:00:00+09:00",
+      "scope": "super_added",
+      "quote": "4月15日 12:00よりボスバトル「白虎上級+」、「白虎超級」を追加しました！"
+    },
+    {
+      "id": "1261129690095349761",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1261129690095349761",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1261129690095349761",
+      "release_at": "2020-05-15T12:00:00+09:00",
+      "scope": "super_added",
+      "quote": "5月15日 12:00よりボスバトル「ヤドリオー上級+」、「ヤドリオー超級」を追加しました！"
+    },
+    {
+      "id": "1275263071317921793",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1275263071317921793",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1275263071317921793",
+      "release_at": "2020-06-23T12:00:00+09:00",
+      "scope": "super_added",
+      "quote": "6月23日 12:00よりボスバトル「アドミニスター上級+」、「アドミニスター超級」を追加しました！"
+    },
+    {
+      "id": "1332158722467008513",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1332158722467008513",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1332158722467008513",
+      "release_at": "2020-11-27T12:00:00+09:00",
+      "scope": "super_added",
+      "quote": "11月27日 12:00よりボスバトル「オロチ上級+」、「オロチ超級」を追加しました！"
+    },
+    {
+      "id": "1382892013977182209",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1382892013977182209",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1382892013977182209",
+      "release_at": "2021-04-16T12:00:00+09:00",
+      "scope": "super_added",
+      "quote": "4月16日 12:00よりボスバトル「Sec-5200Li上級+」、「Sec-5200Li超級」を追加しました！"
+    },
+    {
+      "id": "1404273149995229184",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1404273149995229184",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1404273149995229184",
+      "release_at": "2021-06-14T12:00:00+09:00",
+      "scope": "super_added",
+      "quote": "6月14日 12:00よりボスバトル「妖狐上級+」、「妖狐超級」を追加しました！"
+    },
+    {
+      "id": "1437249942741942278",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1437249942741942278",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1437249942741942278",
+      "release_at": "2021-09-13T12:00:00+09:00",
+      "scope": "super_added",
+      "quote": "9月13日 12:00よりボスバトルに「風将ファングライダー上級+・超級」を追加しました！"
+    },
+    {
+      "id": "1414419506483535872",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1414419506483535872",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1414419506483535872",
+      "release_at": "2021-07-12T12:00:00+09:00",
+      "scope": "boss_added",
+      "quote": "7月12日 12:00より、ボスバトルに新たなボス「ドーサルブラザーズ」を追加いたしました！"
+    },
+    {
+      "id": "1425653785720803331",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1425653785720803331",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1425653785720803331",
+      "release_at": "2021-08-12T12:00:00+09:00",
+      "scope": "boss_added",
+      "quote": "8月12日 12:00より、ボスバトルに新たなボス「グリズリー」を追加いたしました！"
+    },
+    {
+      "id": "1425654285660934146",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1425654285660934146",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1425654285660934146",
+      "release_at": "2021-08-12T12:00:00+09:00",
+      "scope": "boss_series_added",
+      "quote": "8月12日12:00に、ボスバトルに廃竜シリーズを追加いたしました！"
+    },
+    {
+      "id": "1447758962162503681",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1447758962162503681",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1447758962162503681",
+      "release_at": "2021-10-12T12:00:00+09:00",
+      "scope": "boss_series_added",
+      "quote": "10月12日12:00に、ボスバトルに廃竜シリーズを追加いたしました！"
+    },
+    {
+      "id": "1662654998650716162",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1662654998650716162",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1662654998650716162",
+      "release_at": "2023-05-31T12:00:00+09:00",
+      "scope": "super_added",
+      "quote": "5月31日 12:00より、一部ボスバトルに「上級+」、「超級」が追加されます！",
+      "media_url": "https://pbs.twimg.com/media/FxLv5_VakAAYXc3.jpg?name=orig"
+    },
+    {
+      "id": "1735132623545274681",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1735132623545274681",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1735132623545274681",
+      "release_at": "2023-12-14T12:00:00+09:00",
+      "scope": "permanent_boss_series_added",
+      "quote": "12/14 12:00より、ボスバトルにレーヌシリーズを追加いたしました！",
+      "media_url": "https://pbs.twimg.com/media/GBRt7NsaoAA6xBO.jpg?name=orig"
+    },
+    {
+      "id": "1744554658570600477",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1744554658570600477",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1744554658570600477",
+      "release_at": "2024-01-09T12:00:00+09:00",
+      "scope": "permanent_boss_series_added",
+      "quote": "1/9 12:00より、ボスバトルに「精霊獣シリーズ」を追加いたしました！",
+      "media_url": "https://pbs.twimg.com/media/GDXnNvtbwAAbqYY.jpg?name=orig"
+    },
+    {
+      "id": "1744554652975440327",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1744554652975440327",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1744554652975440327",
+      "release_at": "2024-01-09T12:00:00+09:00",
+      "scope": "permanent_boss_series_added",
+      "quote": "1/9 12:00より、ボスバトルに「季節限定シリーズ」を追加いたしました！",
+      "media_url": "https://pbs.twimg.com/media/GDXnNjEbYAAMMfm.jpg?name=orig"
+    },
+    {
+      "id": "1744554841903595897",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1744554841903595897",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1744554841903595897",
+      "release_at": "2024-01-09T12:00:00+09:00",
+      "scope": "permanent_boss_series_added",
+      "quote": "1月9日 12:00より、ボスバトルに「機兵シリーズ」を追加、イベントに「機兵共同決戦」を常設いたしました！",
+      "media_url": "https://pbs.twimg.com/media/GDXnYZPbcAEpbJa.jpg?name=orig"
+    },
+    {
+      "id": "1682224977742024704",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1682224977742024704",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1682224977742024704",
+      "release_at": "2023-07-21T12:00:00+09:00",
+      "scope": "limited_boss_rerun",
+      "quote": "7月21日 12:00より、イベント「マルチボスピックアップ」を開催中です！期間限定ボス「レーヌ・ヴェルト」「レーヌ・ルージュ」「レーヌ・ブル」が登場！",
+      "media_url": "https://pbs.twimg.com/media/F1h2s8qaEAAlR7F.jpg?name=orig"
+    },
+    {
+      "id": "1486898348540186631",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1486898348540186631",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1486898348540186631",
+      "release_at": "2022-01-31T12:00:00+09:00",
+      "scope": "limited_boss_rerun",
+      "quote": "1月31日 12:00より、イベント「マルチボスピックアップ」を開催いたします！",
+      "media_url": "https://pbs.twimg.com/media/FKKGKu7agAEOWve.jpg?name=orig"
+    },
+    {
+      "id": "1491970764186451975",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1491970764186451975",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1491970764186451975",
+      "release_at": "2022-02-14T12:00:00+09:00",
+      "scope": "boss_added",
+      "quote": "2月14日 12:00より、ボスバトルに新たなボス「エギルエンヴィー」の追加が決定いたしました！",
+      "media_url": "https://pbs.twimg.com/media/FLSLgMRacAQWSa-.jpg?name=orig"
+    },
+    {
+      "id": "1225254494180532225",
+      "author": "world_flipper",
+      "url": "https://x.com/world_flipper/status/1225254494180532225",
+      "archive_url": "https://api.fxtwitter.com/world_flipper/status/1225254494180532225",
+      "release_at": "2020-02-06T12:00:00+09:00",
+      "scope": "super_added",
+      "quote": "2月6日 12:00より、ボスバトル「不死王レシタール上級+」、「不死王レシタール超級」を追加いたしました！",
+      "media_url": "https://pbs.twimg.com/media/EQD6eAvVUAAuyq9.jpg?name=orig"
+    }
+  ],
+  "quests": [
+    {
+      "quest_id": 1001003,
+      "name": "维·索拉斯",
+      "master_start_at": "2024-07-04 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/super_owl_2",
+      "boss_family": "维·索拉斯",
+      "jp_name": null,
+      "related_quest_id": null,
+      "jp_super_release_at": null,
+      "source_ids": [],
+      "evidence_scope": "quest_absent_from_jp_master",
+      "schedule_basis": "client_master",
+      "jp_master_quest_id": null,
+      "jp_master_start_at": null,
+      "jp_master_end_at": null,
+      "evidence_note": "国服主表记录超级难度与 2024-07-04 开放时间. 日服最终主表的相同关卡 ID 对应记录缺失."
+    },
+    {
+      "quest_id": 1002004,
+      "name": "雷霆树妖",
+      "master_start_at": "2024-09-12 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi1_2_4",
+      "boss_family": "雷霆树妖",
+      "jp_name": "ボルトホロウ",
+      "related_quest_id": null,
+      "jp_super_release_at": "2023-05-31T12:00:00+09:00",
+      "source_ids": [
+        "1662654998650716162"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1002004,
+      "jp_master_start_at": "2023-05-31 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1003004,
+      "name": "不死王瑞西塔尔",
+      "master_start_at": "2000-01-01 00:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi1_3_4",
+      "boss_family": "不死王瑞西塔尔",
+      "jp_name": "不死王レシタール",
+      "related_quest_id": null,
+      "jp_super_release_at": "2020-02-06T12:00:00+09:00",
+      "source_ids": [
+        "1225254494180532225"
+      ],
+      "evidence_scope": "official_super_release",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1003004,
+      "jp_master_start_at": "2000-01-01 00:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1005004,
+      "name": "废墟守卫",
+      "master_start_at": "2024-10-31 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi1_5_4",
+      "boss_family": "废墟守卫",
+      "jp_name": "ファ・ルインガード",
+      "related_quest_id": null,
+      "jp_super_release_at": "2023-05-31T12:00:00+09:00",
+      "source_ids": [
+        "1662654998650716162"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1005004,
+      "jp_master_start_at": "2023-05-31 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1006003,
+      "name": "废墟魔像",
+      "master_start_at": "2000-01-01 00:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi1_6_4",
+      "boss_family": "废墟魔像",
+      "jp_name": "ルインゴーレム",
+      "related_quest_id": null,
+      "jp_super_release_at": "2020-01-15T12:00:00+09:00",
+      "source_ids": [
+        "1217291579548786688"
+      ],
+      "evidence_scope": "super_added",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1006003,
+      "jp_master_start_at": "2000-01-01 00:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1009004,
+      "name": "潮汐巨妖",
+      "master_start_at": "2024-10-17 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi1_9_4",
+      "boss_family": "潮汐巨妖",
+      "jp_name": "タイダルクラーケン",
+      "related_quest_id": null,
+      "jp_super_release_at": "2023-05-31T12:00:00+09:00",
+      "source_ids": [
+        "1662654998650716162"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1009004,
+      "jp_master_start_at": "2023-05-31 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1010004,
+      "name": "寄居蟹船长",
+      "master_start_at": "2000-01-01 00:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi1_10_4",
+      "boss_family": "寄居蟹船长",
+      "jp_name": "ヤドリオー",
+      "related_quest_id": null,
+      "jp_super_release_at": "2020-05-15T12:00:00+09:00",
+      "source_ids": [
+        "1261129690095349761"
+      ],
+      "evidence_scope": "super_added",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1010004,
+      "jp_master_start_at": "2000-01-01 00:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1012004,
+      "name": "诅咒弧魔艾基尔",
+      "master_start_at": "2000-01-01 00:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi1_12_4",
+      "boss_family": "诅咒弧魔艾基尔",
+      "jp_name": "カースアークエギル",
+      "related_quest_id": null,
+      "jp_super_release_at": "2020-03-23T12:00:00+09:00",
+      "source_ids": [
+        "1241922641256042497"
+      ],
+      "evidence_scope": "super_added",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1012004,
+      "jp_master_start_at": "2000-01-01 00:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1013004,
+      "name": "风将獠牙骑士",
+      "master_start_at": "2021-09-13 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi1_13_4",
+      "boss_family": "风将獠牙骑士",
+      "jp_name": "風将ファングライダ-",
+      "related_quest_id": null,
+      "jp_super_release_at": "2021-09-13T12:00:00+09:00",
+      "source_ids": [
+        "1437249942741942278"
+      ],
+      "evidence_scope": "super_added",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1013004,
+      "jp_master_start_at": "2021-09-13 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1014004,
+      "name": "白虎",
+      "master_start_at": "2000-01-01 00:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi1_14_4",
+      "boss_family": "白虎",
+      "jp_name": "白虎",
+      "related_quest_id": null,
+      "jp_super_release_at": "2020-04-15T12:00:00+09:00",
+      "source_ids": [
+        "1250258054471225348"
+      ],
+      "evidence_scope": "super_added",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1014004,
+      "jp_master_start_at": "2000-01-01 00:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1016004,
+      "name": "Sec-5200Li",
+      "master_start_at": "2021-04-16 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi1_16_4",
+      "boss_family": "Sec-5200Li",
+      "jp_name": "Sec-5200Li",
+      "related_quest_id": null,
+      "jp_super_release_at": "2021-04-16T12:00:00+09:00",
+      "source_ids": [
+        "1382892013977182209"
+      ],
+      "evidence_scope": "super_added",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1016004,
+      "jp_master_start_at": "2021-04-16 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1017004,
+      "name": "管理者",
+      "master_start_at": "2000-01-01 00:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi1_17_4",
+      "boss_family": "管理者",
+      "jp_name": "アドミニスター",
+      "related_quest_id": null,
+      "jp_super_release_at": "2020-06-23T12:00:00+09:00",
+      "source_ids": [
+        "1275263071317921793"
+      ],
+      "evidence_scope": "super_added",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1017004,
+      "jp_master_start_at": "2000-01-01 00:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1019004,
+      "name": "妖狐",
+      "master_start_at": "2021-06-14 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi1_19_4",
+      "boss_family": "妖狐",
+      "jp_name": "妖狐",
+      "related_quest_id": null,
+      "jp_super_release_at": "2021-06-14T12:00:00+09:00",
+      "source_ids": [
+        "1404273149995229184"
+      ],
+      "evidence_scope": "super_added",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1019004,
+      "jp_master_start_at": "2021-06-14 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1020003,
+      "name": "八岐大蛇",
+      "master_start_at": "2020-11-27 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi1_20_3",
+      "boss_family": "八岐大蛇",
+      "jp_name": "オロチ",
+      "related_quest_id": null,
+      "jp_super_release_at": "2020-11-27T12:00:00+09:00",
+      "source_ids": [
+        "1332158722467008513"
+      ],
+      "evidence_scope": "super_added",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1020003,
+      "jp_master_start_at": "2020-11-27 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1022004,
+      "name": "青之女王",
+      "master_start_at": "2025-02-20 12:00:00",
+      "master_end_at": "2025-03-06 23:59:59",
+      "thumbnail": "quest/thumbnail/multi_battle/multi_pick_22_4",
+      "boss_family": "青之女王",
+      "jp_name": "レーヌ・ブル",
+      "related_quest_id": null,
+      "jp_super_release_at": "2023-07-21T12:00:00+09:00",
+      "source_ids": [
+        "1682224977742024704"
+      ],
+      "evidence_scope": "official_limited_rerun_and_super_master",
+      "schedule_basis": "client_master",
+      "jp_master_quest_id": 1022004,
+      "jp_master_start_at": "2023-07-21 12:00:00",
+      "jp_master_end_at": "2023-07-31 20:59:59"
+    },
+    {
+      "quest_id": 1023004,
+      "name": "背鳍三兄弟",
+      "master_start_at": "2021-07-12 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi1_23_4",
+      "boss_family": "背鳍三兄弟",
+      "jp_name": "ドーサルブラザーズ",
+      "related_quest_id": null,
+      "jp_super_release_at": "2021-07-12T12:00:00+09:00",
+      "source_ids": [
+        "1414419506483535872"
+      ],
+      "evidence_scope": "official_boss_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1023004,
+      "jp_master_start_at": "2021-07-12 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1024004,
+      "name": "猩红巨熊",
+      "master_start_at": "2021-08-12 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi1_24_4",
+      "boss_family": "猩红巨熊",
+      "jp_name": "グリズリー",
+      "related_quest_id": null,
+      "jp_super_release_at": "2021-08-12T12:00:00+09:00",
+      "source_ids": [
+        "1425653785720803331"
+      ],
+      "evidence_scope": "official_boss_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1024004,
+      "jp_master_start_at": "2021-08-12 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1025004,
+      "name": "伊尔考普斯",
+      "master_start_at": "2021-08-12 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/dragon_thunder/4",
+      "boss_family": "伊尔考普斯",
+      "jp_name": "イルコオプス",
+      "related_quest_id": null,
+      "jp_super_release_at": "2021-08-12T12:00:00+09:00",
+      "source_ids": [
+        "1425654285660934146"
+      ],
+      "evidence_scope": "official_boss_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1025004,
+      "jp_master_start_at": "2021-08-12 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1026004,
+      "name": "伊萨巴迪卡",
+      "master_start_at": "2021-08-12 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/dragon_fire/4",
+      "boss_family": "伊萨巴迪卡",
+      "jp_name": "イルサバティカ",
+      "related_quest_id": null,
+      "jp_super_release_at": "2021-08-12T12:00:00+09:00",
+      "source_ids": [
+        "1425654285660934146"
+      ],
+      "evidence_scope": "official_boss_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1026004,
+      "jp_master_start_at": "2021-08-12 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1027004,
+      "name": "伊劳德雷斯",
+      "master_start_at": "2021-08-12 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/dragon_water/4",
+      "boss_family": "伊劳德雷斯",
+      "jp_name": "イルラウドレス",
+      "related_quest_id": null,
+      "jp_super_release_at": "2021-08-12T12:00:00+09:00",
+      "source_ids": [
+        "1425654285660934146"
+      ],
+      "evidence_scope": "official_boss_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1027004,
+      "jp_master_start_at": "2021-08-12 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1028004,
+      "name": "伊尔格拉乌",
+      "master_start_at": "2021-10-12 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/dragon_wind/4",
+      "boss_family": "伊尔格拉乌",
+      "jp_name": "イルグラウル",
+      "related_quest_id": null,
+      "jp_super_release_at": "2021-10-12T12:00:00+09:00",
+      "source_ids": [
+        "1447758962162503681"
+      ],
+      "evidence_scope": "official_boss_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1028004,
+      "jp_master_start_at": "2021-10-12 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1029004,
+      "name": "伊尔梅塔雷",
+      "master_start_at": "2021-10-12 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/dragon_light/4",
+      "boss_family": "伊尔梅塔雷",
+      "jp_name": "イルメタレイ",
+      "related_quest_id": null,
+      "jp_super_release_at": "2021-10-12T12:00:00+09:00",
+      "source_ids": [
+        "1447758962162503681"
+      ],
+      "evidence_scope": "official_boss_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1029004,
+      "jp_master_start_at": "2021-10-12 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1030004,
+      "name": "伊尔昂斯拉",
+      "master_start_at": "2021-10-12 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/dragon_dark/4",
+      "boss_family": "伊尔昂斯拉",
+      "jp_name": "イルアンスラ",
+      "related_quest_id": null,
+      "jp_super_release_at": "2021-10-12T12:00:00+09:00",
+      "source_ids": [
+        "1447758962162503681"
+      ],
+      "evidence_scope": "official_boss_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1030004,
+      "jp_master_start_at": "2021-10-12 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1031004,
+      "name": "赤之女王",
+      "master_start_at": "2025-02-20 12:00:00",
+      "master_end_at": "2025-03-06 23:59:59",
+      "thumbnail": "quest/thumbnail/multi_battle/multi_pick_31_4",
+      "boss_family": "赤之女王",
+      "jp_name": "レーヌ・ルージュ",
+      "related_quest_id": null,
+      "jp_super_release_at": "2023-07-21T12:00:00+09:00",
+      "source_ids": [
+        "1682224977742024704"
+      ],
+      "evidence_scope": "official_limited_rerun_and_super_master",
+      "schedule_basis": "client_master",
+      "jp_master_quest_id": 1031004,
+      "jp_master_start_at": "2023-07-21 12:00:00",
+      "jp_master_end_at": "2023-07-31 20:59:59"
+    },
+    {
+      "quest_id": 1032004,
+      "name": "方舟守护者",
+      "master_start_at": "2022-01-31 12:00:00",
+      "master_end_at": "2022-02-13 20:59:59",
+      "thumbnail": "quest/thumbnail/multi_battle/multi_pick_32_4",
+      "boss_family": "方舟守护者",
+      "jp_name": "アークガーディアン",
+      "related_quest_id": null,
+      "jp_super_release_at": "2022-01-31T12:00:00+09:00",
+      "source_ids": [
+        "1486898348540186631"
+      ],
+      "evidence_scope": "official_limited_rerun_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1032004,
+      "jp_master_start_at": "2022-01-31 12:00:00",
+      "jp_master_end_at": "2022-02-13 20:59:59"
+    },
+    {
+      "quest_id": 1033004,
+      "name": "艾基尔·嫉妒",
+      "master_start_at": "2022-02-14 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi1_33_4",
+      "boss_family": "艾基尔·嫉妒",
+      "jp_name": "エギルエンヴィー",
+      "related_quest_id": null,
+      "jp_super_release_at": "2022-02-14T12:00:00+09:00",
+      "source_ids": [
+        "1491970764186451975"
+      ],
+      "evidence_scope": "official_boss_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1033004,
+      "jp_master_start_at": "2022-02-14 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1034004,
+      "name": "碧之女王",
+      "master_start_at": "2025-02-20 12:00:00",
+      "master_end_at": "2025-03-06 23:59:59",
+      "thumbnail": "quest/thumbnail/multi_battle/multi_pick_34_4",
+      "boss_family": "碧之女王",
+      "jp_name": "レーヌ・ヴェルト",
+      "related_quest_id": null,
+      "jp_super_release_at": "2023-07-21T12:00:00+09:00",
+      "source_ids": [
+        "1682224977742024704"
+      ],
+      "evidence_scope": "official_limited_rerun_and_super_master",
+      "schedule_basis": "client_master",
+      "jp_master_quest_id": 1034004,
+      "jp_master_start_at": "2023-07-21 12:00:00",
+      "jp_master_end_at": "2023-07-31 20:59:59"
+    },
+    {
+      "quest_id": 1035004,
+      "name": "青之女王",
+      "master_start_at": "2025-07-03 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi_pick_22_4",
+      "boss_family": "青之女王",
+      "jp_name": "レーヌ・ブル",
+      "related_quest_id": 1022004,
+      "jp_super_release_at": "2023-12-14T12:00:00+09:00",
+      "source_ids": [
+        "1735132623545274681"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1035004,
+      "jp_master_start_at": "2023-12-14 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1036004,
+      "name": "墨之女王",
+      "master_start_at": "2023-07-21 12:00:00",
+      "master_end_at": "2023-07-31 20:59:59",
+      "thumbnail": "quest/thumbnail/multi_battle/multi_pick_34_4",
+      "boss_family": "墨之女王",
+      "jp_name": "レーヌ・ノワール",
+      "related_quest_id": null,
+      "jp_super_release_at": null,
+      "source_ids": [
+        "1682224977742024704"
+      ],
+      "evidence_scope": "quest_window_announcement_identity_mismatch",
+      "schedule_basis": "client_master",
+      "jp_master_quest_id": 1036004,
+      "jp_master_start_at": "2023-07-21 12:00:00",
+      "jp_master_end_at": "2023-07-31 20:59:59",
+      "evidence_note": "日服主表的名称与战斗路径指向墨之女王, 2023-07-21 起止窗口与缩略图沿用绿之女王. 同期官方公告列出蓝, 红, 绿三类女王."
+    },
+    {
+      "quest_id": 1037004,
+      "name": "赤之女王",
+      "master_start_at": "2025-07-03 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi_pick_31_4",
+      "boss_family": "赤之女王",
+      "jp_name": "レーヌ・ルージュ",
+      "related_quest_id": 1031004,
+      "jp_super_release_at": "2023-12-14T12:00:00+09:00",
+      "source_ids": [
+        "1735132623545274681"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1037004,
+      "jp_master_start_at": "2023-12-14 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1038004,
+      "name": "碧之女王",
+      "master_start_at": "2025-07-03 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/variant_empress_wind/4",
+      "boss_family": "碧之女王",
+      "jp_name": "レーヌ・ヴェルト",
+      "related_quest_id": 1034004,
+      "jp_super_release_at": "2023-12-14T12:00:00+09:00",
+      "source_ids": [
+        "1735132623545274681"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1038004,
+      "jp_master_start_at": "2023-12-14 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1039004,
+      "name": "皓之女王",
+      "master_start_at": "2025-07-03 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/variant_empress_light/4",
+      "boss_family": "皓之女王",
+      "jp_name": "レーヌ・ブロンシュ",
+      "related_quest_id": null,
+      "jp_super_release_at": "2023-12-14T12:00:00+09:00",
+      "source_ids": [
+        "1735132623545274681"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1039004,
+      "jp_master_start_at": "2023-12-14 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1040004,
+      "name": "金之女王",
+      "master_start_at": "2025-07-03 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/variant_empress_thunder/4",
+      "boss_family": "金之女王",
+      "jp_name": "レーヌ・ジョーヌ",
+      "related_quest_id": null,
+      "jp_super_release_at": "2023-12-14T12:00:00+09:00",
+      "source_ids": [
+        "1735132623545274681"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1040004,
+      "jp_master_start_at": "2023-12-14 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1041004,
+      "name": "墨之女王",
+      "master_start_at": "2025-07-03 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/variant_empress_dark/4",
+      "boss_family": "墨之女王",
+      "jp_name": "レーヌ・ノワール",
+      "related_quest_id": 1036004,
+      "jp_super_release_at": "2023-12-14T12:00:00+09:00",
+      "source_ids": [
+        "1735132623545274681"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1041004,
+      "jp_master_start_at": "2023-12-14 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1051004,
+      "name": "火魔奥尔塔尼亚",
+      "master_start_at": "2025-06-26 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/spirit_beast_fire/4",
+      "boss_family": "火魔奥尔塔尼亚",
+      "jp_name": "火魔オルタネア",
+      "related_quest_id": null,
+      "jp_super_release_at": "2024-01-09T12:00:00+09:00",
+      "source_ids": [
+        "1744554658570600477"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1051004,
+      "jp_master_start_at": "2024-01-09 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1052004,
+      "name": "水鬼斯拉姆冈",
+      "master_start_at": "2025-06-26 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/spirit_beast_water/4",
+      "boss_family": "水鬼斯拉姆冈",
+      "jp_name": "水鬼スラムゴン",
+      "related_quest_id": null,
+      "jp_super_release_at": "2024-01-09T12:00:00+09:00",
+      "source_ids": [
+        "1744554658570600477"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1052004,
+      "jp_master_start_at": "2024-01-09 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1053004,
+      "name": "雷龟普罗格雷奥",
+      "master_start_at": "2025-06-26 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/spirit_beast_thunder/4",
+      "boss_family": "雷龟普罗格雷奥",
+      "jp_name": "雷亀プログレオ",
+      "related_quest_id": null,
+      "jp_super_release_at": "2024-01-09T12:00:00+09:00",
+      "source_ids": [
+        "1744554658570600477"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1053004,
+      "jp_master_start_at": "2024-01-09 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1054004,
+      "name": "风师亚特摩西亚",
+      "master_start_at": "2025-06-26 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/spirit_beast_storm/4",
+      "boss_family": "风师亚特摩西亚",
+      "jp_name": "風師アトモシア",
+      "related_quest_id": null,
+      "jp_super_release_at": "2024-01-09T12:00:00+09:00",
+      "source_ids": [
+        "1744554658570600477"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1054004,
+      "jp_master_start_at": "2024-01-09 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1055004,
+      "name": "光蛛杜梅欧",
+      "master_start_at": "2025-06-26 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/spirit_beast_light/4",
+      "boss_family": "光蛛杜梅欧",
+      "jp_name": "光蜘ドゥーメオ",
+      "related_quest_id": null,
+      "jp_super_release_at": "2024-01-09T12:00:00+09:00",
+      "source_ids": [
+        "1744554658570600477"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1055004,
+      "jp_master_start_at": "2024-01-09 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1056004,
+      "name": "暗凤希亚特利欧",
+      "master_start_at": "2025-06-26 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/spirit_beast_dark/4",
+      "boss_family": "暗凤希亚特利欧",
+      "jp_name": "闇鳳シアトリオ",
+      "related_quest_id": null,
+      "jp_super_release_at": "2024-01-09T12:00:00+09:00",
+      "source_ids": [
+        "1744554658570600477"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1056004,
+      "jp_master_start_at": "2024-01-09 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1057004,
+      "name": "杰克南瓜灯",
+      "master_start_at": "2025-06-26 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/hw20/4",
+      "boss_family": "杰克南瓜灯",
+      "jp_name": "ジャックオランタン",
+      "related_quest_id": null,
+      "jp_super_release_at": "2024-01-09T12:00:00+09:00",
+      "source_ids": [
+        "1744554652975440327"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1057004,
+      "jp_master_start_at": "2024-01-09 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1058004,
+      "name": "圣夜的雪像Ｇ",
+      "master_start_at": "2025-06-26 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/xm20/4",
+      "boss_family": "圣夜的雪像Ｇ",
+      "jp_name": "聖夜の雪像Ｇ",
+      "related_quest_id": null,
+      "jp_super_release_at": "2024-01-09T12:00:00+09:00",
+      "source_ids": [
+        "1744554652975440327"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1058004,
+      "jp_master_start_at": "2024-01-09 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1060004,
+      "name": "机工神兵菲诺梅那",
+      "master_start_at": "2025-07-10 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/steam_robot_another/4",
+      "boss_family": "机工神兵菲诺梅那",
+      "jp_name": "機工神兵フェノメナ",
+      "related_quest_id": null,
+      "jp_super_release_at": "2024-01-09T12:00:00+09:00",
+      "source_ids": [
+        "1744554841903595897"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1060004,
+      "jp_master_start_at": "2024-01-09 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1061004,
+      "name": "红机兵海茵莱特",
+      "master_start_at": "2025-07-10 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/steam_robot_fire/4",
+      "boss_family": "红机兵海茵莱特",
+      "jp_name": "紅機兵ハインライト",
+      "related_quest_id": null,
+      "jp_super_release_at": "2024-01-09T12:00:00+09:00",
+      "source_ids": [
+        "1744554841903595897"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1061004,
+      "jp_master_start_at": "2024-01-09 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1062004,
+      "name": "苍机兵维尔努斯",
+      "master_start_at": "2025-07-10 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/steam_robot_water/4",
+      "boss_family": "苍机兵维尔努斯",
+      "jp_name": "蒼機兵ヴェルヌス",
+      "related_quest_id": null,
+      "jp_super_release_at": "2024-01-09T12:00:00+09:00",
+      "source_ids": [
+        "1744554841903595897"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1062004,
+      "jp_master_start_at": "2024-01-09 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1063004,
+      "name": "橙机兵吉布西兹",
+      "master_start_at": "2025-07-10 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/steam_robot_thunder/4",
+      "boss_family": "橙机兵吉布西兹",
+      "jp_name": "橙機兵ギブシーズ",
+      "related_quest_id": null,
+      "jp_super_release_at": "2024-01-09T12:00:00+09:00",
+      "source_ids": [
+        "1744554841903595897"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1063004,
+      "jp_master_start_at": "2024-01-09 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1064004,
+      "name": "碧机兵克拉格",
+      "master_start_at": "2025-07-10 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/steam_robot_wind/4",
+      "boss_family": "碧机兵克拉格",
+      "jp_name": "翠機兵クラーグ",
+      "related_quest_id": null,
+      "jp_super_release_at": "2024-01-09T12:00:00+09:00",
+      "source_ids": [
+        "1744554841903595897"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1064004,
+      "jp_master_start_at": "2024-01-09 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1065004,
+      "name": "闪机兵艾赞",
+      "master_start_at": "2025-07-10 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/steam_robot_light/4",
+      "boss_family": "闪机兵艾赞",
+      "jp_name": "閃機兵アイザン",
+      "related_quest_id": null,
+      "jp_super_release_at": "2024-01-09T12:00:00+09:00",
+      "source_ids": [
+        "1744554841903595897"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1065004,
+      "jp_master_start_at": "2024-01-09 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1066004,
+      "name": "暗机兵德古兰",
+      "master_start_at": "2025-07-10 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/advent_event/steam_robot_dark/4",
+      "boss_family": "暗机兵德古兰",
+      "jp_name": "暗機兵ダグラン",
+      "related_quest_id": null,
+      "jp_super_release_at": "2024-01-09T12:00:00+09:00",
+      "source_ids": [
+        "1744554841903595897"
+      ],
+      "evidence_scope": "official_jp_release_and_super_master",
+      "schedule_basis": "official_jp_super_release",
+      "jp_master_quest_id": 1066004,
+      "jp_master_start_at": "2024-01-09 12:00:00",
+      "jp_master_end_at": "(None)"
+    },
+    {
+      "quest_id": 1070004,
+      "name": "始龙之眼",
+      "master_start_at": "2025-06-26 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/world_10/thumbnail1",
+      "boss_family": "始龙之眼",
+      "jp_name": null,
+      "related_quest_id": null,
+      "jp_super_release_at": null,
+      "source_ids": [],
+      "evidence_scope": "quest_absent_from_jp_master",
+      "schedule_basis": "client_master",
+      "jp_master_quest_id": null,
+      "jp_master_start_at": null,
+      "jp_master_end_at": null,
+      "evidence_note": "国服主表记录始龙之眼的常驻超级难度与 2025-06-26 开放时间. 日服最终主表的相同关卡 ID 对应记录缺失."
+    },
+    {
+      "quest_id": 1071004,
+      "name": "方舟守护者",
+      "master_start_at": "2025-06-26 12:00:00",
+      "master_end_at": "(None)",
+      "thumbnail": "quest/thumbnail/multi_battle/multi_pick_32_4",
+      "boss_family": "方舟守护者",
+      "jp_name": null,
+      "related_quest_id": 1032004,
+      "jp_super_release_at": null,
+      "source_ids": [],
+      "evidence_scope": "quest_absent_from_jp_master",
+      "schedule_basis": "client_master",
+      "jp_master_quest_id": null,
+      "jp_master_start_at": null,
+      "jp_master_end_at": null,
+      "evidence_note": "国服主表以独立 ID 记录方舟守护者的常驻超级难度与 2025-06-26 开放时间. 日服公告 1486898348540186631 对应限时 ID 1032004."
+    }
+  ],
+  "jp_master_source": {
+    "id": "jp-1.780-boss-master",
+    "archive_url": "https://ia601507.us.archive.org/21/items/gacha-archive/Online/World%20Flipper/air.jp.co.cygames.worldflipper-1.780.0.1780000.zip",
+    "entry": "data/data/air.jp.co.cygames.worldflipper/jp.co.cygames.worldflipper/Local Store/asset_download/production/download/production/upload/eb/f8ef19148af9c1330b78c7fb3ce75e3f202e64",
+    "logical_path": "master/quest/boss_battle_quest.orderedmap",
+    "serialized_timezone": "+09:00",
+    "start_index": 5,
+    "end_index": 6,
+    "difficulty_index": 107
+  },
+  "jp_release_scope": "同一关卡 ID 的日服超级开放时刻; 常驻化关卡 ID 对应常驻化公告."
+}

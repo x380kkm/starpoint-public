@@ -124,6 +124,10 @@ function New-IosCandidateProcessMock {
         }
 
         if ($FilePath -eq 'pwsh') {
+            if (@($argumentCopy | Where-Object { $_.EndsWith('check-personal-service-web.ps1', [StringComparison]::Ordinal) }).Count -eq 1) {
+                if ($state.FailKind -eq 'WEB_CHECK') { return & $failure }
+                return & $success
+            }
             if ($state.FailKind -eq 'PACKAGE') { return & $failure }
             $outputIpa = $null
             $packageReport = $null
@@ -168,6 +172,7 @@ $parsedCommandLine = ConvertFrom-IosCandidateCommandLine -Arguments @(
     '-CnCdnBundle', 'cdn',
     '-BundleId', 'dev.starpoint.CN',
     '-DisplayName', 'Starpoint CN',
+    '-ReleaseVersion', '0.0.22',
     '-SshHost', 'starpoint-mac',
     '-OutputDirectory', 'output'
 )
@@ -188,10 +193,28 @@ Assert-CandidateCondition $duplicateArgumentRejected '命令行入口没有拒�
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) "ios-cn-candidate-test-$([Guid]::NewGuid().ToString('N'))"
 $input = New-IosCandidateTestInput -Root (Join-Path $testRoot 'input')
 try {
+    # //// 网页产物失配在创建输出和访问远端前终止 [@x380kkm 2026-09-26] ////
+    $webCheckOutput = Join-Path $testRoot 'web-check-output'
+    $webCheckMock = New-IosCandidateProcessMock -Root (Join-Path $testRoot 'web-check-mock') -FailKind 'WEB_CHECK'
+    $webCheckRejected = $false
+    try {
+        Invoke-IosCnCandidateBuild -InputIpa $input.IpaPath -CnCdnBundle $input.CdnPath `
+            -ReleaseVersion '0.0.22' `
+            -BundleId 'dev.starpoint.CNTest' -DisplayName 'Starpoint CN Test' `
+            -OutputDirectory $webCheckOutput -ProcessInvoker $webCheckMock.Invoker | Out-Null
+    } catch {
+        $webCheckRejected = $_.Exception.Message.Contains('校验个人服务网页构建产物', [StringComparison]::Ordinal)
+    }
+    Assert-CandidateCondition $webCheckRejected '网页检查失败没有终止发布.'
+    Assert-CandidateCondition ($webCheckMock.State.Calls.Count -eq 1) '网页检查失败后继续访问了构建依赖.'
+    Assert-CandidateCondition (-not (Test-Path -LiteralPath $webCheckOutput)) '网页检查失败时创建了发布输出.'
+    # //// /网页产物失配在创建输出和访问远端前终止 ////
+
     # //// 验证成功编排和产物报告 [@x380kkm 2026-08-19] ////
     $successOutput = Join-Path $testRoot 'success-output'
     $successMock = New-IosCandidateProcessMock -Root (Join-Path $testRoot 'success-mock')
     $successResult = Invoke-IosCnCandidateBuild -InputIpa $input.IpaPath -CnCdnBundle $input.CdnPath `
+        -ReleaseVersion '0.0.22' `
         -BundleId 'dev.starpoint.CNTest' -DisplayName 'Starpoint CN Test' -SshHost 'starpoint-mac' `
         -OutputDirectory $successOutput -ProcessInvoker $successMock.Invoker
     Assert-CandidateCondition ($successResult.status -eq 'passed') '成功候选构建没有返回 passed.'
@@ -238,13 +261,16 @@ try {
     Assert-CandidateCondition ($cleanupCall.Arguments[-1].Contains('wait_for_process_group_exit', [StringComparison]::Ordinal)) '远端清理没有等待进程组退出.'
     Assert-CandidateCondition ($cleanupCall.Arguments[-1].Contains('build-child.start', [StringComparison]::Ordinal)) '远端清理没有使用 child PID 回退记录.'
     Assert-CandidateCondition ($cleanupCall.Arguments[-1].Contains('derived_group=', [StringComparison]::Ordinal)) '远端清理没有从 child PID 恢复进程组.'
-    $packageCall = $successMock.State.Calls | Where-Object { $_.FilePath -eq 'pwsh' } | Select-Object -First 1
+    $packageCall = $successMock.State.Calls | Where-Object {
+        $_.FilePath -eq 'pwsh' -and $_.Arguments -contains '-OutputIpa'
+    } | Select-Object -First 1
     $packageScriptArgument = $packageCall.Arguments |
         Where-Object { $_.EndsWith('package-ios-cn-personal-service.ps1', [StringComparison]::OrdinalIgnoreCase) } |
         Select-Object -First 1
     Assert-CandidateCondition ($null -ne $packageScriptArgument) '候选构建没有调用现有 CN 包装器.'
     Assert-CandidateCondition ($packageCall.Arguments -contains '-CnCdnBundle') '候选构建没有传入 CN CDN.'
     Assert-CandidateCondition ($packageCall.Arguments -contains '-BundleId') '候选构建没有传入 bundle ID.'
+    Assert-CandidateCondition ($packageCall.Arguments -contains '-ReleaseVersion') '候选构建必须传入发布版本.'
     # //// /验证成功编排和产物报告 ////
 
     # //// 验证所有远端失败分支执行有界清理 [@x380kkm 2026-08-19] ////
@@ -260,6 +286,7 @@ try {
         $caseRoot = Join-Path $testRoot "failure-$($failureCase.Kind)"
         $failureMock = New-IosCandidateProcessMock -Root (Join-Path $caseRoot 'mock') -FailKind $failureCase.Kind
         $failureResult = Invoke-IosCnCandidateBuild -InputIpa $input.IpaPath -CnCdnBundle $input.CdnPath `
+            -ReleaseVersion '0.0.22' `
             -BundleId 'dev.starpoint.CNTest' -DisplayName 'Starpoint CN Test' `
             -OutputDirectory (Join-Path $caseRoot 'output') -ProcessInvoker $failureMock.Invoker
         Assert-CandidateCondition ($failureResult.status -eq 'failed') "$($failureCase.Kind) 没有返回 failed."
@@ -289,6 +316,7 @@ try {
     '{}' | Set-Content -LiteralPath $stalePackageReport -Encoding UTF8
     $staleMock = New-IosCandidateProcessMock -Root (Join-Path $testRoot 'stale-mock') -FailKind 'REMOTE_PREPARE'
     $staleResult = Invoke-IosCnCandidateBuild -InputIpa $input.IpaPath -CnCdnBundle $input.CdnPath `
+        -ReleaseVersion '0.0.22' `
         -BundleId 'dev.starpoint.CNTest' -DisplayName 'Starpoint CN Test' `
         -OutputDirectory $staleOutput -ProcessInvoker $staleMock.Invoker
     Assert-CandidateCondition ($null -eq $staleResult.output_ipa) '失败报告暴露了旧 IPA.'
@@ -300,6 +328,7 @@ try {
     # //// 验证本机归档失败仍删除本轮临时输入 [@x380kkm 2026-08-19] ////
     $archiveMock = New-IosCandidateProcessMock -Root (Join-Path $testRoot 'archive-mock') -FailKind 'ARCHIVE'
     $archiveResult = Invoke-IosCnCandidateBuild -InputIpa $input.IpaPath -CnCdnBundle $input.CdnPath `
+        -ReleaseVersion '0.0.22' `
         -BundleId 'dev.starpoint.CNTest' -DisplayName 'Starpoint CN Test' `
         -OutputDirectory (Join-Path $testRoot 'archive-output') -ProcessInvoker $archiveMock.Invoker
     Assert-CandidateCondition ($archiveResult.root_error_code -eq 'ARCHIVE_FAILED') '归档失败没有返回 ARCHIVE_FAILED.'
@@ -312,6 +341,7 @@ try {
     # //// 拒绝脏工作树和不一致提交 [@x380kkm 2026-08-19] ////
     $dirtyMock = New-IosCandidateProcessMock -Root (Join-Path $testRoot 'dirty-mock') -DirtyStatus ' M tracked.txt'
     $dirtyResult = Invoke-IosCnCandidateBuild -InputIpa $input.IpaPath -CnCdnBundle $input.CdnPath `
+        -ReleaseVersion '0.0.22' `
         -BundleId 'dev.starpoint.CNTest' -DisplayName 'Starpoint CN Test' `
         -OutputDirectory (Join-Path $testRoot 'dirty-output') -ProcessInvoker $dirtyMock.Invoker
     Assert-CandidateCondition ($dirtyResult.root_error_code -eq 'DIRTY_WORKTREE') '脏工作树没有被拒绝.'
@@ -320,6 +350,7 @@ try {
     $mismatchCommit = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
     $mismatchMock = New-IosCandidateProcessMock -Root (Join-Path $testRoot 'mismatch-mock') -RequestedCommit $mismatchCommit
     $mismatchResult = Invoke-IosCnCandidateBuild -InputIpa $input.IpaPath -CnCdnBundle $input.CdnPath `
+        -ReleaseVersion '0.0.22' `
         -BundleId 'dev.starpoint.CNTest' -DisplayName 'Starpoint CN Test' -Commit $mismatchCommit `
         -OutputDirectory (Join-Path $testRoot 'mismatch-output') -ProcessInvoker $mismatchMock.Invoker
     Assert-CandidateCondition ($mismatchResult.root_error_code -eq 'COMMIT_MISMATCH') '不一致提交没有被拒绝.'
@@ -331,6 +362,7 @@ try {
     $insideMock = New-IosCandidateProcessMock -Root (Join-Path $testRoot 'inside-mock')
     try {
         Invoke-IosCnCandidateBuild -InputIpa $input.IpaPath -CnCdnBundle $input.CdnPath `
+            -ReleaseVersion '0.0.22' `
             -BundleId 'dev.starpoint.CNTest' -DisplayName 'Starpoint CN Test' `
             -OutputDirectory (Join-Path $PSScriptRoot '..\..\build\ios-cn-candidate-test') `
             -ProcessInvoker $insideMock.Invoker | Out-Null
@@ -343,6 +375,7 @@ try {
     # //// 验证清理失败覆盖成功状态 [@x380kkm 2026-08-19] ////
     $cleanupMock = New-IosCandidateProcessMock -Root (Join-Path $testRoot 'cleanup-mock') -FailKind 'CLEANUP'
     $cleanupResult = Invoke-IosCnCandidateBuild -InputIpa $input.IpaPath -CnCdnBundle $input.CdnPath `
+        -ReleaseVersion '0.0.22' `
         -BundleId 'dev.starpoint.CNTest' -DisplayName 'Starpoint CN Test' `
         -OutputDirectory (Join-Path $testRoot 'cleanup-output') -ProcessInvoker $cleanupMock.Invoker
     Assert-CandidateCondition ($cleanupResult.status -eq 'failed') '清理失败没有覆盖成功状态.'

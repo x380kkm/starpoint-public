@@ -319,8 +319,11 @@ mod tests {
     #[test]
     fn campaign_list_excludes_every_hidden_alias() {
         let mut root = Map::new();
-
-        super::super::campaign::replace_available_for_load(&mut root, |_| Ok(true)).unwrap();
+        let directory = TempDir::new().unwrap();
+        let mut database = ServiceDatabase::open(directory.path()).unwrap();
+        database.set_virtual_time(true, 1_693_536_000_000, 1.0).unwrap();
+        let context = super::super::GachaLoadContext::from_database(&database).unwrap();
+        super::super::campaign::replace_available_for_load(&mut root, &context).unwrap();
 
         let campaigns = root["gacha_campaign_list"].as_array().unwrap();
         assert!(campaigns

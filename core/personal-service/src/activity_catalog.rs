@@ -58,10 +58,8 @@ pub(crate) fn default_activity_window_status(
     activity_id: &str,
     now_ms: i64,
 ) -> Option<ActivityWindowStatus> {
-    if crate::activity_projection::is_permanent_activity_id(activity_id) {
-        return Some(ActivityWindowStatus::Open);
-    }
-    let (start_at_ms, end_at_ms) = default_activity_window(asset_root, activity_id)?;
+    let (start_at_ms, end_at_ms) = crate::activity_projection::regional_activity_window(activity_id, now_ms)
+        .ok().flatten().or_else(|| default_activity_window(asset_root, activity_id))?;
     Some(if now_ms < start_at_ms {
         ActivityWindowStatus::NotStarted
     } else if now_ms >= end_at_ms {
@@ -73,6 +71,15 @@ pub(crate) fn default_activity_window_status(
 // //// /读取 manifest 默认时间窗口 ////
 
 pub(crate) fn default_activity_window(asset_root: &Path, activity_id: &str) -> Option<(i64, i64)> {
+    if let Ok(Some(window)) = crate::activity_projection::default_quest_window(activity_id) {
+        return Some(window);
+    }
+    if let Ok(Some(window)) = crate::cn_player_history::default_activity_window(activity_id) {
+        return Some(window);
+    }
+    if let Ok(Some(window)) = crate::cn_payment::default_activity_window(activity_id) {
+        return Some(window);
+    }
     let LoadedManifest::Present(manifest) = manifest::load(asset_root).ok()? else {
         return None;
     };
@@ -88,6 +95,12 @@ pub(crate) fn default_activity_window(asset_root: &Path, activity_id: &str) -> O
 }
 
 pub(crate) fn contains_activity_definition(asset_root: &Path, activity_id: &str) -> bool {
+    if crate::cn_payment::default_activity_window(activity_id).is_ok_and(|window| window.is_some()) {
+        return true;
+    }
+    if crate::cn_player_history::default_activity_window(activity_id).is_ok_and(|window| window.is_some()) {
+        return true;
+    }
     let Ok(LoadedManifest::Present(manifest)) = manifest::load(asset_root) else {
         return false;
     };
@@ -310,6 +323,33 @@ fn list_activity_catalog(
             manifest.activities,
         ),
     };
+    let mut definitions = definitions;
+    let hidden_daily_ids = crate::activity_projection::hidden_daily_ids(database)?;
+    let mut additional_definitions = crate::activity_projection::management_definitions(&hidden_daily_ids)?;
+    additional_definitions.extend(crate::cn_player_history::activity_definitions()?);
+    additional_definitions.extend(crate::cn_payment::activity_definitions()?);
+    for value in additional_definitions {
+        let definition: ActivityDefinition = serde_json::from_value(value).map_err(|error| {
+            crate::PersonalServiceError::new(format!("invalid quest calendar entry: {error}"))
+        })?;
+        if !definitions.iter().any(|existing| existing.activity_id == definition.activity_id) {
+            definitions.push(definition);
+        }
+    }
+    let companion_windows = crate::activity_projection::companion_activity_windows(database, now_ms)?;
+    for definition in &mut definitions {
+        let window = match companion_windows.get(&definition.activity_id) {
+            Some(window) => Some(*window),
+            None => crate::activity_projection::regional_activity_window(&definition.activity_id, now_ms)?
+                .or(crate::activity_projection::default_quest_window(&definition.activity_id)?)
+                .or(crate::cn_player_history::default_activity_window(&definition.activity_id)?),
+        };
+        if let Some((start, end)) = window {
+            definition.default_start_at_ms = Some(start);
+            definition.default_end_at_ms = Some(end);
+        }
+    }
+    definitions.retain(|definition| !hidden_daily_ids.contains(&definition.activity_id));
     let mut known_ids = HashSet::with_capacity(definitions.len());
     let mut entries = definitions
         .into_iter()
@@ -367,7 +407,9 @@ fn list_activity_catalog(
                 .copied(),
         ));
     }
-    entries.retain(|entry| filter::matches(entry, &filter));
+    entries.retain(|entry| {
+        !hidden_daily_ids.contains(&entry.activity_id) && filter::matches(entry, &filter)
+    });
     entries.sort_by(|left, right| {
         right
             .favorite
@@ -504,18 +546,6 @@ fn apply_schedule_and_favorite(
     entry.favorite = favorite;
     entry.temporary_open_until_ms = temporary_open_until_ms;
     let Some(schedule) = schedule else {
-        if crate::activity_projection::is_permanent_activity_id(&entry.activity_id) {
-            entry.mode = Some("always");
-            entry.period = None;
-            entry.schedule = None;
-            entry.rule = None;
-            apply_temporary_open_status(
-                entry,
-                ActivityWindowStatus::Open,
-                temporary_open_until_ms,
-            );
-            return;
-        }
         let Some((start_at_ms, end_at_ms)) = entry.default_start_at_ms.zip(entry.default_end_at_ms)
         else {
             entry.schedule = None;

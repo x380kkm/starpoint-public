@@ -5,6 +5,7 @@
 // 房间许可, 成员状态, connection id 和 COM 冻结载荷由 SQLite 提供.
 
 mod battle;
+mod attention;
 mod lifecycle;
 mod lobby_player;
 mod meeting;
@@ -86,6 +87,7 @@ pub(crate) struct MultiplayerSessionListener {
     pending_lobby_sequences: Vec<PendingLobbySequence>,
     npc_ready_rooms: std::collections::BTreeSet<(String, i64)>,
     auto_starting_rooms: std::collections::BTreeSet<(String, i64)>,
+    attention_start_deadlines: std::collections::BTreeMap<(String, i64), Instant>,
     next_room_event_poll: Instant,
 }
 
@@ -110,6 +112,7 @@ impl MultiplayerSessionListener {
             pending_lobby_sequences: Vec::new(),
             npc_ready_rooms: std::collections::BTreeSet::new(),
             auto_starting_rooms: std::collections::BTreeSet::new(),
+            attention_start_deadlines: std::collections::BTreeMap::new(),
             next_room_event_poll: Instant::now(),
         })
     }
@@ -134,7 +137,7 @@ impl MultiplayerSessionListener {
         let mut did_work = self.accept_clients()?;
         let mut frames = Vec::new();
         for (client_index, client) in self.clients.iter_mut().enumerate() {
-            did_work |= read_client_frames(client_index, client, &mut frames)?;
+            did_work |= read_client_frames(client_index, client, &mut frames);
         }
         for (client_index, frame) in frames {
             if client_index >= self.clients.len() || self.clients[client_index].peer_closed {
@@ -158,11 +161,10 @@ impl MultiplayerSessionListener {
         loop {
             match self.listener.accept() {
                 Ok((stream, _)) => {
-                    stream.set_nonblocking(true).map_err(|error| {
-                        PersonalServiceError::new(format!(
-                            "failed to configure multiplayer client socket: {error}"
-                        ))
-                    })?;
+                    if let Err(error) = stream.set_nonblocking(true) {
+                        eprintln!("failed to configure multiplayer client socket: {error}");
+                        continue;
+                    }
                     self.clients.push(SessionClient {
                         stream,
                         buffer: Vec::new(),
@@ -178,6 +180,16 @@ impl MultiplayerSessionListener {
                     accepted = true;
                 }
                 Err(error) if error.kind() == ErrorKind::WouldBlock => return Ok(accepted),
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        ErrorKind::Interrupted
+                            | ErrorKind::ConnectionAborted
+                            | ErrorKind::ConnectionReset
+                    ) =>
+                {
+                    continue;
+                }
                 Err(error) => {
                     return Err(PersonalServiceError::new(format!(
                         "failed to accept multiplayer session: {error}"

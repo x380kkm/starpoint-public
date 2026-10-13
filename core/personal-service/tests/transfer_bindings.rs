@@ -6,8 +6,12 @@
 
 #[path = "support/cn.rs"]
 mod cn_support;
+#[path = "transfer_bindings/fixture.rs"]
+mod fixture;
 #[path = "support/local_saves.rs"]
 mod local_save_support;
+#[path = "transfer_bindings/safety.rs"]
+mod safety;
 #[path = "support/mod.rs"]
 mod support;
 

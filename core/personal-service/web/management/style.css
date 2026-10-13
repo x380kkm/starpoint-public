@@ -6,7 +6,7 @@
 :root {
   --ink: #182431;
   --muted: #5f6f7a;
-  --paper: #edf4f5;
+  --paper: #f1f5f6;
   --panel: rgba(255, 255, 255, 0.93);
   --line: rgba(30, 57, 71, 0.16);
   --primary: #087f91;
@@ -15,7 +15,7 @@
   --accent: #e78b35;
   --accent-soft: #fff0d8;
   --danger: #b23c45;
-  --shadow: 0 18px 50px rgba(24, 52, 66, 0.13);
+  --shadow: 0 12px 32px rgba(24, 52, 66, 0.11);
   color: var(--ink);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
   background: var(--paper);
@@ -29,6 +29,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  line-height: 1.5;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   background:
     radial-gradient(circle at 8% 0%, rgba(231, 139, 53, 0.2), transparent 28rem),
@@ -71,7 +72,7 @@ summary:focus-visible {
   flex-direction: column;
   gap: 1.5rem;
   overflow: hidden;
-  padding: 2.5rem max(1.25rem, calc((100vw - 1180px) / 2));
+  padding: 1.75rem max(1.25rem, calc((100vw - 1180px) / 2));
   color: white;
   background:
     linear-gradient(128deg, rgba(7, 72, 84, 0.97) 0%, rgba(12, 48, 67, 0.94) 62%, rgba(25, 42, 57, 0.96) 100%),
@@ -159,7 +160,7 @@ summary:focus-visible {
 }
 
 .hero h1 {
-  font-size: clamp(2rem, 8vw, 3.6rem);
+  font-size: clamp(1.8rem, 6vw, 2.75rem);
   font-weight: 850;
   line-height: 1;
   text-shadow: 0 3px 18px rgba(4, 28, 39, 0.35);
@@ -225,7 +226,7 @@ summary:focus-visible {
   position: relative;
   flex: 1 0 max-content;
   min-width: 6.25rem;
-  min-height: 2.55rem;
+  min-height: 2.75rem;
   padding: 0.58rem 0.9rem;
   border: 1px solid rgba(29, 74, 87, 0.12);
   color: #40545f;
@@ -283,7 +284,6 @@ main {
     linear-gradient(135deg, rgba(255, 255, 255, 0.98), transparent 42%),
     var(--panel);
   box-shadow: 0 12px 38px rgba(37, 57, 59, 0.07);
-  backdrop-filter: blur(14px);
 }
 
 .overview-grid,
@@ -321,6 +321,12 @@ main {
   font-size: 0.82rem;
 }
 
+.section-description {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .status-pill,
 .badge {
   display: inline-flex;
@@ -333,8 +339,17 @@ main {
 }
 
 .status-pill {
+  gap: 0.45rem;
   color: #17423e;
   background: #d9eeea;
+}
+
+.status-pill::before {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
 }
 
 .status-pill.offline {
@@ -381,7 +396,7 @@ main {
 }
 
 .button.ghost {
-  min-height: 2.2rem;
+  min-height: 2.75rem;
   padding: 0.45rem 0.7rem;
   color: var(--primary-dark);
   background: var(--primary-soft);
@@ -406,6 +421,13 @@ main {
   flex-direction: column;
 }
 
+.save-options fieldset.stack-form {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 label {
   display: grid;
   min-width: 0;
@@ -427,6 +449,7 @@ textarea {
   border-radius: 0.78rem;
   color: var(--ink);
   background: rgba(255, 255, 255, 0.92);
+  font-size: 1rem;
 }
 
 textarea {
@@ -465,6 +488,28 @@ textarea {
 }
 
 .http-observation-path {
+  overflow-wrap: anywhere;
+}
+
+.client-report summary {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.client-report-title {
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
+
+.client-report-body {
+  max-height: 24rem;
+  margin: 0.85rem 0 0;
+  padding: 0.85rem;
+  overflow: auto;
+  border-radius: 0.75rem;
+  background: var(--paper);
+  font: 0.82rem/1.6 ui-monospace, monospace;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
@@ -557,6 +602,98 @@ textarea {
 .save-actions {
   flex-wrap: wrap;
   margin-top: 0.8rem;
+}
+
+.save-card {
+  padding: 1.1rem;
+}
+
+.save-card.active {
+  background: linear-gradient(110deg, #f1faf8, #ffffff 48%);
+}
+
+.save-card .card-title {
+  margin-bottom: 0.25rem;
+  font-size: 1.1rem;
+}
+
+.save-options {
+  margin-top: 1rem;
+}
+
+.save-delete-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+}
+
+.save-delete-row .button {
+  flex-shrink: 0;
+}
+
+.confirmation-dialog {
+  width: calc(100% - 2rem);
+  max-width: 28rem;
+  width: min(28rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  padding: 1.5rem;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 1.35rem;
+  color: var(--ink);
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(15, 35, 48, 0.25);
+}
+
+.confirmation-dialog:not([open]) {
+  display: none;
+}
+
+.save-password-panel {
+  flex-basis: 100%;
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.78rem;
+}
+
+.save-password-panel > label + label {
+  margin-top: 0.8rem;
+}
+
+.confirmation-dialog::backdrop {
+  background: rgba(15, 35, 48, 0.48);
+}
+
+.confirmation-dialog h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.confirmation-target {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  overflow-wrap: anywhere;
+  border-radius: 0.85rem;
+  background: var(--paper);
+}
+
+.confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.confirmation-actions .danger {
+  color: white;
+  background: var(--danger);
 }
 
 .device-picker {
@@ -1262,8 +1399,8 @@ textarea {
     flex-direction: row;
     align-items: flex-end;
     justify-content: space-between;
-    padding-top: 3.5rem;
-    padding-bottom: 3.5rem;
+    padding-top: 2.5rem;
+    padding-bottom: 2.5rem;
   }
 
   .hero-actions {
@@ -1322,6 +1459,14 @@ textarea {
   .activity-detail-body {
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   }
+}
+
+.activity-history-data {
+  max-height: 24rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
 }
 
 @media (prefers-reduced-motion: reduce) {

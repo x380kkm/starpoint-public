@@ -46,6 +46,17 @@ pub(crate) struct MailReward {
     pub(crate) rank_point: i64,
 }
 
+impl MailReward {
+    // //// 判断邮件是否包含可领取数量 [@x380kkm 2026-09-28] ////
+    pub(crate) fn has_rewards(&self) -> bool {
+        self.item_list.values().chain(self.equipment_list.values()).any(|amount| *amount > 0)
+            || !self.character_list.is_empty()
+            || [self.free_mana, self.paid_mana, self.free_vmoney, self.vmoney,
+                self.exp_pool, self.star_crumb, self.bond_token, self.boss_boost_point,
+                self.boost_point, self.rank_point].iter().any(|amount| *amount > 0)
+    }
+}
+
 pub(crate) struct CreateMailInput {
     pub(crate) account_id: i64,
     pub(crate) title: String,
@@ -80,10 +91,19 @@ pub(crate) struct MailClaimReward {
     pub(crate) character_list: Vec<Value>,
 }
 
+pub(crate) struct MailClaim {
+    pub(crate) granted: MailReward,
+    pub(crate) remaining: MailReward,
+    pub(crate) updates: MailClaimReward,
+}
+
 pub(crate) struct MailClaimResult {
     pub(crate) mail_ids: Vec<i64>,
     pub(crate) reward: MailClaimReward,
+    pub(crate) already_mail_count: i64,
+    pub(crate) deleted_mail_count: i64,
     pub(crate) expired_mail_count: i64,
+    pub(crate) retained_mail_count: i64,
     pub(crate) total_count: i64,
     pub(crate) remaining_count: i64,
 }
@@ -159,8 +179,9 @@ impl ServiceDatabase {
         input: &CreateMailInput,
         player_data: &str,
         event_key: &str,
+        activity_id: Option<&str>,
     ) -> Result<bool, PersonalServiceError> {
-        let transaction = self.connection.transaction().map_err(mail_database_error)?;
+        let transaction = self.connection.savepoint().map_err(mail_database_error)?;
         let delivered = transaction
             .query_row(
                 "SELECT EXISTS(
@@ -195,11 +216,23 @@ impl ServiceDatabase {
             )
             .map_err(mail_database_error)?;
         let mail_id = transaction.last_insert_rowid();
+        super::activity_history::record_snapshot_events(&transaction, input.account_id, player_data, input.created_at)?;
+        let prepared_data = super::reward_deliveries::prepare_snapshot(&transaction, input.account_id, player_data)?;
+        if let Some(activity_id) = activity_id {
+            let root = super::activity_history::decode_root(player_data)?;
+            super::activity_history::insert_event(&transaction, input.account_id, &crate::activity_history::ActivityHistoryEntry {
+                activity_id: activity_id.to_owned(),
+                participation_round: crate::activity_history::participation_round(&root, activity_id),
+                event_key: event_key.to_owned(), kind: "delivery",
+                details: serde_json::json!({"title":input.title,"rewards":input.rewards}),
+                created_at: input.created_at, mail_id: Some(mail_id),
+            })?;
+        }
         transaction
             .execute(
                 "INSERT INTO player_snapshots (account_id, data_json) VALUES (?1, ?2)
                  ON CONFLICT(account_id) DO UPDATE SET data_json = excluded.data_json",
-                params![input.account_id, player_data],
+                params![input.account_id, prepared_data],
             )
             .map_err(mail_database_error)?;
         transaction
@@ -283,7 +316,7 @@ impl ServiceDatabase {
         mut apply_rewards: F,
     ) -> Result<MailClaimResult, PersonalServiceError>
     where
-        F: FnMut(&mut Value, &MailReward) -> Result<MailClaimReward, PersonalServiceError>,
+        F: FnMut(&mut Value, &MailReward) -> Result<MailClaim, PersonalServiceError>,
     {
         let transaction = self.connection.transaction().map_err(mail_database_error)?;
         let ids = match mail_ids {
@@ -294,32 +327,31 @@ impl ServiceDatabase {
         let mut result = MailClaimResult {
             mail_ids: Vec::new(),
             reward: MailClaimReward::default(),
+            already_mail_count: 0,
+            deleted_mail_count: 0,
             expired_mail_count: 0,
+            retained_mail_count: 0,
             total_count: 0,
             remaining_count: 0,
         };
+        let mut visited = BTreeSet::new();
         for mail_id in ids {
+            if !visited.insert(mail_id) {
+                continue;
+            }
             let Some(raw_mail) = read_raw_mail_by_id(&transaction, account_id, mail_id)? else {
+                result.deleted_mail_count += 1;
                 continue;
             };
             if raw_mail.received_at.is_some() {
+                result.already_mail_count += 1;
                 continue;
             }
-            let changed = transaction
-                .execute(
-                    "UPDATE player_mails SET received_at = ?1
-                     WHERE id = ?2 AND account_id = ?3 AND received_at IS NULL",
-                    params![now, mail_id, account_id],
-                )
-                .map_err(mail_database_error)?;
-            if changed != 1 {
-                continue;
-            }
-            result.mail_ids.push(mail_id);
             if raw_mail
                 .expires_at
                 .is_some_and(|expires_at| expires_at <= now)
             {
+                mark_mail_received(&transaction, account_id, mail_id, now)?;
                 result.expired_mail_count += 1;
                 continue;
             }
@@ -338,23 +370,45 @@ impl ServiceDatabase {
                 })?);
             }
             let reward = decode_mail(raw_mail)?.rewards;
-            let applied = apply_rewards(
+            let claim = apply_rewards(
                 player_data.as_mut().expect("player data is loaded"),
                 &reward,
             )?;
+            if claim.remaining.has_rewards() {
+                result.retained_mail_count += 1;
+            }
+            if !claim.granted.has_rewards() {
+                continue;
+            }
+            if claim.remaining.has_rewards() {
+                let remaining = serde_json::to_string(&claim.remaining)
+                    .map_err(|error| PersonalServiceError::new(error.to_string()))?;
+                transaction.execute(
+                    "UPDATE player_mails SET rewards_json = ?1 WHERE id = ?2 AND account_id = ?3 AND received_at IS NULL",
+                    params![remaining, mail_id, account_id],
+                ).map_err(mail_database_error)?;
+            } else {
+                mark_mail_received(&transaction, account_id, mail_id, now)?;
+            }
+            result.mail_ids.push(mail_id);
+            let history_id: i64 = transaction.query_row(
+                "SELECT COALESCE(MAX(id), 0) + 1 FROM player_receive_history", [], |row| row.get(0),
+            ).map_err(mail_database_error)?;
             insert_receive_history_in_transaction(
                 &transaction,
                 account_id,
-                &format!("mail:{mail_id}"),
+                &format!("mail:{mail_id}:{history_id}"),
                 now,
-                &mail_reward_history_entries(&reward),
+                &mail_reward_history_entries(&claim.granted),
             )?;
-            merge_claim_reward(&mut result.reward, applied)?;
+            merge_claim_reward(&mut result.reward, claim.updates)?;
         }
-        if let Some(player_data) = player_data {
+        if let Some(player_data) = player_data.filter(|_| !result.mail_ids.is_empty()) {
             let data_json = serde_json::to_string(&player_data).map_err(|error| {
                 PersonalServiceError::new(format!("failed to encode player mail snapshot: {error}"))
             })?;
+            super::activity_history::record_snapshot_events(&transaction, account_id, &data_json, now)?;
+            let data_json = super::reward_deliveries::prepare_snapshot(&transaction, account_id, &data_json)?;
             let updated = transaction
                 .execute(
                     "UPDATE player_snapshots SET data_json = ?1 WHERE account_id = ?2",
@@ -444,7 +498,7 @@ impl ServiceDatabase {
     // //// /保存本地邮件奖励收藏 ////
 }
 
-struct RawMail {
+pub(super) struct RawMail {
     id: i64,
     title: String,
     body: String,
@@ -455,7 +509,7 @@ struct RawMail {
     received_at: Option<i64>,
 }
 
-fn read_raw_mail(row: &rusqlite::Row<'_>) -> rusqlite::Result<RawMail> {
+pub(super) fn read_raw_mail(row: &rusqlite::Row<'_>) -> rusqlite::Result<RawMail> {
     Ok(RawMail {
         id: row.get(0)?,
         title: row.get(1)?,
@@ -485,7 +539,7 @@ fn read_raw_mail_by_id(
         .map_err(mail_database_error)
 }
 
-fn decode_mail(raw: RawMail) -> Result<StoredMail, PersonalServiceError> {
+pub(super) fn decode_mail(raw: RawMail) -> Result<StoredMail, PersonalServiceError> {
     let rewards = serde_json::from_str(&raw.rewards_json).map_err(|error| {
         PersonalServiceError::new(format!("stored mail rewards are invalid: {error}"))
     })?;
@@ -517,6 +571,26 @@ fn list_pending_ids(
         .collect::<Result<Vec<_>, _>>()
         .map_err(mail_database_error)?;
     Ok(ids)
+}
+
+// //// 标记事务内完成的邮件领取 [@x380kkm 2026-09-25] ////
+fn mark_mail_received(
+    transaction: &Transaction<'_>,
+    account_id: i64,
+    mail_id: i64,
+    now: i64,
+) -> Result<(), PersonalServiceError> {
+    let changed = transaction
+        .execute(
+            "UPDATE player_mails SET received_at = ?1
+             WHERE id = ?2 AND account_id = ?3 AND received_at IS NULL",
+            params![now, mail_id, account_id],
+        )
+        .map_err(mail_database_error)?;
+    if changed != 1 {
+        return Err(PersonalServiceError::new("mail claim changed during settlement"));
+    }
+    Ok(())
 }
 
 fn merge_claim_reward(

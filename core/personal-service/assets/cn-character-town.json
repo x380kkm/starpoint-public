@@ -1,0 +1,41 @@
+{
+  "source": "master/character/story_join_character.orderedmap",
+  "rows": [
+    {
+      "character_id": 512001,
+      "emergence_kind": 0,
+      "chapter": 1,
+      "stage": 8,
+      "node": 4,
+      "quest_id": 1008004,
+      "priority": -999,
+      "join_type": "town",
+      "join_temporary": false,
+      "quest_category": 1
+    },
+    {
+      "character_id": 10,
+      "emergence_kind": 0,
+      "chapter": 2,
+      "stage": 9,
+      "node": 7,
+      "quest_id": 2009007,
+      "priority": 1,
+      "join_type": "quest",
+      "join_temporary": false,
+      "quest_category": 1
+    },
+    {
+      "character_id": 213013,
+      "emergence_kind": 0,
+      "chapter": 10,
+      "stage": 15,
+      "node": 3,
+      "quest_id": 10015003,
+      "priority": 1,
+      "join_type": "quest",
+      "join_temporary": false,
+      "quest_category": 1
+    }
+  ]
+}

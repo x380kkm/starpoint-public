@@ -761,7 +761,7 @@ function typedSdkContract(requestPath, sdkSource) {
     if (requestPath === "/ips138.asp") {
         return { status: 200, contentType: "text/html", bodyType: "text" }
     }
-    if (["/myip", "/ip/getIpContry.do", "/api/skan/query_detail"].includes(requestPath)) {
+    if (requestPath === "/myip") {
         return { status: 200, contentType: "text/plain", bodyType: "text" }
     }
     if (requestPath.startsWith("/mobile/multilingual/ios/ios_") && requestPath.endsWith(".json")) {

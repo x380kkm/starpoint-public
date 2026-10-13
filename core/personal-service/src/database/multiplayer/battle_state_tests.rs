@@ -91,8 +91,10 @@ fn keeps_member_play_ids_and_replays_atomic_battle_actions() {
     let mut database = ServiceDatabase::open(root.path()).expect("service database reopens");
 
     let guest_start_json = json!({ "member": "guest" }).to_string();
+    let start_snapshot = json!({ "user_info": { "free_vmoney": 100, "vmoney": 0 } }).to_string();
     database
         .start_multiplayer_battle_member(MultiplayerBattleStart {
+            snapshot: &start_snapshot,
             identity: MultiplayerBattleIdentity {
                 account_id: 2,
                 room_number: &room.room_number,
@@ -112,6 +114,7 @@ fn keeps_member_play_ids_and_replays_atomic_battle_actions() {
     let host_start_json = json!({ "member": "host" }).to_string();
     database
         .start_multiplayer_battle_member(MultiplayerBattleStart {
+            snapshot: &start_snapshot,
             identity: MultiplayerBattleIdentity {
                 account_id: 1,
                 room_number: &room.room_number,

@@ -1,7 +1,8 @@
 # audience: internal
 # # ios-cn-compatibility-patch
-# 此模块对 CN iOS 1.8.4 的 AIR 打包保护, 雷霆登录界面, 抽卡资源预载和公网 IP 探测应用已确认补丁.
+# 此模块对 CN iOS 1.8.4 的 AIR 打包保护, 雷霆登录界面, 抽卡资源与结果界面和公网 IP 探测应用兼容补丁.
 # 每项补丁使用唯一二进制上下文, 并同时接受原始状态和已应用状态.
+# 装备结果界面的兑换开关和奖励类型分别位于 GachaLogic.master 的 0x40 与 0x90, 与原生访问器一致.
 
 from __future__ import annotations
 
@@ -267,18 +268,18 @@ CN_1_8_4_COMPATIBILITY_PATCHES = (
         4,
     ),
     BinaryPatch(
-        "gacha_equipment_odds_preload",
-        0x3E9864C,
+        "gacha_equipment_result_exchange_guard",
+        0x3282ED4,
         bytes.fromhex(
-            "40013fd6e8ab41f9e09b01fde898f0b4e4030032e8ab41f9"
-            "090940f9295140f92a0940f9"
+            "bcf27d929c3100b4880b40f9e0031caa01a140f9280840f9"
+            "082940f900013fd6e89a40f9f50300aa"
         ),
         bytes.fromhex(
-            "40013fd6e8ab41f9e09b01fde898f0b4e4031f2ae8ab41f9"
-            "090940f9295140f92a0940f9"
+            "bcf27d929c3100b4882b40f9483100b4094140b9892a0034"
+            "004940f91f2003d5e89a40f9f50300aa"
         ),
-        16,
-        4,
+        8,
+        24,
     ),
     BinaryPatch(
         "public_ip_probe",

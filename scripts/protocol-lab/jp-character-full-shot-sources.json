@@ -1,0 +1,13 @@
+{
+  "preview_root": "jp-character-preview-sources",
+  "sources": [
+    {
+      "root": "regional-full-shots-final/regional-sources-complete",
+      "mappings": "resolved-mappings.json"
+    },
+    {
+      "root": "jp-drive-full-shots-20260822",
+      "mappings": "jp-drive-plus-aspect-corrections-mappings.json"
+    }
+  ]
+}

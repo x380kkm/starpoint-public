@@ -32,9 +32,10 @@ fn serves_management_assets_without_a_management_unlock_step() {
     assert!(page.contains("Content-Security-Policy: default-src 'none'"));
     assert!(page.contains("星点个人服务"));
     assert!(page.contains("role=\"tablist\" aria-label=\"管理功能\""));
-    assert_eq!(page.matches("role=\"tab\"").count(), 4);
-    assert_eq!(page.matches("role=\"tabpanel\"").count(), 4);
-    for tab_name in ["activity", "ai", "server", "other"] {
+    let tab_names = ["activity", "competition", "ai", "server", "other"];
+    assert_eq!(page.matches("data-management-tab=\"").count(), tab_names.len());
+    assert_eq!(page.matches("data-management-tab-panel=\"").count(), tab_names.len());
+    for tab_name in tab_names {
         let tab_id = format!("id=\"management-tab-{tab_name}\"");
         let tab_start = page.find(&tab_id).expect("management tab exists");
         let tab_end = page[tab_start..]
@@ -96,7 +97,10 @@ fn serves_management_assets_without_a_management_unlock_step() {
         .contains("id=\"remote-player-access-panel\" class=\"panel player-access-panel\" hidden"));
     assert!(!page.contains("密文通道"));
     assert!(!page.contains("奖励 JSON"));
-    assert!(page.contains("type=\"module\""));
+    assert!(page.contains("src=\"/manage/browser-app.js\" defer"));
+    let browser_app = request(service.port(), "GET", "/manage/browser-app.js");
+    assert!(browser_app.starts_with("HTTP/1.1 200 OK"));
+    assert!(browser_app.contains("/v1/local-saves/import-password"));
     assert!(!page.contains("解锁管理界面"));
     assert!(!page.contains("管理 token"));
     assert!(!page.contains(service.management_token()));

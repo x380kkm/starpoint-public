@@ -6,7 +6,7 @@
 use super::{MultiplayerBattleIdentity, MultiplayerBattleReceipt};
 use crate::database::multiplayer::multiplayer_database_error;
 use crate::PersonalServiceError;
-use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
 
 pub(super) fn read_receipt_for_identity(
@@ -74,7 +74,7 @@ pub(super) fn read_receipt(
 }
 
 pub(super) fn save_receipt(
-    transaction: &Transaction<'_>,
+    transaction: &Connection,
     action: &str,
     identity: MultiplayerBattleIdentity<'_>,
     receipt: &MultiplayerBattleReceipt,

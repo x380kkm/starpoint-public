@@ -7,11 +7,11 @@
 // 当客户端使用 EntityLists 而资源包只有 entities 时, 路由只回退到同名文件.
 // 两个实体清单目录的 empty.csv 路径在文件缺失时返回空 CSV.
 // 三个雷霆展示文档路径以空文本响应作为兼容格式.
+// 原生下载器的完成事件使用归档修改时间, Last-Modified 对应文件时间.
 
-use crate::cn_asset::EMPTY_ENTITY_LIST_NAME;
+use crate::cn_asset::{EMPTY_ENTITY_LIST_NAME, ENTITY_MANIFESTS};
 use crate::http::{decode_path_segment, HttpRequest, HttpResponse};
-use std::fs::{self, File};
-use std::io::{Read, Seek, SeekFrom};
+use std::fs;
 use std::path::{Component, Path, PathBuf};
 
 const PATCH_PREFIX: &str = "/patch/cn/";
@@ -142,11 +142,14 @@ fn read_static_asset(
     }
 
     let content_type = static_content_type(relative_path);
+    let content_length = fs::metadata(&canonical_path).ok()?.len();
+    if content_length == 0 && !allows_empty_asset(relative_path, content_type) {
+        return None;
+    }
     let response = if is_head {
-        let content_length = usize::try_from(fs::metadata(canonical_path).ok()?.len()).ok()?;
         HttpResponse::head("200 OK", content_type, content_length)
     } else {
-        HttpResponse::bytes("200 OK", content_type, fs::read(canonical_path).ok()?)
+        HttpResponse::file("200 OK", content_type, &canonical_path, 0, content_length).ok()?
     };
     Some(
         response
@@ -155,6 +158,16 @@ fn read_static_asset(
     )
 }
 // //// /读取资产根内的通用静态文件 ////
+
+// //// 按客户端协议保留空文本和差分清单 [@x380kkm 2026-09-26] ////
+fn allows_empty_asset(relative_path: &Path, content_type: &str) -> bool {
+    matches!(content_type, TEXT_CONTENT_TYPE | CSV_CONTENT_TYPE)
+        && !relative_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| ENTITY_MANIFESTS.contains(&name))
+}
+// //// /按客户端协议保留空文本和差分清单 ////
 
 // //// 选择静态文件媒体类型 [@x380kkm 2026-08-21] ////
 fn static_content_type(relative_path: &Path) -> &'static str {
@@ -247,7 +260,10 @@ fn validate_relative_path(relative_path: &str, expected_extension: &str) -> Opti
 
 // //// 兼容 EntityLists 和 entities 目录名 [@x380kkm 2026-08-11] ////
 fn resolve_csv_path(asset_root: &Path, relative_path: &Path) -> PathBuf {
-    if asset_root.join(relative_path).is_file() {
+    if fs::metadata(asset_root.join(relative_path)).is_ok_and(|metadata| {
+        metadata.is_file()
+            && (metadata.len() > 0 || allows_empty_asset(relative_path, CSV_CONTENT_TYPE))
+    }) {
         return relative_path.to_owned();
     }
     let Ok(suffix) = relative_path.strip_prefix("EntityLists") else {
@@ -325,26 +341,33 @@ fn read_archive(
         return None;
     }
 
-    let full_length = fs::metadata(&canonical_path).ok()?.len();
+    let metadata = fs::metadata(&canonical_path).ok()?;
+    let full_length = metadata.len();
+    if full_length == 0 {
+        return None;
+    }
     let response = if request.method() == "HEAD" {
-        HttpResponse::head(
-            "200 OK",
-            ARCHIVE_CONTENT_TYPE,
-            usize::try_from(full_length).ok()?,
-        )
+        HttpResponse::head("200 OK", ARCHIVE_CONTENT_TYPE, full_length)
     } else if let Some(value) = request.header("Range") {
         let Ok(range) = parse_byte_range(value, full_length) else {
             return Some(range_not_satisfiable(full_length));
         };
         read_archive_range(&canonical_path, range, full_length)?
     } else {
-        HttpResponse::bytes(
+        HttpResponse::file(
             "200 OK",
             ARCHIVE_CONTENT_TYPE,
-            fs::read(canonical_path).ok()?,
+            &canonical_path,
+            0,
+            full_length,
         )
+        .ok()?
     };
-    Some(with_archive_headers(response))
+    let modified_at = metadata.modified().ok()?;
+    Some(
+        with_archive_headers(response)
+            .with_header_value("Last-Modified", httpdate::fmt_http_date(modified_at)),
+    )
 }
 // //// /读取支持单区间请求的补丁归档 ////
 
@@ -386,13 +409,16 @@ fn parse_byte_range(value: &str, full_length: u64) -> Result<ByteRange, ()> {
 // //// 读取补丁归档的字节区间 [@x380kkm 2026-08-22] ////
 fn read_archive_range(path: &Path, range: ByteRange, full_length: u64) -> Option<HttpResponse> {
     let range_length = range.end.checked_sub(range.start)?.checked_add(1)?;
-    let mut body = vec![0; usize::try_from(range_length).ok()?];
-    let mut file = File::open(path).ok()?;
-    file.seek(SeekFrom::Start(range.start)).ok()?;
-    file.read_exact(&mut body).ok()?;
-
     Some(
-        HttpResponse::bytes("206 Partial Content", ARCHIVE_CONTENT_TYPE, body).with_header_value(
+        HttpResponse::file(
+            "206 Partial Content",
+            ARCHIVE_CONTENT_TYPE,
+            path,
+            range.start,
+            range_length,
+        )
+        .ok()?
+        .with_header_value(
             "Content-Range",
             format!("bytes {}-{}/{}", range.start, range.end, full_length),
         ),
@@ -429,9 +455,13 @@ fn read_asset(
         return None;
     }
 
-    let body = fs::read(canonical_path).ok()?;
+    let content_length = fs::metadata(&canonical_path).ok()?.len();
+    if content_length == 0 && !allows_empty_asset(relative_path, content_type) {
+        return None;
+    }
     Some(
-        HttpResponse::bytes("200 OK", content_type, body)
+        HttpResponse::file("200 OK", content_type, &canonical_path, 0, content_length)
+            .ok()?
             .with_header("Cache-Control", "no-store")
             .with_header("X-Content-Type-Options", "nosniff"),
     )

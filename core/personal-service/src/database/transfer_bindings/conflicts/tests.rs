@@ -29,7 +29,7 @@ fn stale_or_disabled_binding_does_not_replace_local_save() {
         BINDING_ID,
         0,
         slot_id,
-        r#"{"value":2}"#,
+        r#"{"user_info":{"value":2},"user_character_list":{}}"#,
         TARGET_ETAG,
     );
     assert!(matches!(
@@ -42,7 +42,7 @@ fn stale_or_disabled_binding_does_not_replace_local_save() {
         BINDING_ID,
         1,
         slot_id,
-        r#"{"value":2}"#,
+        r#"{"user_info":{"value":2},"user_character_list":{}}"#,
         TARGET_ETAG,
     );
     assert!(matches!(
@@ -62,7 +62,7 @@ fn stale_or_disabled_binding_does_not_replace_local_save() {
         BINDING_ID,
         1,
         slot_id,
-        r#"{"value":2}"#,
+        r#"{"user_info":{"value":2},"user_character_list":{}}"#,
         TARGET_ETAG,
     );
     assert!(matches!(
@@ -94,7 +94,7 @@ fn active_single_quest_blocks_transfer_download() {
         BINDING_ID,
         0,
         slot_id,
-        r#"{"value":2}"#,
+        r#"{"user_info":{"value":2},"user_character_list":{}}"#,
         TARGET_ETAG,
     );
     assert!(matches!(
@@ -143,7 +143,7 @@ fn stale_remote_resolution_keeps_local_save_and_conflict_open() {
         0,
         slot_id,
         &initial_etag,
-        r#"{"value":2}"#,
+        r#"{"user_info":{"value":2},"user_character_list":{}}"#,
         TARGET_ETAG,
     );
     assert!(matches!(
@@ -183,7 +183,7 @@ fn remote_resolution_keeps_local_changes_after_conflict() {
         .connection
         .execute(
             "UPDATE player_snapshots
-             SET data_json = '{\"value\":3}'
+             SET data_json = '{\"user_info\":{\"value\":3},\"user_character_list\":{}}'
              WHERE account_id = (
                  SELECT account_id FROM local_save_slots WHERE id = ?1
              )",
@@ -198,7 +198,7 @@ fn remote_resolution_keeps_local_changes_after_conflict() {
         0,
         slot_id,
         &initial_etag,
-        r#"{"value":2}"#,
+        r#"{"user_info":{"value":2},"user_character_list":{}}"#,
         TARGET_ETAG,
     );
     assert!(matches!(
@@ -235,7 +235,7 @@ fn create_transfer_binding_fixture() -> (TempDir, ServiceDatabase, i64, String) 
              );
              INSERT INTO players (account_id) VALUES (last_insert_rowid());
              INSERT INTO player_snapshots (account_id, data_json)
-             SELECT id, '{"value":1}' FROM accounts WHERE idp_id = 'atomic-transfer';
+             SELECT id, '{"user_info":{"value":1},"user_character_list":{}}' FROM accounts WHERE idp_id = 'atomic-transfer';
              INSERT INTO local_save_slots (account_id, name, created_at, updated_at)
              SELECT id, 'Atomic transfer', '2026-08-03T00:00:00.000Z',
                     '2026-08-03T00:00:00.000Z'

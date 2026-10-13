@@ -2,11 +2,19 @@
 // # personal-service-ffi
 //
 // 该模块暴露移动端使用的 C ABI. 调用约束由 include/starpoint_personal_service.h 定义.
+// 启动错误保存在调用线程中, 字符串复制接口返回包含结尾 NUL 的所需长度.
 
-use crate::PersonalService;
+use crate::{PersonalService, PersonalServiceError};
+use std::cell::RefCell;
 use std::ffi::{c_char, CStr};
 use std::path::PathBuf;
 use std::ptr;
+
+// //// 保存调用线程的启动错误 [@x380kkm 2026-09-10] ////
+thread_local! {
+    static LAST_START_ERROR: RefCell<String> = const { RefCell::new(String::new()) };
+}
+// //// /保存调用线程的启动错误 ////
 
 #[repr(C)]
 pub struct StarpointPersonalService {
@@ -14,22 +22,31 @@ pub struct StarpointPersonalService {
 }
 
 // //// 复制 C 字符串路径 [@x380kkm 2026-08-11] ////
-unsafe fn copy_path(path: *const c_char) -> Option<PathBuf> {
+unsafe fn copy_path(path: *const c_char) -> Result<PathBuf, PersonalServiceError> {
     if path.is_null() {
-        return None;
+        return Err(PersonalServiceError::new("service path is null"));
     }
-    CStr::from_ptr(path).to_str().ok().map(PathBuf::from)
+    CStr::from_ptr(path)
+        .to_str()
+        .map(PathBuf::from)
+        .map_err(|error| PersonalServiceError::new(format!("service path is not UTF-8: {error}")))
 }
 // //// /复制 C 字符串路径 ////
 
 // //// 把个人服务结果转换为 C 句柄 [@x380kkm 2026-08-11] ////
 fn into_handle(
-    service: Result<PersonalService, crate::PersonalServiceError>,
+    service: Result<PersonalService, PersonalServiceError>,
 ) -> *mut StarpointPersonalService {
-    match service {
-        Ok(service) => Box::into_raw(Box::new(StarpointPersonalService { service })),
-        Err(_) => ptr::null_mut(),
-    }
+    LAST_START_ERROR.with(|last_error| match service {
+        Ok(service) => {
+            last_error.borrow_mut().clear();
+            Box::into_raw(Box::new(StarpointPersonalService { service }))
+        }
+        Err(error) => {
+            *last_error.borrow_mut() = error.to_string();
+            ptr::null_mut()
+        }
+    })
 }
 // //// /把个人服务结果转换为 C 句柄 ////
 
@@ -42,10 +59,7 @@ pub unsafe extern "C" fn starpoint_personal_service_start(
     root_path: *const c_char,
     port: u16,
 ) -> *mut StarpointPersonalService {
-    let Some(root_path) = copy_path(root_path) else {
-        return ptr::null_mut();
-    };
-    into_handle(PersonalService::start(root_path, port))
+    into_handle(copy_path(root_path).and_then(|root_path| PersonalService::start(root_path, port)))
 }
 
 /// # Safety
@@ -57,18 +71,40 @@ pub unsafe extern "C" fn starpoint_personal_service_start_with_cdn_root(
     cn_asset_root: *const c_char,
     port: u16,
 ) -> *mut StarpointPersonalService {
-    let Some(root_path) = copy_path(root_path) else {
-        return ptr::null_mut();
-    };
-    let Some(cn_asset_root) = copy_path(cn_asset_root) else {
-        return ptr::null_mut();
-    };
-    into_handle(PersonalService::start_with_cdn_root(
-        root_path,
-        port,
-        cn_asset_root,
-    ))
+    into_handle(copy_path(root_path).and_then(|root_path| {
+        copy_path(cn_asset_root).and_then(|cn_asset_root| {
+            PersonalService::start_with_cdn_root(root_path, port, cn_asset_root)
+        })
+    }))
 }
+
+// //// 复制当前线程最近一次启动错误 [@x380kkm 2026-09-10] ////
+/// 返回当前线程最近一次启动失败的 UTF-8 消息长度, 包含结尾 NUL.
+/// 当前线程最近一次启动成功时返回 0.
+///
+/// # Safety
+///
+/// 非空 `buffer` 在调用期间可写入 `buffer_length` 字节. 缓冲区不足时保持原内容.
+#[no_mangle]
+pub unsafe extern "C" fn starpoint_personal_service_copy_last_start_error(
+    buffer: *mut c_char,
+    buffer_length: usize,
+) -> usize {
+    LAST_START_ERROR.with(|last_error| {
+        let last_error = last_error.borrow();
+        if last_error.is_empty() {
+            return 0;
+        }
+        let bytes = last_error.as_bytes();
+        let required_length = bytes.len() + 1;
+        if !buffer.is_null() && buffer_length >= required_length {
+            ptr::copy_nonoverlapping(bytes.as_ptr(), buffer.cast::<u8>(), bytes.len());
+            *buffer.add(bytes.len()) = 0;
+        }
+        required_length
+    })
+}
+// //// /复制当前线程最近一次启动错误 ////
 
 /// # Safety
 ///
@@ -139,3 +175,6 @@ pub unsafe extern "C" fn starpoint_personal_service_stop(service: *mut Starpoint
     }
 }
 // //// /暴露移动端生命周期和管理 token 接口 ////
+
+#[cfg(test)]
+mod tests;

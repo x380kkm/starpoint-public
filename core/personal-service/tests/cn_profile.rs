@@ -90,11 +90,11 @@ fn returns_profile_from_the_current_player_snapshot() {
     );
     assert_eq!(
         profile.data["user_party_group_list"][0]["party_group_color_id"],
-        loaded.data["user_party_group_list"]["1"]["color_id"]
+        7
     );
     assert_eq!(
         profile.data["user_party_group_list"][0]["party_list"][0]["character_ids"],
-        loaded.data["user_party_group_list"]["1"]["list"]["1"]["character_ids"]
+        serde_json::json!([1, null, null])
     );
 
     let degree = decode_response::<Value>(&cn_support::send_request(
@@ -143,6 +143,14 @@ fn returns_profile_from_the_current_player_snapshot() {
         updated_profile.data["profile_settings"]["show_owned_character_count"],
         false
     );
+    let degrees = decode_response::<Value>(&cn_support::send_request(
+        service.port(),
+        "/api/index.php/profile/get_degree_list",
+        &encode_request(&ProfileRequest { viewer_id }),
+    ));
+    assert_eq!(degrees.data["degree_ids"], serde_json::json!([1, 2]));
+    assert_eq!(updated_profile.data["profile_info"]["owned_degree_count"], 2);
+    assert_eq!(updated_profile.data["profile_info"]["max_owned_degree_count"], 2);
     let updated_player = decode_response::<Value>(&cn_support::send_request(
         service.port(),
         "/api/index.php/load",
@@ -168,6 +176,8 @@ fn returns_profile_from_the_current_player_snapshot() {
         "Offline Player"
     );
     assert_eq!(target_profile.data["target_user_info"]["degree_id"], 2);
+    assert_eq!(target_profile.data["target_user_info"]["owned_degree_count"], 2);
+    assert_eq!(target_profile.data["target_user_info"]["max_owned_degree_count"], 2);
     assert!(target_profile.data["favorite_character"]["character_ids"]
         .as_array()
         .is_some_and(|characters| !characters.is_empty()));

@@ -8,6 +8,10 @@
 mod cn_support;
 #[allow(dead_code)]
 mod support;
+#[path = "cn_multiplayer/presentation.rs"]
+mod presentation;
+#[path = "cn_multiplayer/periodic_rewards.rs"]
+mod periodic_rewards;
 
 use cn_support::{decode_response, encode_request, SignupData, SignupRequest};
 use rusqlite::Connection;
@@ -473,6 +477,8 @@ fn handles_lobby_com_and_every_battle_frame_family() {
     let session_port = service.multiplayer_session_port().unwrap();
     let host_viewer = signup(&service, 71);
     let guest_viewer = signup(&service, 72);
+    Connection::open(root.path().join("personal-service.sqlite3")).unwrap()
+        .execute("UPDATE player_snapshots SET data_json=json_set(data_json, '$.user_info.stamina', 100)", []).unwrap();
     let created = create_room(&service, host_viewer, 1);
     let room_number = created["room_number"].as_str().unwrap().to_owned();
 
@@ -503,7 +509,7 @@ fn handles_lobby_com_and_every_battle_frame_family() {
     let listed_room = &listed["rooms"][0];
     assert_eq!(listed_room["establisher_character"], 1);
     assert_eq!(listed_room["establisher_character_evolution_img_level"], 0);
-    assert_eq!(listed_room["establisher_follow"], 1);
+    assert_eq!(listed_room["establisher_follow"], 0);
     assert_eq!(
         listed_room["establisher_name"],
         format!("Player{host_viewer}")
@@ -844,7 +850,9 @@ fn handles_lobby_com_and_every_battle_frame_family() {
     );
     assert_eq!(host_finish["is_multi"], "multi");
     assert_multi_finish_response(&host_finish, true);
-    assert_eq!(host_finish["item_list"]["13"], 3);
+    assert_eq!(host_finish["drop_score_reward_ids"].as_array().unwrap().len(), 6);
+    assert!(host_finish["drop_score_reward_ids"].as_array().unwrap().iter().all(|drop| drop["number"] == 3));
+    assert_eq!(host_finish["item_list"]["13"], 18);
     let guest_finish = send(
         &service,
         "/api/index.php/multi_battle_quest/finish",

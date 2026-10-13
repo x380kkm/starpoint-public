@@ -27,6 +27,7 @@ struct ExchangeRequest {
 struct BondTokenExchangeRequest {
     viewer_id: i64,
     equipment_id: i64,
+    api_count: i64,
 }
 
 // //// 验证 CN 星屑兑换使用正式费用并拒绝不足余额 [@x380kkm 2026-08-22] ////
@@ -44,7 +45,7 @@ fn rejects_exchange_when_star_crumb_is_insufficient() {
         "/api/index.php/exchange/star_crumb",
         &encode_request(&ExchangeRequest {
             viewer_id: signup.data_headers.viewer_id,
-            exchange_id: 1,
+            exchange_id: 9000002,
             api_count: 1,
         }),
     );
@@ -111,6 +112,7 @@ fn persists_bond_token_exchange() {
         &encode_request(&BondTokenExchangeRequest {
             viewer_id,
             equipment_id: 5010005,
+            api_count: 1,
         }),
     ));
     assert_eq!(exchange.data["user_info"]["bond_token"], 0);
@@ -136,6 +138,7 @@ fn persists_bond_token_exchange() {
         &encode_request(&BondTokenExchangeRequest {
             viewer_id,
             equipment_id: 5010005,
+            api_count: 2,
         }),
     );
     assert!(second_exchange.ends_with("{\"error\":\"shop_out_of_stock\"}"));

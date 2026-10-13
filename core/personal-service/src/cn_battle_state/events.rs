@@ -1,21 +1,84 @@
 // audience: internal
 // # personal-service-cn-battle-events
 //
-// 该模块结算 rush, raid 和 carnival 的玩家状态与响应字段.
+// 该模块结算 rush, raid, carnival, 极时试炼和无限演武的玩家状态与响应字段.
 
-use super::FinishBattleInput;
+mod carnival;
+mod raid;
+mod rewards;
+mod score_attack;
+mod solo_time_attack;
+
+use super::{FinishBattleInput, PreviousProgress};
 use crate::cn_activity;
 use crate::cn_battle_assets::{BattleFixture, BattleQuest, Reward};
 use crate::cn_battle_rewards::{apply_reward_at, scale_drop_count, RewardResult};
+use crate::cn_mission::MissionReward;
 use crate::database::ActiveSingleQuest;
 use crate::PersonalServiceError;
 use serde_json::{json, Map, Value};
+use std::cmp::Ordering;
 
 pub(super) struct EventFinishData {
+    pub(super) raid_event: Value,
     pub(super) rush_event: Value,
     pub(super) carnival_event: Value,
+    pub(super) solo_time_attack_event: Value,
+    pub(super) score_attack_event: Value,
     pub(super) rewards: RewardResult,
+    pub(super) granted_rewards: Vec<MissionReward>,
 }
+
+// //// 按活动规则准备开战状态 [@x380kkm 2026-09-21] ////
+pub(super) fn prepare_event_battle(
+    root: &mut Map<String, Value>,
+    quest: &BattleQuest,
+    character_ids: &[i64],
+) -> Result<(), PersonalServiceError> {
+    if quest.category == 22 {
+        carnival::prepare_carnival_battle(root, quest, character_ids)?;
+    }
+    Ok(())
+}
+// //// /按活动规则准备开战状态 ////
+
+// //// 按活动移除档位奖励领取凭据 [@x380kkm 2026-09-21] ////
+pub(crate) fn reset_event_reward_receipts(
+    root: &mut Map<String, Value>,
+    family: &str,
+    event_id: i64,
+) -> Result<usize, PersonalServiceError> {
+    match family {
+        "solo-time-attack" => solo_time_attack::reset_reward_receipts(root, event_id),
+        "score-attack" => score_attack::reset_reward_receipts(root, event_id),
+        "carnival" => carnival::reset_reward_receipts(root, event_id),
+        _ => Ok(0),
+    }
+}
+// //// /按活动移除档位奖励领取凭据 ////
+
+// //// 从领取凭据定位所属活动 [@x380kkm 2026-09-21] ////
+pub(crate) fn reward_receipt_activity_id(
+    receipt_field: &str,
+    reward_id: &str,
+) -> Result<Option<String>, PersonalServiceError> {
+    if receipt_field == "score_attack_reward_receipts" {
+        return Ok(score_attack::receipt_event_id(reward_id).map(|id| format!("score-attack:{id}")));
+    }
+    let Ok(reward_id) = reward_id.parse::<i64>() else {
+        return Ok(None);
+    };
+    let (family, event_id) = match receipt_field {
+        "solo_time_attack_reward_receipts" => (
+            "solo-time-attack",
+            solo_time_attack::receipt_event_id(reward_id)?,
+        ),
+        "carnival_reward_receipts" => ("carnival", carnival::receipt_event_id(reward_id)?),
+        _ => return Ok(None),
+    };
+    Ok(event_id.map(|event_id| format!("{family}:{event_id}")))
+}
+// //// /从领取凭据定位所属活动 ////
 
 // //// 结算活动类别状态 [@x380kkm 2026-08-22] ////
 pub(super) fn apply_event_progress(
@@ -24,29 +87,87 @@ pub(super) fn apply_event_progress(
     fixture: &BattleFixture,
     quest: &BattleQuest,
     input: &FinishBattleInput<'_>,
+    previous_progress: &PreviousProgress,
     drop_multiplier: i64,
     server_time: i64,
+    raid_boss: Option<&crate::database::RaidBossState>,
 ) -> Result<EventFinishData, PersonalServiceError> {
-    let (rush_event, rewards) = if active_quest.category == 24 {
+    let (rush_event, rewards) = if active_quest.category == 24 && input.is_accomplished {
         apply_rush_event(root, fixture, quest, input, drop_multiplier, server_time)?
     } else {
         (Value::Null, RewardResult::default())
     };
-    if active_quest.category == 23 {
-        record_raid_party(root, quest, input)?;
-    }
-    let carnival_event = if active_quest.category == 22 && input.is_accomplished {
-        apply_carnival_event(root, quest, input)?
+    let raid_event = if active_quest.category == 23 {
+        raid::apply_raid_event(root, quest, input, raid_boss)?
     } else {
         Value::Null
     };
+    let (carnival_event, mut granted_rewards) =
+        if active_quest.category == 22 && input.is_accomplished {
+            carnival::apply_carnival_event(root, quest, input, server_time)?
+        } else {
+            (Value::Null, Vec::new())
+        };
+    let (solo_time_attack_event, time_rewards) = if active_quest.category == 25 {
+        solo_time_attack::apply_solo_time_attack_event(
+            root,
+            quest.quest_id,
+            input,
+            previous_progress,
+            server_time,
+        )?
+    } else {
+        (Value::Null, Vec::new())
+    };
+    granted_rewards.extend(time_rewards);
+    let (score_attack_event, score_rewards) = if active_quest.category == 27 {
+        let best_score = previous_progress.high_score.unwrap_or_default().max(input.score);
+        score_attack::apply_score_attack_event(root, quest, input, best_score, server_time)?
+    } else {
+        (Value::Null, Vec::new())
+    };
+    granted_rewards.extend(score_rewards);
     Ok(EventFinishData {
+        raid_event,
         rush_event,
         carnival_event,
+        solo_time_attack_event,
+        score_attack_event,
         rewards,
+        granted_rewards,
     })
 }
 // //// /结算活动类别状态 ////
+
+// //// 按无限挑战最高层数选择战斗成绩归属 [@x380kkm 2026-09-27] ////
+pub(super) fn compare_battle_record_round(
+    root: &mut Map<String, Value>,
+    quest: &BattleQuest,
+) -> Result<Ordering, PersonalServiceError> {
+    if quest.category != 24 || quest.rush_event_round != Some(0) {
+        return Ok(Ordering::Equal);
+    }
+    let Some(event_id) = quest.rush_event_id else {
+        return Ok(Ordering::Equal);
+    };
+    let event = cn_activity::activate_battle_event_state(root, "rush", event_id)?;
+    let (next_round, maximum_round) = endless_rounds(event);
+    Ok(next_round.cmp(&maximum_round.unwrap_or_default()))
+}
+
+fn endless_rounds(event: &Map<String, Value>) -> (i64, Option<i64>) {
+    let next = event
+        .get("endless_battle_next_round")
+        .and_then(Value::as_i64)
+        .unwrap_or(1)
+        .max(1);
+    let maximum = event
+        .get("endless_battle_max_round")
+        .and_then(Value::as_i64)
+        .filter(|round| *round > 0);
+    (next, maximum)
+}
+// //// /按无限挑战最高层数选择战斗成绩归属 ////
 
 fn apply_rush_event(
     root: &mut Map<String, Value>,
@@ -77,17 +198,12 @@ fn apply_rush_event(
             endless_parties,
         ) = {
             let event = cn_activity::activate_battle_event_state(root, "rush", event_id)?;
-            let next_round = event
-                .get("endless_battle_next_round")
-                .and_then(Value::as_i64)
-                .unwrap_or(1)
-                .max(1);
-            let old_max_round = event
-                .get("endless_battle_max_round")
-                .and_then(Value::as_i64);
-            let old_best_time = event
-                .get("endless_battle_max_round_time")
-                .and_then(Value::as_i64);
+            let (next_round, old_max_round) = endless_rounds(event);
+            let old_best_time = old_max_round.and_then(|_| {
+                event
+                    .get("endless_battle_max_round_time")
+                    .and_then(Value::as_i64)
+            });
             let is_record = old_max_round.map_or(true, |maximum| next_round > maximum)
                 || (old_max_round == Some(next_round)
                     && old_best_time.map_or(true, |best| input.elapsed_time_ms <= best));
@@ -106,7 +222,9 @@ fn apply_rush_event(
                         input
                             .main_character_ids
                             .iter()
-                            .map(|character_id| character_id.map_or(Value::Null, Value::from))
+                            .map(|character_id| character_id
+                                .filter(|id| crate::cn_character_presentation::is_valid_character(*id))
+                                .map_or(Value::Null, Value::from))
                             .collect(),
                     ),
                 );
@@ -143,6 +261,8 @@ fn apply_rush_event(
                     .unwrap_or_else(|| json!({})),
             )
         };
+        let high_score = super::read_previous_progress(root, quest.category, quest.quest_id)?
+            .and_then(|progress| progress.high_score);
         return Ok((
             json!({
                 "rush_battle_reward_list": [],
@@ -151,7 +271,7 @@ fn apply_rush_event(
                 "is_out_of_period": false,
                 "endless_battle_next_round": next_round + 1,
                 "endless_battle_max_round": new_max_round,
-                "high_score": input.elapsed_time_ms,
+                "high_score": high_score,
                 "best_elapsed_time_ms": new_best_time,
                 "old_endless_battle_max_round": old_max_round,
                 "old_best_elapsed_time_ms": old_best_time,
@@ -162,7 +282,7 @@ fn apply_rush_event(
 
     let final_round = rush_folder_max_round(fixture, event_id, folder_id);
     let is_folder_final = final_round.is_some_and(|round| configured_round >= round);
-    let (folder_parties, endless_parties) = {
+    let (folder_parties, endless_parties, endless_next_round, endless_max_round) = {
         let event = cn_activity::activate_battle_event_state(root, "rush", event_id)?;
         if is_folder_final {
             let cleared = event
@@ -196,6 +316,8 @@ fn apply_rush_event(
                 .get("endless_played_party_list")
                 .cloned()
                 .unwrap_or_else(|| json!({})),
+            endless_rounds(event).0,
+            endless_rounds(event).1,
         )
     };
     let (rush_battle_reward_list, rewards) = if is_folder_final {
@@ -209,8 +331,8 @@ fn apply_rush_event(
             "rush_battle_played_party_list": folder_parties,
             "endless_battle_played_party_list": endless_parties,
             "is_out_of_period": false,
-            "endless_battle_next_round": null,
-            "endless_battle_max_round": null,
+            "endless_battle_next_round": endless_next_round,
+            "endless_battle_max_round": endless_max_round,
             "high_score": null,
             "best_elapsed_time_ms": null,
             "old_endless_battle_max_round": null,
@@ -220,89 +342,15 @@ fn apply_rush_event(
     ))
 }
 
-fn record_raid_party(
-    root: &mut Map<String, Value>,
-    quest: &BattleQuest,
-    input: &FinishBattleInput<'_>,
-) -> Result<(), PersonalServiceError> {
-    let Some(event_id) = quest.raid_event_id.or(quest.event_id) else {
-        return Ok(());
-    };
-    let party = played_party(root, input);
-    let event = cn_activity::activate_battle_event_state(root, "raid", event_id)?;
-    get_or_create_object(event, "folder_played_party_list")?
-        .insert(quest.quest_id.to_string(), party);
-    Ok(())
-}
-
-fn apply_carnival_event(
-    root: &mut Map<String, Value>,
-    quest: &BattleQuest,
-    input: &FinishBattleInput<'_>,
-) -> Result<Value, PersonalServiceError> {
-    let (Some(event_id), Some(folder_id), Some(difficulty), Some(time_limit)) = (
-        quest.carnival_event_id,
-        quest.carnival_folder_id,
-        quest.carnival_difficulty_score,
-        quest.carnival_time_limit_ms,
-    ) else {
-        return Ok(Value::Null);
-    };
-    let difficulty_bonus = difficulty.checked_mul(100).ok_or_else(|| {
-        PersonalServiceError::new("CN carnival difficulty score exceeds the supported range")
-    })?;
-    let time_bonus = time_limit.saturating_sub(input.elapsed_time_ms).max(0);
-    let total_score = difficulty_bonus.checked_add(time_bonus).ok_or_else(|| {
-        PersonalServiceError::new("CN carnival score exceeds the supported range")
-    })?;
-    let event = cn_activity::activate_battle_event_state(root, "carnival", event_id)?;
-    let records = event
-        .entry("carnival_records".to_owned())
-        .or_insert_with(|| Value::Array(Vec::new()))
-        .as_array_mut()
-        .ok_or_else(|| PersonalServiceError::new("stored CN carnival records are invalid"))?;
-    let existing_index = records
-        .iter()
-        .position(|record| record.get("folder_id").and_then(Value::as_i64) == Some(folder_id));
-    let previous_best_score = existing_index
-        .and_then(|index| records.get(index))
-        .and_then(|record| record.get("best_score"))
-        .and_then(Value::as_i64)
-        .unwrap_or_default();
-    let record = json!({
-        "folder_id": folder_id,
-        "best_score": previous_best_score.max(total_score),
-        "previous_score": total_score,
-        "previous_character_ids": input.main_character_ids,
-        "previous_unison_character_ids": input.unison_character_ids,
-    });
-    if let Some(index) = existing_index {
-        records[index] = record;
-    } else {
-        records.push(record);
-    }
-    Ok(json!({
-        "is_record_valid": true,
-        "leader_character_id": input.main_character_ids.first().copied().flatten().unwrap_or_default(),
-        "new_degree_ids": [],
-        "previous_total_best_score": 0,
-        "reward_ids": [],
-        "score": {
-            "difficulty_bonus": difficulty_bonus,
-            "time_bonus": time_bonus,
-        },
-    }))
-}
-
 // //// 构造活动结算队伍和奖励 [@x380kkm 2026-08-25] ////
 fn played_party(root: &Map<String, Value>, input: &FinishBattleInput<'_>) -> Value {
     json!({
-        "character_id_1": slot_id(input.main_character_ids, 0),
-        "character_id_2": slot_id(input.main_character_ids, 1),
-        "character_id_3": slot_id(input.main_character_ids, 2),
-        "unison_character_id_1": slot_id(input.unison_character_ids, 0),
-        "unison_character_id_2": slot_id(input.unison_character_ids, 1),
-        "unison_character_id_3": slot_id(input.unison_character_ids, 2),
+        "character_id_1": character_slot_id(input.main_character_ids, 0),
+        "character_id_2": character_slot_id(input.main_character_ids, 1),
+        "character_id_3": character_slot_id(input.main_character_ids, 2),
+        "unison_character_id_1": character_slot_id(input.unison_character_ids, 0),
+        "unison_character_id_2": character_slot_id(input.unison_character_ids, 1),
+        "unison_character_id_3": character_slot_id(input.unison_character_ids, 2),
         "equipment_id_1": slot_id(input.equipment_ids, 0),
         "equipment_id_2": slot_id(input.equipment_ids, 1),
         "equipment_id_3": slot_id(input.equipment_ids, 2),
@@ -330,11 +378,17 @@ fn evolution_levels(root: &Map<String, Value>, character_ids: &[Option<i64>]) ->
 }
 
 fn character_evolution_level(root: &Map<String, Value>, character_id: Option<i64>) -> Option<i64> {
+    let character_id = character_id.filter(|id| crate::cn_character_presentation::is_valid_character(*id))?;
     root.get("user_character_list")
         .and_then(Value::as_object)
-        .and_then(|characters| characters.get(&character_id?.to_string()))
+        .and_then(|characters| characters.get(&character_id.to_string()))
         .and_then(|character| character.get("evolution_level"))
         .and_then(Value::as_i64)
+}
+
+// //// 将空槽和失效角色引用表示为客户端空成员 [@x380kkm 2026-09-28] ////
+fn character_slot_id(ids: &[Option<i64>], index: usize) -> Option<i64> {
+    slot_id(ids, index).filter(|id| crate::cn_character_presentation::is_valid_character(*id))
 }
 
 fn slot_id(ids: &[Option<i64>], index: usize) -> Option<i64> {
@@ -394,4 +448,39 @@ fn get_or_create_object<'a>(
         .or_insert_with(|| Value::Object(Map::new()))
         .as_object_mut()
         .ok_or_else(|| PersonalServiceError::new(format!("stored CN {key} data is invalid")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // //// 重置活动凭据时保留其它活动凭据和已获得资产 [@x380kkm 2026-09-21] ////
+    #[test]
+    fn resets_only_selected_activity_receipts() {
+        let catalog: Value =
+            serde_json::from_str(include_str!("../../assets/cn-carnival-rewards.json")).unwrap();
+        let first = catalog["events"]["2"][0]["id"].as_i64().unwrap();
+        let second = catalog["events"]["3"][0]["id"].as_i64().unwrap();
+        let mut root = json!({"item_list": {"90010": 200}, "degree_ids": [61000],
+            "carnival_reward_receipts": {first.to_string(): {"received_at": 1}, second.to_string(): {"received_at": 1}},
+        }).as_object().unwrap().clone();
+        assert_eq!(
+            reward_receipt_activity_id("carnival_reward_receipts", &first.to_string())
+                .unwrap()
+                .as_deref(),
+            Some("carnival:2")
+        );
+        assert_eq!(
+            reset_event_reward_receipts(&mut root, "carnival", 2).unwrap(),
+            1
+        );
+        assert!(root["carnival_reward_receipts"]
+            .get(first.to_string())
+            .is_none());
+        assert!(root["carnival_reward_receipts"]
+            .get(second.to_string())
+            .is_some());
+        assert_eq!(root["item_list"]["90010"], 200);
+        assert_eq!(root["degree_ids"], json!([61000]));
+    }
 }

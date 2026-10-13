@@ -12,6 +12,15 @@ mod local_save_support;
 #[allow(dead_code)]
 mod support;
 
+#[path = "cn_party/categories.rs"]
+mod categories;
+#[path = "cn_party/profile.rs"]
+mod profile;
+#[path = "cn_party/raid.rs"]
+mod raid;
+#[path = "cn_party/slots.rs"]
+mod slots;
+
 use cn_support::{decode_response, encode_request, LoadRequest, SignupData, SignupRequest};
 use local_save_support::{list_local_saves, update_slot_player_snapshot};
 use serde::Serialize;
@@ -104,7 +113,7 @@ fn edits_party_and_filters_unowned_members() {
             api_count: 1,
             party_info_list: vec![PartyInfo {
                 party_edited: true,
-                party_category: 3,
+                party_category: 1,
                 party_name: "CN Party".to_owned(),
                 party_id: 12,
                 current_battle_power: 12_345,
@@ -149,7 +158,7 @@ fn edits_party_and_filters_unowned_members() {
     );
     assert_eq!(
         party["ability_soul_ids"],
-        serde_json::json!([7, null, null])
+        serde_json::json!([null, null, null])
     );
     assert_eq!(party["options"]["allow_other_players_to_heal_me"], false);
     service.stop().expect("service stops cleanly");
@@ -188,7 +197,7 @@ fn edits_all_twelve_party_groups_in_one_request() {
     let party_info_list = (1..=120)
         .map(|party_id| PartyInfo {
             party_edited: true,
-            party_category: 3,
+            party_category: 1,
             party_name: format!("Party {party_id}"),
             party_id,
             current_battle_power: party_id,

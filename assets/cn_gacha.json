@@ -19,7 +19,7 @@
         "wildcardCharacterTicketAvailable": false,
         "canBeStartDashExchange": false,
         "wildcardEquipmentTicketAvailable": false,
-        "ticketExpiryAtMs": 1612061999000,
+        "ticketExpiryAtMs": 1612065599000,
         "showPeriod": true,
         "isComeback": false,
         "isStarsGacha": false,
@@ -33,8 +33,8 @@
         "guaranteeMovieName": "normal_guarantee",
         "startDate": "2017-02-05 15:00:00",
         "endDate": "2020-01-27 11:59:59",
-        "startAtMs": 1486274400000,
-        "endAtMs": 1580093999000,
+        "startAtMs": 1486278000000,
+        "endAtMs": 1580097599000,
         "rankRates": {
             "normal": [
                 50,

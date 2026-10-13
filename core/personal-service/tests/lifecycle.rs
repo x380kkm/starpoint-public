@@ -5,8 +5,10 @@
 
 use rusqlite::Connection;
 use starpoint_personal_service::PersonalService;
+use std::fs;
 use std::io::{Read, Write};
 use std::net::{Shutdown, TcpStream};
+use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 use tempfile::TempDir;
@@ -115,6 +117,68 @@ fn continues_after_client_disconnects_during_response() {
     service.stop().expect("service stops cleanly");
 }
 // //// /在客户端提前断开后继续处理请求 ////
+
+// //// 在连接尚未发完请求时继续处理其他请求 [@x380kkm 2026-09-04] ////
+#[test]
+fn serves_other_requests_while_a_request_is_incomplete() {
+    let root = TempDir::new().expect("temporary service directory is created");
+    let service = PersonalService::start(root.path(), 0).expect("service starts");
+    let mut stalled = TcpStream::connect(("127.0.0.1", service.port()))
+        .expect("stalled client connects to personal service");
+    stalled
+        .write_all(b"GET /health HTTP/1.1\r\nHost: 127.0.0.1\r\n")
+        .expect("partial request is written");
+    thread::sleep(Duration::from_millis(50));
+
+    let response = request(service.port(), "GET", "/health");
+
+    assert!(response.starts_with("HTTP/1.1 200 OK"));
+    drop(stalled);
+    service.stop().expect("service stops cleanly");
+}
+// //// /在连接尚未发完请求时继续处理其他请求 ////
+
+// //// 在客户端暂停读取文件时继续处理其他请求 [@x380kkm 2026-09-04] ////
+#[test]
+fn serves_other_requests_while_a_file_response_is_blocked() {
+    let root = TempDir::new().expect("temporary service directory is created");
+    let cdn_root = root.path().join("cdn-source");
+    fs::create_dir(&cdn_root).expect("CDN directory is created");
+    fs::File::create(cdn_root.join("large.bin"))
+        .expect("large asset is created")
+        .set_len(64 * 1024 * 1024)
+        .expect("large asset length is set");
+    let service =
+        PersonalService::start_with_cdn_root(root.path(), 0, &cdn_root).expect("service starts");
+    let mut stalled = TcpStream::connect(("127.0.0.1", service.port()))
+        .expect("stalled client connects to personal service");
+    stalled
+        .write_all(b"GET /large.bin HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 0\r\n\r\n")
+        .expect("file request is written");
+    thread::sleep(Duration::from_millis(100));
+
+    let port = service.port();
+    let (response_sender, response_receiver) = mpsc::channel();
+    let request_thread = thread::spawn(move || {
+        let _ = response_sender.send(request(port, "GET", "/health"));
+    });
+    let response = match response_receiver.recv_timeout(Duration::from_secs(2)) {
+        Ok(response) => response,
+        Err(error) => {
+            drop(stalled);
+            let _ = request_thread.join();
+            panic!("health request was blocked behind a file response: {error}");
+        }
+    };
+
+    assert!(response.starts_with("HTTP/1.1 200 OK"));
+    drop(stalled);
+    request_thread
+        .join()
+        .expect("health request thread finishes");
+    service.stop().expect("service stops cleanly");
+}
+// //// /在客户端暂停读取文件时继续处理其他请求 ////
 
 // //// 拒绝溢出的 HTTP 正文长度并保持服务运行 [@x380kkm 2026-07-22] ////
 #[test]

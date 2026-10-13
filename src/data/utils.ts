@@ -5,6 +5,7 @@
 // 客户端数据保留目标实例字段, 可移植数据删除实例身份字段.
 
 import { getCharacterDataSync } from "../lib/assets"
+import { characterReference } from "../lib/characterReference"
 import { findTutorialGachaCharacterId } from "../lib/tutorial"
 import { getDateFromServerTime, getServerTime } from "../utils"
 import { ClientPlayerData, DailyChallengePointListEntry, MergedPlayerData, PartyCategory, Player, PlayerBoxGacha, PlayerCharacter, PlayerCharacterBondToken, PlayerDrawnQuest, PlayerEquipment, PlayerGachaCampaign, PlayerGachaInfo, PlayerMultiSpecialExchangeCampaign, PlayerParty, PlayerPartyGroup, PlayerQuestProgress, PlayerRushEvent, PlayerRushEventPlayedParty, PlayerStartDashExchangeCampaign, RushEventBattleType, UserBoxGacha, UserCharacter, UserCharacterBondTokenStatus, UserEquipment, UserGachaCampaign, UserPartyGroup, UserPartyGroupTeam, UserQuestProgress, UserRushEvent, UserRushEventPlayedParty, UserRushEventPlayedPartyList, UserTutorial } from "./types"
@@ -158,9 +159,9 @@ export function serializeRushEvent(
         active_rush_battle_folder_id: rushEvent.activeRushBattleFolderId,
         endless_battle_max_round: rushEvent.endlessBattleMaxRound,
         endless_battle_max_round_time: rushEvent.endlessBattleMaxRoundTime,
-        endless_battle_max_round_character_id_1: characterIds?.[0],
-        endless_battle_max_round_character_id_2: characterIds?.[1],
-        endless_battle_max_round_character_id_3: characterIds?.[2],
+        endless_battle_max_round_character_id_1: characterReference(characterIds?.[0]),
+        endless_battle_max_round_character_id_2: characterReference(characterIds?.[1]),
+        endless_battle_max_round_character_id_3: characterReference(characterIds?.[2]),
         endless_battle_max_round_character_evolution_img_lvl_1: characterEvolutionImgLevels?.[0],
         endless_battle_max_round_character_evolution_img_lvl_2: characterEvolutionImgLevels?.[1],
         endless_battle_max_round_character_evolution_img_lvl_3: characterEvolutionImgLevels?.[2],

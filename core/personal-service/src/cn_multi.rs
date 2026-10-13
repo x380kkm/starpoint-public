@@ -4,10 +4,14 @@
 // 该模块分派 CN 本地联机 HTTP 路由并共享房间序列化与玩家身份校验.
 
 mod battle;
+mod attention;
 mod lobby;
 mod lounge;
 mod room;
 mod social;
+
+pub(crate) use attention::{check as attention_check, maintain_attention_rooms};
+pub(crate) use attention::can_start_room as can_start_attention_room;
 
 use crate::cn::{msgpack_response_at, server_time};
 use crate::cn_tutorial::{decode_player_data, player_snapshot};
@@ -92,7 +96,7 @@ pub(super) fn room_connection(
 ) -> Result<Value, PersonalServiceError> {
     let raising_state = if room.battle_started || room.raising_state == 4 {
         4
-    } else if viewer_id == room.host_viewer_id {
+    } else if viewer_id == room.host_viewer_id || room.is_attention_room {
         1
     } else {
         database

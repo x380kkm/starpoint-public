@@ -4,7 +4,7 @@
 // 该模块持久化 CN 客户端教程步骤, 教程扭蛋角色和教程完成记录.
 
 use crate::cn::{decode_request, msgpack_response_at, server_time};
-use crate::cn_character_reward::grant_character;
+use crate::cn_character_reward::{grant_character, record_character_encyclopedia_state};
 use crate::cn_gacha::{draw_tutorial_gacha, resolve_tutorial_gacha, TutorialGachaPlan};
 use crate::database::{
     CreateMailInput, MailReward, PlayerSnapshot, ServiceDatabase, ViewerSessionPlayer,
@@ -187,6 +187,7 @@ fn update_step(
             },
             &encoded_player_data,
             "tutorial:completion:free-vmoney-500",
+            None,
         )?;
         if !delivered {
             database.save_player_snapshot(snapshot.account_id, &encoded_player_data)?;
@@ -285,7 +286,7 @@ fn is_tutorial_gacha_phase(response_step: i64) -> bool {
 
 // //// 构造已保存教程步骤的客户端响应 [@x380kkm 2026-08-23] ////
 fn tutorial_step_response(
-    root: &Map<String, Value>,
+    root: &mut Map<String, Value>,
     viewer_id: i64,
     next_step: i64,
     gacha_id: Option<i64>,
@@ -338,7 +339,7 @@ fn finish_tutorial_gacha(
 
 // //// 构造教程扭蛋的客户端响应 [@x380kkm 2026-08-23] ////
 fn tutorial_gacha_response(
-    root: &Map<String, Value>,
+    root: &mut Map<String, Value>,
     viewer_id: i64,
     gacha_id: i64,
     step: i64,
@@ -383,7 +384,7 @@ fn tutorial_gacha_response(
         draw["ex_boost_item"] = json!({"id": item_id, "count": count});
         item_list.insert(item_id.to_string(), Value::from(total));
     }
-    Ok(json!({
+    let mut response = json!({
         "step": step,
         "user_info": {"free_vmoney": free_vmoney},
         "gacha": {
@@ -399,7 +400,9 @@ fn tutorial_gacha_response(
         "encyclopedia_info": [],
         "mail_arrived": false,
         "start_time": server_time,
-    }))
+    });
+    crate::cn_reward_overflow::apply_response(&mut response, root)?;
+    Ok(response)
 }
 // //// /构造教程扭蛋的客户端响应 ////
 
@@ -422,7 +425,7 @@ fn finish_tutorial_reward(
 
 // //// 构造教程结束的客户端响应 [@x380kkm 2026-08-23] ////
 fn tutorial_end_response(
-    root: &Map<String, Value>,
+    root: &mut Map<String, Value>,
     viewer_id: i64,
     step: i64,
     server_time: i64,
@@ -441,19 +444,17 @@ fn tutorial_end_response(
         stored_character,
         server_time,
     );
-    let mut encyclopedia_info = Map::new();
-    encyclopedia_info.insert(
-        format!("1{FREE_TUTORIAL_CHARACTER_ID}01"),
-        json!({"read": false}),
-    );
-    Ok(json!({
+    let encyclopedia_info = record_character_encyclopedia_state(root, FREE_TUTORIAL_CHARACTER_ID)?;
+    let mut response = json!({
         "step": step,
         "user_info": {"free_vmoney": free_vmoney},
         "character_list": [character],
         "encyclopedia_info": encyclopedia_info,
         "mail_arrived": step == 16,
         "start_time": server_time,
-    }))
+    });
+    crate::cn_reward_overflow::apply_response(&mut response, root)?;
+    Ok(response)
 }
 // //// /构造教程结束的客户端响应 ////
 
@@ -498,7 +499,8 @@ pub(crate) fn create_character_response(
         .get("mana_board_index")
         .and_then(Value::as_i64)
         .unwrap_or(1);
-    let formatted_time = format_client_time(server_time);
+    let join_time = crate::cn_character::character_time(stored_character.get("join_time"), server_time);
+    let update_time = crate::cn_character::character_time(stored_character.get("update_time"), server_time);
     let mut response = json!({
         "viewer_id": 0,
         "character_id": character_id,
@@ -506,9 +508,9 @@ pub(crate) fn create_character_response(
         "exp": exp,
         "exp_total": exp,
         "mana_board_index": mana_board_index,
-        "create_time": formatted_time.clone(),
-        "update_time": formatted_time.clone(),
-        "join_time": formatted_time,
+        "create_time": join_time.clone(),
+        "update_time": update_time,
+        "join_time": join_time,
     });
     if let Some(bond_token_list) = stored_character
         .get("bond_token_list")

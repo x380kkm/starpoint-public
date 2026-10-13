@@ -65,6 +65,9 @@ impl MultiplayerSessionListener {
         database: &mut ServiceDatabase,
     ) -> Result<bool, PersonalServiceError> {
         let mut did_work = self.poll_pending_lobby_sequences(database)?;
+        if Instant::now() >= self.next_room_event_poll {
+            did_work |= self.poll_attention_lobbies(database)?;
+        }
         did_work |= self.poll_room_events(database)?;
         Ok(did_work)
     }
@@ -135,7 +138,8 @@ impl MultiplayerSessionListener {
                     && room.is_npc_mode
             });
             if !room_is_active
-                || !self.has_active_host_lobby(&sequence.room_number, sequence.room_sequence)
+                || (!room.as_ref().is_some_and(|room| room.is_attention_room)
+                    && !self.has_active_host_lobby(&sequence.room_number, sequence.room_sequence))
             {
                 continue;
             }
@@ -199,6 +203,9 @@ impl MultiplayerSessionListener {
         if room.room_sequence != room_sequence || room.lobby_started || room.battle_started {
             return Ok(());
         }
+        if room.is_attention_room {
+            return Ok(());
+        }
         let npc_ready = self.npc_ready_rooms.contains(&room_key);
         let roster = lobby_roster(
             database,
@@ -242,7 +249,7 @@ impl MultiplayerSessionListener {
         Ok(())
     }
 
-    fn broadcast_start_remaining_time(
+    pub(super) fn broadcast_start_remaining_time(
         &mut self,
         room_number: &str,
         room_sequence: i64,

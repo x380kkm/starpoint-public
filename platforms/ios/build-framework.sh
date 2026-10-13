@@ -67,25 +67,38 @@ xcrun --sdk "$SDK_NAME" clang \
     -I "$CORE_ROOT/include" \
     -c "$BOOTSTRAP_ROOT/StarpointPersonalServiceBootstrap.m" \
     -o "$OUTPUT_ROOT/StarpointPersonalServiceBootstrap.o"
-xcrun --sdk "$SDK_NAME" clang \
-    -fobjc-arc \
-    -Wall \
-    -Wextra \
-    -Werror \
-    -target "$CLANG_TARGET" \
-    -isysroot "$SDK_PATH" \
-    -c "$BOOTSTRAP_ROOT/StarpointCNTitleSceneHook.m" \
-    -o "$OUTPUT_ROOT/StarpointCNTitleSceneHook.o"
+for MODULE in StarpointCNAotRuntime StarpointCNTitleSceneHook StarpointCNViewportHook StarpointCNGachaResultAssetsHook StarpointCNLocalPaymentHook StarpointCNLocalProductHook StarpointCNStoneBuyListHook StarpointCNManaBoardCacheHook StarpointCNRescueAutoStartHook StarpointCNAssetFileHook StarpointCNAssetRecoveryHook; do
+    xcrun --sdk "$SDK_NAME" clang \
+        -fobjc-arc \
+        -Wall \
+        -Wextra \
+        -Werror \
+        -target "$CLANG_TARGET" \
+        -isysroot "$SDK_PATH" \
+        -c "$BOOTSTRAP_ROOT/$MODULE.m" \
+        -o "$OUTPUT_ROOT/$MODULE.o"
+done
 xcrun --sdk "$SDK_NAME" clang \
     -dynamiclib \
     -target "$CLANG_TARGET" \
     -isysroot "$SDK_PATH" \
     -Wl,-install_name,@executable_path/Frameworks/PersonalServiceBootstrap.framework/PersonalServiceBootstrap \
     "$OUTPUT_ROOT/StarpointPersonalServiceBootstrap.o" \
+    "$OUTPUT_ROOT/StarpointCNAotRuntime.o" \
     "$OUTPUT_ROOT/StarpointCNTitleSceneHook.o" \
+    "$OUTPUT_ROOT/StarpointCNViewportHook.o" \
+    "$OUTPUT_ROOT/StarpointCNGachaResultAssetsHook.o" \
+    "$OUTPUT_ROOT/StarpointCNLocalPaymentHook.o" \
+    "$OUTPUT_ROOT/StarpointCNLocalProductHook.o" \
+    "$OUTPUT_ROOT/StarpointCNStoneBuyListHook.o" \
+    "$OUTPUT_ROOT/StarpointCNManaBoardCacheHook.o" \
+    "$OUTPUT_ROOT/StarpointCNRescueAutoStartHook.o" \
+    "$OUTPUT_ROOT/StarpointCNAssetFileHook.o" \
+    "$OUTPUT_ROOT/StarpointCNAssetRecoveryHook.o" \
     "$RUST_LIBRARY" \
     -framework Foundation \
     -framework UIKit \
+    -framework CoreGraphics \
     -framework SafariServices \
     -framework Security \
     -framework SystemConfiguration \

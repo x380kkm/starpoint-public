@@ -27,6 +27,10 @@ fn serves_player_assets_without_management_token() {
     assert!(page.contains("recovery-export-form"));
     assert!(page.contains("recovery-import-form"));
     assert!(page.contains("/manage/style.css"));
+    assert!(page.contains("src=\"/player/browser-app.js\" defer"));
+    let browser_app = request(service.port(), "GET", "/player/browser-app.js");
+    assert!(browser_app.starts_with("HTTP/1.1 200 OK"));
+    assert!(browser_app.contains("/v1/player/local-saves"));
     assert!(!page.contains(service.management_token()));
 
     let app = request(service.port(), "GET", "/player/app.js");

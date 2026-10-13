@@ -33,6 +33,7 @@ import mailApiPlugin from "./routes/api/mail"
 import rankingEventApiPlugin from "./routes/api/rankingEvent"
 import missionApiPlugin from "./routes/api/mission"
 import paymentApiPlugin from "./routes/api/payment"
+import itemApiPlugin from "./routes/api/item"
 import newsApiPlugin from "./routes/api/news"
 import raidEventApiPlugin from "./routes/api/raidEvent"
 import rushEventApiPlugin from "./routes/api/rushEvent"
@@ -142,6 +143,7 @@ fastify.register(mailApiPlugin, { prefix: `${apiPrefix}/mail` })
 fastify.register(rankingEventApiPlugin, { prefix: `${apiPrefix}/ranking_event` })
 fastify.register(missionApiPlugin, { prefix: `${apiPrefix}/mission` })
 fastify.register(paymentApiPlugin, { prefix: `${apiPrefix}/payment` })
+fastify.register(itemApiPlugin, { prefix: `${apiPrefix}/item` })
 fastify.register(newsApiPlugin, { prefix: `${apiPrefix}/news` })
 fastify.register(raidEventApiPlugin, { prefix: `${apiPrefix}/event/raid` })
 fastify.register(rushEventApiPlugin, { prefix: `${apiPrefix}/event/rush` })
@@ -158,6 +160,7 @@ fastify.register(cnLeitingAuthPlugin, { prefix: "/api/index.php" })
 fastify.register(cnLeitingPaymentPlugin, { prefix: "/api/index.php/channels/channel_leiting_pay" })
 fastify.register(cnToolPlugin, { prefix: "/api/index.php/tool" })
 fastify.register(cnLoadPlugin, { prefix: "/api/index.php" })
+fastify.register(itemApiPlugin, { prefix: "/api/index.php/item" })
 fastify.register(mailApiPlugin, { prefix: "/api/index.php/mail" })
 fastify.register(missionApiPlugin, { prefix: "/api/index.php/mission" })
 fastify.register(optionApiPlugin, { prefix: "/api/index.php/option" })

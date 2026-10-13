@@ -83,7 +83,7 @@ impl ServiceDatabase {
     ) -> Result<(), PersonalServiceError> {
         let transaction = self
             .connection
-            .transaction()
+            .savepoint()
             .map_err(mission_database_error)?;
         for (pattern, value) in counters {
             transaction

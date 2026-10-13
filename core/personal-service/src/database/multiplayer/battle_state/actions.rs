@@ -13,7 +13,7 @@ use super::{
 use crate::database::multiplayer::multiplayer_database_error;
 use crate::database::ServiceDatabase;
 use crate::PersonalServiceError;
-use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use rusqlite::{params, Connection, OptionalExtension};
 
 impl ServiceDatabase {
     // //// 原子提交联机继续费用, 计数和响应收据 [@x380kkm 2026-08-23] ////
@@ -78,14 +78,14 @@ impl ServiceDatabase {
     }
     // //// /原子提交联机继续费用, 计数和响应收据 ////
 
-    // //// 原子结算成员奖励并完成空房战斗 [@x380kkm 2026-08-23] ////
+    // //// 原子结算成员奖励并完成空房战斗 [@x380kkm 2026-09-26] ////
     pub(crate) fn finish_multiplayer_battle_member(
         &mut self,
         input: MultiplayerBattleFinish<'_>,
     ) -> Result<Option<MultiplayerBattleReceipt>, PersonalServiceError> {
         let transaction = self
             .connection
-            .transaction()
+            .savepoint()
             .map_err(multiplayer_database_error)?;
         if let Some(receipt) = read_receipt_for_identity(&transaction, "finish", input.identity)? {
             return Ok(Some(receipt));
@@ -99,15 +99,10 @@ impl ServiceDatabase {
         if delete_battle_player(&transaction, input.identity)? != 1 {
             return Ok(None);
         }
-        let host_finished = transaction
-            .query_row(
-                "SELECT host_account_id = ?2
-                 FROM multiplayer_rooms
-                 WHERE room_number = ?1",
-                params![input.identity.room_number, input.identity.account_id],
-                |row| row.get::<_, bool>(0),
-            )
-            .map_err(multiplayer_database_error)?;
+        let host_finished = battle_member_is_host(&transaction, input.identity)?;
+        crate::database::activity_history::record_snapshot_events(
+            &transaction, input.identity.account_id, input.snapshot, input.response_time,
+        )?;
         update_player_snapshot(&transaction, input.identity.account_id, input.snapshot)?;
         let response_json = response_with_bool(input.response, "host_finished", host_finished)?;
         let receipt = MultiplayerBattleReceipt {
@@ -125,7 +120,7 @@ impl ServiceDatabase {
     }
     // //// /原子结算成员奖励并完成空房战斗 ////
 
-    // //// 原子终止成员战斗并保存响应收据 [@x380kkm 2026-08-23] ////
+    // //// 原子终止成员战斗并保存响应收据 [@x380kkm 2026-09-26] ////
     pub(crate) fn abort_multiplayer_battle_member(
         &mut self,
         input: MultiplayerBattleAbort<'_>,
@@ -140,13 +135,7 @@ impl ServiceDatabase {
         if !battle_identity_exists(&transaction, input.identity)? {
             return Ok(None);
         }
-        let host_account_id = transaction
-            .query_row(
-                "SELECT host_account_id FROM multiplayer_rooms WHERE room_number = ?1",
-                params![input.identity.room_number],
-                |row| row.get::<_, i64>(0),
-            )
-            .map_err(multiplayer_database_error)?;
+        let is_host = battle_member_is_host(&transaction, input.identity)?;
         if delete_active_quest(&transaction, input.identity)? != 1 {
             return Ok(None);
         }
@@ -158,7 +147,7 @@ impl ServiceDatabase {
             response_time: input.response_time,
         };
         save_receipt(&transaction, "abort", input.identity, &receipt)?;
-        if host_account_id == input.identity.account_id {
+        if is_host {
             transaction
                 .execute(
                     "DELETE FROM active_single_quests
@@ -197,6 +186,23 @@ impl ServiceDatabase {
     // //// /原子终止成员战斗并保存响应收据 ////
 }
 
+// //// 通过真人成员标识确认房主身份 [@x380kkm 2026-09-26] ////
+fn battle_member_is_host(
+    connection: &Connection,
+    identity: MultiplayerBattleIdentity<'_>,
+) -> Result<bool, PersonalServiceError> {
+    connection
+        .query_row(
+            "SELECT rooms.host_viewer_id = members.viewer_id
+             FROM multiplayer_rooms AS rooms
+             JOIN multiplayer_room_members AS members USING(room_number)
+             WHERE rooms.room_number = ?1 AND members.account_id = ?2",
+            params![identity.room_number, identity.account_id],
+            |row| row.get(0),
+        )
+        .map_err(multiplayer_database_error)
+}
+
 fn battle_identity_exists(
     connection: &Connection,
     identity: MultiplayerBattleIdentity<'_>,
@@ -230,10 +236,11 @@ fn battle_identity_exists(
 }
 
 fn update_player_snapshot(
-    transaction: &Transaction<'_>,
+    transaction: &Connection,
     account_id: i64,
     snapshot: &str,
 ) -> Result<(), PersonalServiceError> {
+    let snapshot = crate::database::reward_deliveries::prepare_snapshot(transaction, account_id, snapshot)?;
     let updated = transaction
         .execute(
             "UPDATE player_snapshots SET data_json = ?1 WHERE account_id = ?2",
@@ -249,7 +256,7 @@ fn update_player_snapshot(
 }
 
 fn delete_active_quest(
-    transaction: &Transaction<'_>,
+    transaction: &Connection,
     identity: MultiplayerBattleIdentity<'_>,
 ) -> Result<usize, PersonalServiceError> {
     transaction
@@ -267,7 +274,7 @@ fn delete_active_quest(
 }
 
 fn delete_battle_player(
-    transaction: &Transaction<'_>,
+    transaction: &Connection,
     identity: MultiplayerBattleIdentity<'_>,
 ) -> Result<usize, PersonalServiceError> {
     transaction
@@ -280,10 +287,17 @@ fn delete_battle_player(
 }
 
 fn complete_room_if_empty(
-    transaction: &Transaction<'_>,
+    transaction: &Connection,
     room_number: &str,
     expiry_anchor_ms: i64,
 ) -> Result<(), PersonalServiceError> {
+    transaction.execute(
+        "UPDATE multiplayer_room_members SET ready=0, entered=0, scene_ready=0
+         WHERE room_number=?1
+           AND EXISTS(SELECT 1 FROM multiplayer_attention_rooms WHERE room_number=?1)
+           AND NOT EXISTS(SELECT 1 FROM multiplayer_battle_players WHERE room_number=?1)",
+        [room_number],
+    ).map_err(multiplayer_database_error)?;
     transaction
         .execute(
             "UPDATE multiplayer_rooms

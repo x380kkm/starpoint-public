@@ -250,7 +250,7 @@ fn valid_banner_dimensions(width: Option<u32>, height: Option<u32>) -> bool {
 fn valid_default_window(start_at_ms: Option<i64>, end_at_ms: Option<i64>) -> bool {
     match (start_at_ms, end_at_ms) {
         (None, None) => true,
-        (Some(start), Some(end)) => start >= 0 && end > start,
+        (Some(start), Some(end)) => end > start,
         _ => false,
     }
 }

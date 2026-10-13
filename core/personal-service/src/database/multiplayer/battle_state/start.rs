@@ -23,6 +23,32 @@ impl ServiceDatabase {
         if let Some(receipt) = read_start_receipt_for_identity(&transaction, input.identity)? {
             return Ok(Some(receipt));
         }
+        let other_active: bool = transaction
+            .query_row(
+                "SELECT EXISTS(
+                     SELECT 1 FROM active_single_quests AS quest
+                     WHERE quest.account_id = ?1 AND (
+                         quest.play_id <> ?2 OR quest.category <> ?3 OR quest.quest_id <> ?4
+                         OR NOT EXISTS(
+                             SELECT 1 FROM multiplayer_battle_players AS member
+                             WHERE member.account_id = quest.account_id
+                               AND member.room_number = ?5 AND member.play_id = quest.play_id
+                         )
+                     )
+                 )",
+                params![
+                    input.identity.account_id,
+                    input.identity.play_id,
+                    input.identity.category_id,
+                    input.identity.quest_id,
+                    input.identity.room_number,
+                ],
+                |row| row.get(0),
+            )
+            .map_err(multiplayer_database_error)?;
+        if other_active {
+            return Ok(None);
+        }
         let battle_started = transaction
             .query_row(
                 "SELECT rooms.battle_started
@@ -150,6 +176,16 @@ impl ServiceDatabase {
             response_json: input.response_json.to_owned(),
             response_time: input.response_time,
         };
+        let updated = transaction
+            .execute(
+                "UPDATE player_snapshots SET data_json=?1 WHERE account_id=?2",
+                params![input.snapshot, input.identity.account_id],
+            )
+            .map_err(multiplayer_database_error)?;
+        if updated != 1 {
+            return Ok(None);
+        }
+        crate::database::multiplayer::attention::participation::save(&transaction, input.identity)?;
         save_receipt(&transaction, "start", input.identity, &receipt)?;
         transaction.commit().map_err(multiplayer_database_error)?;
         Ok(Some(receipt))

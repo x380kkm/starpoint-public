@@ -5,6 +5,7 @@
 // 状态以玩家 ID 为边界, 服务重启后不恢复未完成战斗.
 
 import { QuestCategory } from "../lib/types"
+import { getServerTime } from "../utils"
 
 export interface ActiveQuest {
     questId: number
@@ -13,13 +14,15 @@ export interface ActiveQuest {
     useBossBoostPoint: boolean
     useBoostPoint: boolean
     isAutoStartMode: boolean
+    startedAt?: number
+    additionalEventIds?: number[]
 }
 
 const activeQuests = new Map<number, ActiveQuest>()
 
 // //// 管理玩家的一次性战斗结算状态 [@x380kkm 2026-07-27] ////
 export function insertActiveQuest(playerId: number, quest: ActiveQuest): void {
-    activeQuests.set(playerId, quest)
+    activeQuests.set(playerId, { ...quest, startedAt: quest.startedAt ?? getServerTime() })
 }
 
 export function getActiveQuest(playerId: number): ActiveQuest | null {

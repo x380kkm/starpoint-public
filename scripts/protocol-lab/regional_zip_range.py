@@ -2,6 +2,7 @@
 # # regional-zip-range
 # 此模块使用 HTTP Range 读取远程 ZIP 和 ZIP64 的中央目录及指定成员.
 # 成员读取验证压缩方式, 解压大小和 CRC-32, 适用于大型客户端缓存归档.
+# STORED 成员中的资源 ZIP 共享外层字节源, 按各自中央目录读取原图.
 
 from __future__ import annotations
 
@@ -119,10 +120,43 @@ class HttpRangeSource:
 # //// /读取严格匹配响应范围的远端字节 ////
 
 
+# //// 将外层 STORED 成员映射为独立字节源 [@x380kkm 2026-09-20] ////
+class StoredZipMemberSource:
+    def __init__(self, parent: HttpRangeSource | StoredZipMemberSource, entry: ZipRangeEntry) -> None:
+        if entry.compression != 0 or entry.flags & 0x1:
+            raise RegionalZipError(f"外层资源 ZIP 需要未加密的 STORED 格式: {entry.name}")
+        values = LOCAL_FILE_HEADER.unpack(parent.read(entry.local_header_offset, LOCAL_FILE_HEADER.size))
+        if values[0] != LOCAL_FILE_SIGNATURE:
+            raise RegionalZipError(f"外层成员本地头无效: {entry.name}")
+        self.parent = parent
+        self.offset = entry.local_header_offset + LOCAL_FILE_HEADER.size + values[-2] + values[-1]
+        self.size = entry.uncompressed_size
+        self.url = parent.url + "#" + entry.name
+
+    def read(self, offset: int, length: int) -> bytes:
+        if offset < 0 or length < 0 or offset + length > self.size:
+            raise RegionalZipError("资源 ZIP 内读取范围越界")
+        return self.parent.read(self.offset + offset, length)
+# //// /将外层 STORED 成员映射为独立字节源 ////
+
+
 # //// 解析 ZIP64 中央目录和成员数据 [@x380kkm 2026-08-29] ////
 class RemoteZip64Archive:
     def __init__(self, url: str, cache_root: Path | None = None) -> None:
-        self.source = HttpRangeSource(url)
+        self._initialize_source(HttpRangeSource(url), cache_root)
+
+    @classmethod
+    def from_stored_member(
+        cls, parent: RemoteZip64Archive, entry: ZipRangeEntry, cache_root: Path | None = None
+    ) -> RemoteZip64Archive:
+        archive = cls.__new__(cls)
+        archive._initialize_source(StoredZipMemberSource(parent.source, entry), cache_root)
+        return archive
+
+    def _initialize_source(
+        self, source: HttpRangeSource | StoredZipMemberSource, cache_root: Path | None
+    ) -> None:
+        self.source = source
         self.cache_root = cache_root
         self.metrics = self._read_directory_metrics()
         self.entries = self._read_entries()

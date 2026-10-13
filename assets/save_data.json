@@ -40,12 +40,7 @@
         {
             "id": 251,
             "point": 2,
-            "campaign_list": [
-                {
-                    "campaign_id": 2023013102,
-                    "additional_point": 2
-                }
-            ]
+            "campaign_list": []
         },
         {
             "id": 5001,

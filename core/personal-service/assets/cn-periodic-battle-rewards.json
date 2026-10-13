@@ -1,0 +1,238 @@
+{
+  "daily_recovery_hour": 5,
+  "points": {
+    "1": {
+      "activity_id": "hard-multi:1",
+      "max_point": 99,
+      "recovery_point": 2,
+      "recovery_cycle": 0,
+      "start_time": 1723780800,
+      "end_time": 1724947199
+    },
+    "2": {
+      "activity_id": "hard-multi:2",
+      "max_point": 99,
+      "recovery_point": 2,
+      "recovery_cycle": 0,
+      "start_time": 1728619200,
+      "end_time": 1729785599
+    },
+    "3": {
+      "activity_id": "hard-multi:3",
+      "max_point": 99,
+      "recovery_point": 2,
+      "recovery_cycle": 0,
+      "start_time": 1730952000,
+      "end_time": 1732204799
+    },
+    "10000001": {
+      "activity_id": "hard-multi:100001",
+      "max_point": 99,
+      "recovery_point": 2,
+      "recovery_cycle": 0,
+      "start_time": 1743048000,
+      "end_time": 1744300799
+    },
+    "10000000": {
+      "activity_id": "hard-multi:100000",
+      "max_point": 99,
+      "recovery_point": 2,
+      "recovery_cycle": 0,
+      "start_time": 1735790400,
+      "end_time": 1737647999
+    },
+    "10000002": {
+      "activity_id": "hard-multi:100002",
+      "max_point": 99,
+      "recovery_point": 2,
+      "recovery_cycle": 0,
+      "start_time": 1750305600,
+      "end_time": 1752163199
+    }
+  },
+  "quests": {
+    "26:1001": {
+      "point_id": 1,
+      "group_id": 1,
+      "slots": 1
+    },
+    "26:2001": {
+      "point_id": 2,
+      "group_id": 2,
+      "slots": 1
+    },
+    "26:3001": {
+      "point_id": 3,
+      "group_id": 3,
+      "slots": 1
+    },
+    "26:1001001": {
+      "point_id": null,
+      "group_id": 1,
+      "slots": 1
+    },
+    "26:1002001": {
+      "point_id": null,
+      "group_id": 3,
+      "slots": 1
+    },
+    "26:1003001": {
+      "point_id": null,
+      "group_id": 10000001,
+      "slots": 1
+    },
+    "26:1004001": {
+      "point_id": null,
+      "group_id": 2,
+      "slots": 1
+    },
+    "26:1005001": {
+      "point_id": null,
+      "group_id": 10000000,
+      "slots": 1
+    },
+    "26:1006001": {
+      "point_id": null,
+      "group_id": 10000002,
+      "slots": 1
+    },
+    "26:100001001": {
+      "point_id": 10000001,
+      "group_id": 10000001,
+      "slots": 1
+    },
+    "26:100000001": {
+      "point_id": 10000000,
+      "group_id": 10000000,
+      "slots": 1
+    },
+    "26:100002001": {
+      "point_id": 10000002,
+      "group_id": 10000002,
+      "slots": 1
+    }
+  },
+  "reward_groups": {
+    "1": [
+      {
+        "position": 1,
+        "probability": 1.0,
+        "reward": {
+          "type": 0,
+          "id": 40402,
+          "count": 9
+        }
+      }
+    ],
+    "2": [
+      {
+        "position": 1,
+        "probability": 1.0,
+        "reward": {
+          "type": 0,
+          "id": 40401,
+          "count": 9
+        }
+      }
+    ],
+    "3": [
+      {
+        "position": 1,
+        "probability": 1.0,
+        "reward": {
+          "type": 0,
+          "id": 40403,
+          "count": 9
+        }
+      }
+    ],
+    "10000003": [
+      {
+        "position": 1,
+        "probability": 1.0,
+        "reward": {
+          "type": 0,
+          "id": 40402,
+          "count": 9
+        }
+      }
+    ],
+    "10000004": [
+      {
+        "position": 1,
+        "probability": 1.0,
+        "reward": {
+          "type": 0,
+          "id": 40403,
+          "count": 9
+        }
+      }
+    ],
+    "10000005": [
+      {
+        "position": 1,
+        "probability": 1.0,
+        "reward": {
+          "type": 0,
+          "id": 40404,
+          "count": 9
+        }
+      }
+    ],
+    "10000006": [
+      {
+        "position": 1,
+        "probability": 1.0,
+        "reward": {
+          "type": 0,
+          "id": 40401,
+          "count": 9
+        }
+      }
+    ],
+    "10000007": [
+      {
+        "position": 1,
+        "probability": 1.0,
+        "reward": {
+          "type": 0,
+          "id": 40406,
+          "count": 9
+        }
+      }
+    ],
+    "10000001": [
+      {
+        "position": 1,
+        "probability": 1.0,
+        "reward": {
+          "type": 0,
+          "id": 40404,
+          "count": 9
+        }
+      }
+    ],
+    "10000000": [
+      {
+        "position": 1,
+        "probability": 1.0,
+        "reward": {
+          "type": 0,
+          "id": 40406,
+          "count": 9
+        }
+      }
+    ],
+    "10000002": [
+      {
+        "position": 1,
+        "probability": 1.0,
+        "reward": {
+          "type": 0,
+          "id": 40405,
+          "count": 9
+        }
+      }
+    ]
+  }
+}

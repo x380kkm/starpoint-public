@@ -11,6 +11,8 @@ use crate::PersonalServiceError;
 use serde::Deserialize;
 use serde_json::json;
 
+pub(crate) use crate::activity_projection::{is_quest_open, open_quest_keys};
+
 #[derive(Deserialize)]
 struct RecentPartyRequest {
     viewer_id: i64,

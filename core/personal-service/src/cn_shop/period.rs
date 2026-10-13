@@ -4,13 +4,11 @@
 // 该模块根据客户端商店 master 的购买限制计算当前日、月和活动窗口库存.
 
 use super::catalog::{
-    event_activity_id, event_shop_activity_alias, event_shop_identity, shop_purchase_key,
-    shop_purchase_limits, ShopPurchaseLimits, SHOP_TYPE_EVENT,
+    activity_shop_item_ids, event_activity_id, event_shop_identity, shop_purchase_key,
+    shop_purchase_limits, ShopPurchaseLimits, CN_TIMEZONE_OFFSET_SECONDS, SHOP_TYPE_EVENT,
 };
 use crate::cn_tutorial::format_client_time;
-use crate::database::{
-    evaluate_activity_schedule, ActivityMode, ActivityWindowStatus, ServiceDatabase,
-};
+use crate::database::ServiceDatabase;
 use crate::PersonalServiceError;
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -18,8 +16,7 @@ use std::path::Path;
 const PURCHASE_COUNTS_FIELD: &str = "shop_purchase_counts";
 const PURCHASE_BASELINES_FIELD: &str = "shop_purchase_count_baselines";
 const PURCHASE_WINDOWS_FIELD: &str = "shop_purchase_windows";
-const JAPAN_STANDARD_OFFSET_SECONDS: i64 = 8 * 60 * 60;
-const CLIENT_DAILY_RESET_SECONDS: i64 = 5 * 60 * 60;
+pub(super) const CLIENT_DAILY_RESET_SECONDS: i64 = 5 * 60 * 60;
 
 struct ClientPeriodKeys {
     day: String,
@@ -120,7 +117,7 @@ fn write_purchase_window(
 // //// 返回客户端商店使用的日和月窗口 [@x380kkm 2026-08-29] ////
 fn client_period_keys(response_time: i64) -> Result<ClientPeriodKeys, PersonalServiceError> {
     let shifted_time = response_time
-        .saturating_add(JAPAN_STANDARD_OFFSET_SECONDS)
+        .saturating_add(CN_TIMEZONE_OFFSET_SECONDS)
         .saturating_sub(CLIENT_DAILY_RESET_SECONDS);
     let client_time = format_client_time(shifted_time);
     let day = client_time
@@ -141,10 +138,13 @@ fn active_activity_key(
     _asset_root: &Path,
     shop_type: i64,
     shop_item_id: i64,
-    now_ms: i64,
+    _now_ms: i64,
 ) -> Result<Option<String>, PersonalServiceError> {
     if shop_type != SHOP_TYPE_EVENT {
         return Ok(None);
+    }
+    if let Some(activity_id) = super::selection::product_activity_id(shop_type, shop_item_id)? {
+        return Ok(super::activity::event_shop_activity_state(database, activity_id)?.key);
     }
     let Some((event_type, event_id)) = event_shop_identity(shop_item_id)? else {
         return Ok(None);
@@ -152,64 +152,9 @@ fn active_activity_key(
     let Some(activity_id) = event_activity_id(event_type, event_id) else {
         return Ok(None);
     };
-    let mut selected = activity_window_key(database, &activity_id, now_ms)?;
-    if !selected.configured {
-        if let Some(alias) = event_shop_activity_alias(&activity_id) {
-            let alias_state = activity_window_key(database, &alias, now_ms)?;
-            if alias_state.configured {
-                selected = alias_state;
-            }
-        }
-    }
-    if selected.status == ActivityWindowStatus::Open {
-        Ok(selected.key)
-    } else {
-        Ok(None)
-    }
+    Ok(super::activity::event_shop_activity_state(database, &activity_id)?.key)
 }
 // //// /返回活动商店当前窗口标识 ////
-
-struct ActivityWindowKey {
-    status: ActivityWindowStatus,
-    key: Option<String>,
-    configured: bool,
-}
-
-fn activity_window_key(
-    database: &ServiceDatabase,
-    activity_id: &str,
-    now_ms: i64,
-) -> Result<ActivityWindowKey, PersonalServiceError> {
-    if let Some((opened_at_ms, _)) = database.activity_temporary_open_window(activity_id)? {
-        return Ok(ActivityWindowKey {
-            status: ActivityWindowStatus::Open,
-            key: Some(format!("temporary:{activity_id}:{opened_at_ms}")),
-            configured: true,
-        });
-    }
-    if let Some(schedule) = database.get_activity_schedule(activity_id)? {
-        let evaluation = evaluate_activity_schedule(&schedule, now_ms);
-        let key = (evaluation.status == ActivityWindowStatus::Open).then(|| match schedule.mode {
-            ActivityMode::Manual | ActivityMode::Always => {
-                format!("schedule:{activity_id}:persistent")
-            }
-            _ => format!(
-                "schedule:{activity_id}:{}",
-                evaluation.active_start_ms.unwrap_or(schedule.start_at_ms)
-            ),
-        });
-        return Ok(ActivityWindowKey {
-            status: evaluation.status,
-            key,
-            configured: true,
-        });
-    }
-    Ok(ActivityWindowKey {
-        status: ActivityWindowStatus::Open,
-        key: Some(format!("static:{activity_id}:persistent")),
-        configured: false,
-    })
-}
 
 // //// 判断静态活动窗口是否沿用当前购买基线 [@x380kkm 2026-08-30] ////
 fn static_activity_reuses_baseline(previous_key: Option<&str>, next_key: Option<&str>) -> bool {
@@ -224,7 +169,6 @@ fn remaining_stock(
     today_purchase_num: i64,
     this_month_purchase_num: i64,
     window_purchase_num: i64,
-    fallback_stock: Option<i64>,
 ) -> i64 {
     let mut remaining = Vec::new();
     if let Some(limit) = limits.daily_stock {
@@ -235,9 +179,6 @@ fn remaining_stock(
     }
     if let Some(limit) = limits.max_frequency {
         remaining.push(limit.saturating_sub(window_purchase_num).max(0));
-    }
-    if let Some(fallback_stock) = fallback_stock.filter(|stock| *stock > 0) {
-        remaining.push(fallback_stock.saturating_sub(window_purchase_num).max(0));
     }
     remaining.into_iter().min().unwrap_or(-1)
 }
@@ -250,7 +191,6 @@ pub(super) fn synchronize_purchase_state(
     asset_root: &Path,
     shop_type: i64,
     shop_item_id: i64,
-    item: &Map<String, Value>,
     response_time: i64,
 ) -> Result<ShopPurchaseState, PersonalServiceError> {
     calculate_purchase_state(
@@ -259,7 +199,6 @@ pub(super) fn synchronize_purchase_state(
         asset_root,
         shop_type,
         shop_item_id,
-        item,
         response_time,
         true,
     )
@@ -273,7 +212,6 @@ pub(super) fn purchase_state(
     asset_root: &Path,
     shop_type: i64,
     shop_item_id: i64,
-    item: &Map<String, Value>,
     response_time: i64,
 ) -> Result<ShopPurchaseState, PersonalServiceError> {
     let mut copy = root.clone();
@@ -283,7 +221,6 @@ pub(super) fn purchase_state(
         asset_root,
         shop_type,
         shop_item_id,
-        item,
         response_time,
         false,
     )
@@ -296,7 +233,6 @@ fn calculate_purchase_state(
     asset_root: &Path,
     shop_type: i64,
     shop_item_id: i64,
-    item: &Map<String, Value>,
     response_time: i64,
     persist_window: bool,
 ) -> Result<ShopPurchaseState, PersonalServiceError> {
@@ -361,14 +297,11 @@ fn calculate_purchase_state(
     let today_purchase_num = cumulative.saturating_sub(day_baseline).max(0);
     let this_month_purchase_num = cumulative.saturating_sub(month_baseline).max(0);
     let displayed_total_purchase_num = cumulative.saturating_sub(total_baseline).max(0);
-    let fallback_stock = (!limits.has_period_limit())
-        .then(|| item.get("stock").and_then(Value::as_i64).unwrap_or(-1));
     let stock_quantity = remaining_stock(
         limits,
         today_purchase_num,
         this_month_purchase_num,
         displayed_total_purchase_num,
-        fallback_stock,
     );
     Ok(ShopPurchaseState {
         total_purchase_num: displayed_total_purchase_num,
@@ -387,7 +320,6 @@ pub(super) fn reset_purchase_state(
     asset_root: &Path,
     shop_type: i64,
     shop_item_id: i64,
-    item: &Map<String, Value>,
     response_time: i64,
 ) -> Result<ShopPurchaseState, PersonalServiceError> {
     synchronize_purchase_state(
@@ -396,7 +328,6 @@ pub(super) fn reset_purchase_state(
         asset_root,
         shop_type,
         shop_item_id,
-        item,
         response_time,
     )?;
     let purchase_key = shop_purchase_key(shop_type, shop_item_id);
@@ -430,9 +361,78 @@ pub(super) fn reset_purchase_state(
         asset_root,
         shop_type,
         shop_item_id,
-        item,
         response_time,
         false,
     )
 }
 // //// /手动建立新的商品库存基线 ////
+
+// //// 将活动商店的累计次数设为新库存基线 [@x380kkm 2026-09-21] ////
+pub(super) fn reset_activity_shop_purchases(
+    root: &mut Map<String, Value>,
+    activity_id: &str,
+) -> Result<usize, PersonalServiceError> {
+    let mut reset_count = 0;
+    for item_id in activity_shop_item_ids(activity_id)? {
+        let key = shop_purchase_key(SHOP_TYPE_EVENT, item_id);
+        let cumulative = cumulative_purchase_count(root, &key);
+        let has_window = root
+            .get(PURCHASE_WINDOWS_FIELD)
+            .and_then(Value::as_object)
+            .is_some_and(|windows| windows.contains_key(&key));
+        if cumulative == 0 && !has_window {
+            continue;
+        }
+        let baselines = root
+            .entry(PURCHASE_BASELINES_FIELD.to_owned())
+            .or_insert_with(|| Value::Object(Map::new()))
+            .as_object_mut()
+            .ok_or_else(|| PersonalServiceError::new("stored CN shop baselines are invalid"))?;
+        baselines.insert(key.clone(), Value::from(cumulative));
+        if let Some(windows) = root
+            .get_mut(PURCHASE_WINDOWS_FIELD)
+            .and_then(Value::as_object_mut)
+        {
+            windows.remove(&key);
+        }
+        reset_count += 1;
+    }
+    Ok(reset_count)
+}
+// //// /将活动商店的累计次数设为新库存基线 ////
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    // //// 活动重置仅刷新映射商品并保留资产和累计购买次数 [@x380kkm 2026-09-21] ////
+    #[test]
+    fn resets_only_the_selected_activity_shop() {
+        let mut data = json!({
+            "item_list": {"90030": 10},
+            "shop_purchase_counts": {"4:1": 2, "4:310126": 9, "7:1": 3},
+            "shop_purchase_count_baselines": {"4:310126": 1},
+            "shop_purchase_windows": {"4:1": {"day_baseline": 0}, "4:310126": {"day_baseline": 1}},
+        });
+        let count =
+            reset_activity_shop_purchases(data.as_object_mut().unwrap(), "carnival:1").unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(
+            data["shop_purchase_counts"],
+            json!({"4:1": 2, "4:310126": 9, "7:1": 3})
+        );
+        assert_eq!(
+            data["shop_purchase_count_baselines"],
+            json!({"4:1": 2, "4:310126": 1})
+        );
+        assert_eq!(
+            data["shop_purchase_windows"],
+            json!({"4:310126": {"day_baseline": 1}})
+        );
+        assert_eq!(data["item_list"], json!({"90030": 10}));
+        assert!(super::super::has_activity_shop("rush:700011").unwrap());
+        assert!(!super::super::has_activity_shop("carnival:999999").unwrap());
+    }
+    // //// /活动重置仅刷新映射商品并保留资产和累计购买次数 ////
+}

@@ -8,6 +8,8 @@
 mod cn_support;
 #[allow(dead_code)]
 mod support;
+#[path = "cn_story/catalog.rs"]
+mod catalog;
 
 use cn_support::{decode_response, encode_request, LoadRequest, SignupData, SignupRequest};
 use rusqlite::{params, Connection};
@@ -69,9 +71,15 @@ fn set_unfinished_main_story_progress(root: &Path) {
         .expect("player snapshot is updated");
 }
 
-fn assert_story_settlement(data: &Value) {
-    assert_eq!(data["user_info"]["free_vmoney"], 1_515);
-    assert_eq!(data["user_info"]["free_mana"], 1_000);
+fn assert_story_settlement(data: &Value, initial_user_info: &Value) {
+    assert_eq!(
+        data["user_info"]["free_vmoney"],
+        initial_user_info["free_vmoney"]
+            .as_i64()
+            .expect("initial free currency is numeric")
+            + 15
+    );
+    assert_eq!(data["user_info"]["free_mana"], initial_user_info["free_mana"]);
     for field in [
         "character_list",
         "joined_character_id_list",
@@ -98,6 +106,14 @@ fn verify_story_settlement(
     let root = TempDir::new().expect("temporary service directory is created");
     let service = PersonalService::start(root.path(), 0).expect("service starts");
     let viewer_id = signup_viewer(&service, device_id);
+    let initial = decode_response::<Value>(&cn_support::send_request(
+        service.port(),
+        "/api/index.php/load",
+        &encode_request(&LoadRequest {
+            keychain: viewer_id,
+            viewer_id,
+        }),
+    ));
     set_unfinished_main_story_progress(root.path());
     let request = StoryFinishRequest {
         party_id: 1,
@@ -112,7 +128,7 @@ fn verify_story_settlement(
         first_path,
         &encode_request(&request),
     ));
-    assert_story_settlement(&finished.data);
+    assert_story_settlement(&finished.data, &initial.data["user_info"]);
 
     let repeated = decode_response::<Value>(&cn_support::send_request(
         service.port(),
@@ -151,8 +167,14 @@ fn verify_story_settlement(
             viewer_id,
         }),
     ));
-    assert_eq!(loaded.data["user_info"]["free_vmoney"], 1_515);
-    assert_eq!(loaded.data["user_info"]["free_mana"], 1_000);
+    assert_eq!(
+        loaded.data["user_info"]["free_vmoney"],
+        finished.data["user_info"]["free_vmoney"]
+    );
+    assert_eq!(
+        loaded.data["user_info"]["free_mana"],
+        finished.data["user_info"]["free_mana"]
+    );
     let main_quest_progress = loaded.data["quest_progress"]["1"]
         .as_array()
         .expect("main quest progress is an array");
@@ -206,6 +228,14 @@ fn finishes_advent_multi_story_in_its_category() {
     let root = TempDir::new().expect("temporary service directory is created");
     let service = PersonalService::start(root.path(), 0).expect("service starts");
     let viewer_id = signup_viewer(&service, 53);
+    let initial = decode_response::<Value>(&cn_support::send_request(
+        service.port(),
+        "/api/index.php/load",
+        &encode_request(&LoadRequest {
+            keychain: viewer_id,
+            viewer_id,
+        }),
+    ));
     let request = StoryFinishRequest {
         party_id: 1,
         quest_id: 100_001_002,
@@ -220,7 +250,7 @@ fn finishes_advent_multi_story_in_its_category() {
         "/api/index.php/story_quest/finish",
         &encode_request(&request),
     ));
-    assert_story_settlement(&finished.data);
+    assert_story_settlement(&finished.data, &initial.data["user_info"]);
 
     let repeated = decode_response::<Value>(&cn_support::send_request(
         service.port(),

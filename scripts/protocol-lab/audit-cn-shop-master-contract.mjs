@@ -8,9 +8,12 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { readEntityRecords, readMasterBuffers } from "./generate-cn-activity-catalog.mjs"
+import { generateShopCostSchedules } from "./generate-cn-shop-cost-schedules.mjs"
+import { generateShopLimits } from "./generate-cn-shop-limits.mjs"
 import {
     decodeShopContracts,
     projectTreasureItem,
+    projectEquipmentEnhancementItem,
     resolveServerShopItem,
     SHOP_CONTRACT_SCHEMAS,
 } from "./generate-cn-shop-contracts.mjs"
@@ -66,14 +69,16 @@ function auditCatalog(document, contracts, schema) {
             issues.push({ kind: "missing_server_item", shop_type: schema.shopType, shop_item_id: Number(shopItemId) })
             continue
         }
-        if (!Array.isArray(item.rewards) || item.rewards.length === 0) {
+        if (!Array.isArray(item.rewards) || (schema.shopType !== 10 && item.rewards.length === 0)) {
             issues.push({ kind: "empty_server_rewards", shop_type: schema.shopType, shop_item_id: Number(shopItemId) })
             continue
         }
-        const expected = schema.shopType === 2 ? projectTreasureItem(contract, shopItemId) : contract
+        const expected = schema.shopType === 2 ? projectTreasureItem(contract, shopItemId)
+            : schema.shopType === 10 ? projectEquipmentEnhancementItem(contract, shopItemId) : contract
         const fields = schema.shopType === 2
             ? ["costs", "rewards", "userCost", "availableFrom", "availableUntil", "stock"]
-            : ["costs", "rewards"]
+            : schema.shopType === 10 ? [...Object.keys(expected), "userCost"]
+            : ["costs", "rewards", "userCost", "availableFrom", "availableUntil", "paidOnly"]
         for (const field of fields) {
             if (!sameJson(item[field], expected[field])) {
                 issues.push({
@@ -116,12 +121,20 @@ export async function auditShopMasterContract(cdnRoot, assetRoot) {
             issue_count: catalogIssues.length,
         }
     }
+    const costSchedules = await generateShopCostSchedules(cdnRoot)
+    const storedCostSchedules = JSON.parse(fs.readFileSync(path.join(assetRoot, "cn-shop-cost-schedules.json"), "utf8"))
+    if (!sameJson(storedCostSchedules, costSchedules)) issues.push({ kind: "cost_schedule_mismatch" })
+    const limits = await generateShopLimits(cdnRoot)
+    const storedLimits = JSON.parse(fs.readFileSync(path.join(assetRoot, "cn-shop-limits.json"), "utf8"))
+    if (!sameJson(storedLimits, limits)) issues.push({ kind: "purchase_limits_mismatch" })
     return {
         summary: {
             issue_count: issues.length,
             issue_kinds: countIssueKinds(issues),
         },
         shop_counts: shopCounts,
+        scheduled_cost_item_count: Object.keys(costSchedules.items).length,
+        cost_schedule_count: Object.values(costSchedules.schedules).reduce((count, rows) => count + rows.length, 0),
         issues,
     }
 }

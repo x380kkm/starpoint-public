@@ -50,7 +50,16 @@ struct TutorialResponse {
 }
 
 // //// 设置未完成教程的测试快照 [@x380kkm 2026-08-22] ////
-fn set_incomplete_tutorial_snapshot(root: &Path) {
+fn set_incomplete_tutorial_snapshot(root: &Path, service: &PersonalService, viewer_id: i64) {
+    let loaded = decode_response::<Value>(&cn_support::send_request(
+        service.port(),
+        "/api/index.php/load",
+        &encode_request(&LoadRequest {
+            keychain: viewer_id,
+            viewer_id,
+        }),
+    ));
+    assert_eq!(loaded.data_headers.result_code, 1);
     let database = Connection::open(root.join("personal-service.sqlite3"))
         .expect("service database is opened");
     let (account_id, serialized) = database
@@ -94,7 +103,7 @@ fn persists_tutorial_gacha_and_first_character() {
         &encode_request(&SignupRequest { device_id: 7 }),
     ));
     let viewer_id = signup.data_headers.viewer_id;
-    set_incomplete_tutorial_snapshot(root.path());
+    set_incomplete_tutorial_snapshot(root.path(), &service, viewer_id);
 
     let first_step = update_step(&service, viewer_id, 0, false, None);
     assert_eq!(first_step.step, 1);
@@ -193,7 +202,7 @@ fn rejects_invalid_tutorial_gacha_and_completes_short_tutorial() {
         &encode_request(&SignupRequest { device_id: 8 }),
     ));
     let viewer_id = signup.data_headers.viewer_id;
-    set_incomplete_tutorial_snapshot(root.path());
+    set_incomplete_tutorial_snapshot(root.path(), &service, viewer_id);
 
     for (step, skip) in [(14, false), (3, true)] {
         for gacha_id in [Some(0), Some(-1), Some(9999)] {
@@ -330,7 +339,7 @@ fn replays_processed_tutorial_gacha() {
         &encode_request(&SignupRequest { device_id: 9 }),
     ));
     let viewer_id = signup.data_headers.viewer_id;
-    set_incomplete_tutorial_snapshot(root.path());
+    set_incomplete_tutorial_snapshot(root.path(), &service, viewer_id);
 
     let first = update_step(&service, viewer_id, 14, false, Some(TUTORIAL_GACHA_ID));
     let replay = update_step(&service, viewer_id, 14, false, Some(TUTORIAL_GACHA_ID));

@@ -12,8 +12,15 @@ use super::ServiceDatabase;
 use crate::PersonalServiceError;
 use rusqlite::{params, Connection, OptionalExtension, Row, Transaction};
 
+mod deletion;
+mod local_device;
 mod mutations;
+mod occupancy;
 mod transfer_tokens;
+
+pub(crate) use deletion::LocalSaveDeleteError;
+pub(super) use local_device::selected_account_id;
+use occupancy::ensure_local_save_is_idle;
 
 pub(super) use mutations::{
     create_local_save_slot, find_local_save_slot, replace_local_save_data_in_transaction,
@@ -37,6 +44,7 @@ pub(crate) struct LocalSaveDevice {
 pub(crate) struct LocalSaveState {
     pub(crate) slots: Vec<LocalSaveSlot>,
     pub(crate) devices: Vec<LocalSaveDevice>,
+    pub(crate) local_slot_id: Option<i64>,
 }
 
 pub(crate) struct LocalSaveContext {
@@ -118,6 +126,11 @@ pub(super) fn migrate(connection: &Connection) -> Result<(), PersonalServiceErro
              );
              CREATE TABLE IF NOT EXISTS active_local_save_slots (
                  device_id INTEGER PRIMARY KEY CHECK (device_id > 0),
+                 slot_id INTEGER NOT NULL,
+                 FOREIGN KEY (slot_id) REFERENCES local_save_slots (id) ON DELETE RESTRICT
+             );
+             CREATE TABLE IF NOT EXISTS local_save_default (
+                 id INTEGER PRIMARY KEY CHECK (id = 1),
                  slot_id INTEGER NOT NULL,
                  FOREIGN KEY (slot_id) REFERENCES local_save_slots (id) ON DELETE RESTRICT
              );
@@ -244,6 +257,8 @@ pub(super) fn migrate(connection: &Connection) -> Result<(), PersonalServiceErro
             )
             .map_err(local_save_database_error)?;
     }
+    local_device::initialize_single_local_save_default(connection)
+        .map_err(local_save_database_error)?;
     Ok(())
 }
 // //// /创建本地存档槽和可区分来源的快照表 ////
@@ -280,7 +295,8 @@ impl ServiceDatabase {
             .map_err(local_save_database_error)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(local_save_database_error)?;
-        Ok(LocalSaveState { slots, devices })
+        let local_slot_id = local_device::local_slot_id(&self.connection).map_err(local_save_database_error)?;
+        Ok(LocalSaveState { slots, devices, local_slot_id })
     }
     // //// /列出本地存档槽和设备选择 ////
 
@@ -327,7 +343,9 @@ impl ServiceDatabase {
             .map_err(local_save_database_error)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(local_save_database_error)?;
-        Ok(LocalSaveState { slots, devices })
+        let local_slot_id = local_device::local_slot_id(&self.connection).map_err(local_save_database_error)?
+            .filter(|id| slots.iter().any(|slot| slot.id == *id));
+        Ok(LocalSaveState { slots, devices, local_slot_id })
     }
     // //// /列出玩家被授予的存档槽和设备选择 ////
 
@@ -436,23 +454,6 @@ impl ServiceDatabase {
             .map_err(local_save_database_error)
     }
 
-    pub(crate) fn local_save_has_active_single_quest(
-        &self,
-        slot_id: i64,
-    ) -> Result<bool, PersonalServiceError> {
-        self.connection
-            .query_row(
-                "SELECT EXISTS(
-                     SELECT 1 FROM active_single_quests
-                     JOIN local_save_slots
-                       ON local_save_slots.account_id = active_single_quests.account_id
-                     WHERE local_save_slots.id = ?1
-                 )",
-                params![slot_id],
-                |row| row.get(0),
-            )
-            .map_err(local_save_database_error)
-    }
     // //// /查询账号壳拥有的本地存档槽 ////
 
     // //// 导出本地存档槽当前状态 [@x380kkm 2026-07-23] ////
@@ -689,7 +690,7 @@ pub(super) fn grant_local_save_access_in_connection(
     }
 }
 
-// //// 拒绝在单人战斗期间切换设备存档槽 [@x380kkm 2026-08-18] ////
+// //// 保留进行中的战斗与房间所使用的存档槽 [@x380kkm 2026-09-26] ////
 fn ensure_device_can_switch_local_save(
     transaction: &Transaction<'_>,
     device_id: i64,
@@ -697,28 +698,22 @@ fn ensure_device_can_switch_local_save(
 ) -> Result<(), LocalSaveStoreError> {
     let current = transaction
         .query_row(
-            "SELECT active.slot_id,
-                    EXISTS(
-                        SELECT 1 FROM active_single_quests
-                        JOIN local_save_slots
-                          ON local_save_slots.account_id = active_single_quests.account_id
-                        WHERE local_save_slots.id = active.slot_id
-                    )
-             FROM active_local_save_slots AS active
-             WHERE active.device_id = ?1",
+            "SELECT active.slot_id
+              FROM active_local_save_slots AS active
+              WHERE active.device_id = ?1",
             params![device_id],
-            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, bool>(1)?)),
+            |row| row.get::<_, i64>(0),
         )
         .optional()
         .map_err(local_save_storage_error)?;
-    if let Some((current_slot_id, has_active_single_quest)) = current {
-        if current_slot_id != target_slot_id && has_active_single_quest {
-            return Err(LocalSaveStoreError::Busy);
+    if let Some(current_slot_id) = current {
+        if current_slot_id != target_slot_id {
+            ensure_local_save_is_idle(transaction, current_slot_id)?;
         }
     }
     Ok(())
 }
-// //// /拒绝在单人战斗期间切换设备存档槽 ////
+// //// /保留进行中的战斗与房间所使用的存档槽 ////
 
 pub(super) fn active_local_save_account_id(
     transaction: &Transaction<'_>,

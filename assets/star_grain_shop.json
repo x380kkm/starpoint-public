@@ -31,7 +31,7 @@
         "count": 1
       }
     ],
-    "availableFrom": "2016-10-26 15:00:00",
+    "availableFrom": "2023-09-21 12:00:00",
     "availableUntil": null,
     "stock": 7
   },
@@ -157,7 +157,7 @@
         "count": 1
       }
     ],
-    "availableFrom": "2016-10-26 15:00:00",
+    "availableFrom": "2015-03-01 15:00:00",
     "availableUntil": null,
     "stock": 7
   },
@@ -175,7 +175,7 @@
         "count": 1
       }
     ],
-    "availableFrom": "2016-10-26 15:00:00",
+    "availableFrom": "2015-03-01 15:00:00",
     "availableUntil": null,
     "stock": 9
   },
@@ -193,7 +193,7 @@
         "count": 1
       }
     ],
-    "availableFrom": "2016-10-26 15:00:00",
+    "availableFrom": "2015-03-01 15:00:00",
     "availableUntil": null,
     "stock": 9
   },
@@ -211,7 +211,7 @@
         "count": 1
       }
     ],
-    "availableFrom": "2016-10-26 15:00:00",
+    "availableFrom": "2015-03-01 15:00:00",
     "availableUntil": null,
     "stock": 5
   },
@@ -229,7 +229,7 @@
         "count": 1
       }
     ],
-    "availableFrom": "2016-10-26 15:00:00",
+    "availableFrom": "2015-03-01 15:00:00",
     "availableUntil": null,
     "stock": 1
   },
@@ -247,7 +247,7 @@
         "count": 1
       }
     ],
-    "availableFrom": "2016-10-26 15:00:00",
+    "availableFrom": "2015-03-01 15:00:00",
     "availableUntil": null,
     "stock": 1
   },
@@ -265,7 +265,7 @@
         "count": 1
       }
     ],
-    "availableFrom": "2016-10-26 15:00:00",
+    "availableFrom": "2015-03-01 15:00:00",
     "availableUntil": null,
     "stock": 20
   },
@@ -283,7 +283,7 @@
         "count": 1
       }
     ],
-    "availableFrom": "2016-10-26 15:00:00",
+    "availableFrom": "2015-03-01 15:00:00",
     "availableUntil": null,
     "stock": 10
   },
@@ -301,7 +301,7 @@
         "count": 1
       }
     ],
-    "availableFrom": "2016-10-26 15:00:00",
+    "availableFrom": "2015-03-01 15:00:00",
     "availableUntil": null,
     "stock": 5
   },
@@ -344,7 +344,7 @@
         "count": 25
       }
     ],
-    "availableFrom": "2016-10-26 15:00:00",
+    "availableFrom": "2015-03-01 15:00:01",
     "availableUntil": null,
     "stock": 3
   },
@@ -387,7 +387,7 @@
         "count": 25
       }
     ],
-    "availableFrom": "2016-10-26 15:00:00",
+    "availableFrom": "2015-03-01 15:00:02",
     "availableUntil": null,
     "stock": 3
   },
@@ -430,7 +430,7 @@
         "count": 25
       }
     ],
-    "availableFrom": "2016-10-26 15:00:00",
+    "availableFrom": "2015-03-01 15:00:02",
     "availableUntil": null,
     "stock": 3
   },
@@ -473,7 +473,7 @@
         "count": 25
       }
     ],
-    "availableFrom": "2016-10-26 15:00:00",
+    "availableFrom": "2015-03-01 15:00:02",
     "availableUntil": null,
     "stock": 3
   },
@@ -516,7 +516,7 @@
         "count": 25
       }
     ],
-    "availableFrom": "2016-10-26 15:00:00",
+    "availableFrom": "2015-03-01 15:00:02",
     "availableUntil": null,
     "stock": 3
   },
@@ -559,7 +559,7 @@
         "count": 25
       }
     ],
-    "availableFrom": "2016-10-26 15:00:00",
+    "availableFrom": "2015-03-01 15:00:02",
     "availableUntil": null,
     "stock": 3
   },
@@ -871,7 +871,7 @@
         "count": 1
       }
     ],
-    "availableFrom": "2023-10-27 05:00:00",
+    "availableFrom": "2024-01-25 12:00:00",
     "availableUntil": null,
     "stock": 1
   },
@@ -889,7 +889,7 @@
         "count": 1
       }
     ],
-    "availableFrom": "2023-10-27 05:00:00",
+    "availableFrom": "2024-01-25 12:00:00",
     "availableUntil": null,
     "stock": 1
   },
@@ -917,7 +917,7 @@
         "count": 6
       }
     ],
-    "availableFrom": "2023-10-27 05:00:00",
+    "availableFrom": "2024-01-25 12:00:00",
     "availableUntil": null,
     "stock": 1
   },
@@ -945,7 +945,7 @@
         "count": 6
       }
     ],
-    "availableFrom": "2023-10-27 05:00:00",
+    "availableFrom": "2024-01-25 12:00:00",
     "availableUntil": null,
     "stock": 1
   },
@@ -973,7 +973,7 @@
         "count": 6
       }
     ],
-    "availableFrom": "2023-10-27 05:00:00",
+    "availableFrom": "2024-01-25 12:00:00",
     "availableUntil": null,
     "stock": 1
   },
@@ -1001,7 +1001,7 @@
         "count": 6
       }
     ],
-    "availableFrom": "2023-10-27 05:00:00",
+    "availableFrom": "2024-01-25 12:00:00",
     "availableUntil": null,
     "stock": 1
   },
@@ -1029,7 +1029,7 @@
         "count": 6
       }
     ],
-    "availableFrom": "2023-10-27 05:00:00",
+    "availableFrom": "2024-01-25 12:00:00",
     "availableUntil": null,
     "stock": 1
   },
@@ -1057,7 +1057,7 @@
         "count": 6
       }
     ],
-    "availableFrom": "2023-10-27 05:00:00",
+    "availableFrom": "2024-01-25 12:00:00",
     "availableUntil": null,
     "stock": 1
   },
@@ -1075,7 +1075,7 @@
         "count": 1
       }
     ],
-    "availableFrom": "2024-05-11 14:00:00",
+    "availableFrom": "2024-05-30 12:00:00",
     "availableUntil": null,
     "stock": 1
   },

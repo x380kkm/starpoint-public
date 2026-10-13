@@ -6,7 +6,7 @@
 import { renderActivityCatalog, renderActivityDetail } from "/manage/activity-views.js"
 
 // //// 管理活动目录和活动规则 [@x380kkm 2026-08-19] ////
-export function createActivityController({ elements, requestApi, ApiError, runAction }) {
+export function createActivityController({ elements, requestApi, ApiError, runAction, onSelect = () => {} }) {
     const state = {
         calendarInitialized: false,
         calendarMonth: new Date().toISOString().slice(0, 7),
@@ -27,6 +27,8 @@ export function createActivityController({ elements, requestApi, ApiError, runAc
         serverTimeMs: null,
         status: "",
         search: "",
+        section: "events",
+        groupId: null,
         tag: "",
     }
     let catalogGeneration = 0
@@ -168,26 +170,33 @@ export function createActivityController({ elements, requestApi, ApiError, runAc
             state.clientVersion = catalog.clientVersion
             state.assetVersion = catalog.assetVersion
             setCurrentTime(catalog.serverTimeMs)
-            if (state.status === "ended") selectCurrentDate()
-            else selectDefaultDate()
+            if (state.section === "events") {
+                if (state.status === "ended") selectCurrentDate()
+                else selectDefaultDate()
+            }
         } catch (error) {
             if (generation !== catalogGeneration) return
             state.items = []
             state.error = error
         }
         render()
+        onSelect(selectedActivity() ?? null)
     }
 
     function render() {
         const actions = {
+            render,
+            setActivitySection,
             closeActivity,
             closeActivityDetail: () => {
                 state.selectedId = null
+                onSelect(null)
                 renderActivityDetail(state, elements, actions)
             },
             runAction,
             selectActivity: (activityId) => {
-                state.selectedId = String(activityId)
+                state.selectedId = activityId ? String(activityId) : null
+                onSelect(selectedActivity())
                 renderActivityDetail(state, elements, actions)
                 elements.activityDetail.scrollIntoView?.({ block: "nearest" })
             },
@@ -205,6 +214,15 @@ export function createActivityController({ elements, requestApi, ApiError, runAc
 
     function selectedActivity() {
         return state.items.find((item) => String(item.activity_id) === String(state.selectedId))
+    }
+
+    async function setActivitySection(section) {
+        state.section = section
+        state.defaultDateInitialized = false
+        state.groupId = null
+        state.selectedId = null
+        onSelect(null)
+        await clearActivityFilters()
     }
 
     function setActivityDate(date) {

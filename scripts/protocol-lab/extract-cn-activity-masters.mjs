@@ -48,7 +48,7 @@ const QUEST_MASTER_DEFINITIONS = Object.freeze([
     { name: "ranking_event_single_quest", parent: "ranking_event", category: 11, startIndex: 5, endIndex: 6 },
     { name: "rush_event_quest", parent: "rush_event", category: 24, startIndex: 7, endIndex: 8 },
     { name: "solo_time_attack_event_quest", parent: "solo_time_attack_event", category: 25, startIndex: 6, endIndex: 7 },
-    { name: "hard_multi_event_quest", parent: "hard_multi_event", category: 26, startIndex: 7, endIndex: 8 },
+    { name: "hard_multi_event_quest", parent: "hard_multi_event", category: 26, startIndex: 5, endIndex: 6 },
     { name: "score_attack_event_quest", parent: "score_attack_event", category: 27, startIndex: 7, endIndex: 8 },
     { name: "rush_event_quest_folder", parent: "rush_event", category: 24, startIndex: null, endIndex: null },
 ])
@@ -121,6 +121,53 @@ function activityMasterDefinitions() {
                 parent: null,
                 category: null,
             })),
+        {
+            name: "collect_item_event_mission",
+            logicalPath: "master/mission/collect_item_event_mission.orderedmap",
+            activityIdPrefix: "collect-item:",
+            activityIdIndex: 0,
+            kindCode: null,
+            required: true,
+            startIndex: 27,
+            endIndex: 28,
+            parent: "collect_item_event",
+            category: null,
+        },
+        {
+            name: "event_mission",
+            logicalPath: "master/mission/event_mission.orderedmap",
+            activityIdPrefix: "raid:",
+            activityIdIndex: 8,
+            activityIdFilter: [7, "16"],
+            kindCode: null,
+            required: true,
+            startIndex: 25,
+            endIndex: 26,
+            parent: "raid_event",
+            category: null,
+        },
+        {
+            name: "event_item_shop",
+            logicalPath: "master/shop/event_item_shop.orderedmap",
+            activityIdPrefix: "event-shop:",
+            kindCode: null,
+            required: true,
+            startIndex: 26,
+            endIndex: 27,
+            parent: null,
+            category: null,
+        },
+        {
+            name: "box",
+            logicalPath: "master/box_gacha/box.orderedmap",
+            activityIdPrefix: "box-gacha:",
+            kindCode: null,
+            required: true,
+            startIndex: 13,
+            endIndex: 14,
+            parent: "box_gacha",
+            category: null,
+        },
         ...QUEST_MASTER_DEFINITIONS.map((definition) => ({
             name: definition.name,
             logicalPath: `master/quest/event/${definition.name}.orderedmap`,
@@ -152,7 +199,7 @@ function readEntityRecords(cdnRoot) {
         const fields = line.split(",")
         if (fields.length !== 5) throw new Error(`EntityLists row has an unexpected field count: ${line}`)
         const [entryPath, version, byteLength, digest, assetKind] = fields
-        if (!/^production\/(?:(?:android|ios|medium)_)?upload\/[a-f0-9]{2}\/[a-f0-9]{38}$/.test(entryPath)) {
+        if (!/^production\/(?:(?:android|ios|medium|small)_)?upload\/[a-f0-9]{2}\/[a-f0-9]{38}$/.test(entryPath)) {
             throw new Error(`EntityLists contains an invalid asset path: ${entryPath}`)
         }
         const size = Number(byteLength)
@@ -345,6 +392,8 @@ function buildProjection(definition, target, decoded, binaryPath) {
         root_key_count: Object.keys(decoded).length,
         start_index: Number.isInteger(definition.startIndex) ? definition.startIndex : null,
         end_index: Number.isInteger(definition.endIndex) ? definition.endIndex : null,
+        ...(Number.isInteger(definition.activityIdIndex) ? { activity_id_index: definition.activityIdIndex } : {}),
+        ...(definition.activityIdFilter ? { activity_id_filter: definition.activityIdFilter } : {}),
         time_indexes: timeIndexes,
         scalar_schedule_indexes: synchronizedIndexes.filter((index) => !compositeIndexes.includes(index)),
         composite_schedule_indexes: compositeIndexes,

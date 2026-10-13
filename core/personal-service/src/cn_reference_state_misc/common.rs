@@ -23,21 +23,6 @@ pub(super) fn json_document<'a>(
         .map_err(|error| PersonalServiceError::new(error.clone()))
 }
 
-pub(super) fn add_item(
-    root: &mut Map<String, Value>,
-    item_id: i64,
-    amount: i64,
-) -> Result<i64, PersonalServiceError> {
-    let items = require_object(root, "item_list")?;
-    let key = item_id.to_string();
-    let current = items.get(&key).and_then(Value::as_i64).unwrap_or_default();
-    let updated = current
-        .checked_add(amount)
-        .ok_or_else(|| PersonalServiceError::new("CN item count exceeds the supported range"))?;
-    items.insert(key, Value::from(updated));
-    Ok(updated)
-}
-
 pub(super) fn add_user_info(
     root: &mut Map<String, Value>,
     key: &str,

@@ -3,10 +3,27 @@
 //
 // 该测试验证 CN 单机战斗在服务重启前后的开始, 继续, 结算, 掉落和终止行为.
 
+#[path = "support/cn_rewards.rs"]
+mod cn_reward_support;
 #[path = "support/cn.rs"]
 mod cn_support;
 mod support;
+#[path = "cn_single_battle/tower.rs"]
+mod tower;
+#[path = "cn_single_battle/continuation.rs"]
+mod continuation;
+#[path = "cn_single_battle/character_rewards.rs"]
+mod character_rewards;
+#[path = "cn_single_battle/client_numbers.rs"]
+mod client_numbers;
+#[path = "cn_single_battle/unlock_rewards.rs"]
+mod unlock_rewards;
+#[path = "cn_single_battle/presentation.rs"]
+mod presentation;
+#[path = "cn_single_battle/story_challenge_rewards.rs"]
+mod story_challenge_rewards;
 
+use cn_reward_support::{mission_currency, sum_drop_amounts};
 use cn_support::{
     assert_valid_signup_response, decode_response, encode_request, send_request,
     send_request_with_resource_version, LoadRequest, SignupData, SignupRequest,
@@ -198,6 +215,21 @@ fn gameplay_settings_request(service: &PersonalService, method: &str, body: &[u8
     )
 }
 
+fn set_activity_always(service: &PersonalService, activity_id: &str) {
+    let authorization_value = format!("Bearer {}", service.management_token());
+    let authorization = [("Authorization", authorization_value.as_str())];
+    let path = format!("/v1/activities/{activity_id}/mode");
+    let response = support::request_with_headers(
+        service.port(),
+        "PUT",
+        &path,
+        "application/json",
+        &authorization,
+        br#"{"mode":"always"}"#,
+    );
+    assert!(response.starts_with("HTTP/1.1 200 OK"), "{response}");
+}
+
 fn decode_json_response(response: &str) -> Value {
     assert!(response.starts_with("HTTP/1.1 200 OK"));
     assert!(response.contains("Content-Type: application/json"));
@@ -245,12 +277,13 @@ fn persists_and_finishes_cn_single_battle() {
         json!([{ "play_id": "cn-single-battle-test", "continue_count": 0 }]),
     );
     assert_eq!(loaded["unfinished_multi_quest_list"], json!([]));
+    let initial_vmoney = loaded["user_info"]["free_vmoney"].as_i64().unwrap();
 
     let continue_response = continue_battle(service.port(), viewer_id);
     let continued = decode_response::<Value>(&continue_response);
     assert_eq!(
         continued.data["user_info"]["free_vmoney"].as_i64(),
-        Some(1450),
+        Some(initial_vmoney - 50),
     );
     assert_eq!(continued.data["user_info"]["vmoney"].as_i64(), Some(0));
     let continue_count = Connection::open(root.path().join("personal-service.sqlite3"))
@@ -272,9 +305,10 @@ fn persists_and_finishes_cn_single_battle() {
     assert_eq!(finished.data["before_rank_point"].as_i64(), Some(10));
     assert_eq!(finished.data["user_info"]["rank_point"].as_i64(), Some(13));
     assert_eq!(finished.data["user_info"]["free_mana"].as_i64(), Some(1027));
+    let battle_vmoney = mission_currency(&finished.data, 0);
     assert_eq!(
         finished.data["user_info"]["free_vmoney"].as_i64(),
-        Some(1450),
+        Some(initial_vmoney - 50 + battle_vmoney)
     );
     assert_eq!(
         finished.data["rewards"]["reward_pool_exp"].as_i64(),
@@ -282,7 +316,14 @@ fn persists_and_finishes_cn_single_battle() {
     );
     assert_eq!(finished.data["rewards"]["reward_mana"].as_i64(), Some(20));
     assert_eq!(finished.data["rewards"]["field_mana"].as_i64(), Some(7));
-    assert_eq!(finished.data["item_list"]["13"].as_i64(), Some(1));
+    assert_eq!(finished.data["item_list"]["13"].as_i64(), Some(4));
+    assert_eq!(
+        finished.data["drop_score_reward_ids"]
+            .as_array()
+            .unwrap()
+            .len(),
+        4
+    );
     assert_eq!(
         finished.data["drop_score_reward_ids"][0],
         json!({ "group_id": 40000, "index": 1, "number": 1 }),
@@ -325,13 +366,16 @@ fn persists_and_finishes_cn_single_battle() {
     );
     let loaded = decode_response::<Value>(&load_response);
     assert_eq!(loaded.data["user_info"]["free_mana"].as_i64(), Some(1027));
-    assert_eq!(loaded.data["user_info"]["free_vmoney"].as_i64(), Some(1450));
+    assert_eq!(
+        loaded.data["user_info"]["free_vmoney"].as_i64(),
+        Some(initial_vmoney - 50 + battle_vmoney)
+    );
     assert_eq!(loaded.data["user_info"]["rank_point"].as_i64(), Some(13));
     assert_eq!(
         loaded.data["user_character_list"]["1"]["exp"].as_i64(),
         Some(23)
     );
-    assert_eq!(loaded.data["item_list"]["13"].as_i64(), Some(1));
+    assert_eq!(loaded.data["item_list"]["13"].as_i64(), Some(4));
     assert_eq!(
         loaded.data["user_info"]["total_stamina_used"].as_i64(),
         Some(6)
@@ -385,7 +429,7 @@ fn persists_and_finishes_cn_single_battle() {
     set_virtual_time(&service, "2030-01-02T12:00:00.000Z");
     assert!(start_battle_with_boost(service.port(), viewer_id, true).starts_with("HTTP/1.1 200 OK"));
     let boosted = decode_response::<Value>(&finish_battle(service.port(), viewer_id));
-    assert_eq!(boosted.data["item_list"]["13"], 3);
+    assert_eq!(boosted.data["item_list"]["13"], 4 + 4 * 2);
     assert_eq!(
         boosted.data["drop_score_reward_ids"][0],
         json!({ "group_id": 40000, "index": 1, "number": 2 })
@@ -466,12 +510,15 @@ fn applies_configured_item_drop_multiplier_to_score_reward_items() {
     let viewer_id = signup.data_headers.viewer_id;
     assert!(start_battle_with_boost(service.port(), viewer_id, true).starts_with("HTTP/1.1 200 OK"));
     let finished = decode_response::<Value>(&finish_battle(service.port(), viewer_id));
-    assert_eq!(finished.data["item_list"]["13"], 6);
+    assert_eq!(finished.data["item_list"]["13"], 4 * 2 * 3);
     assert_eq!(finished.data["drop_score_reward_ids"][0]["number"], 6);
     assert_eq!(finished.data["rewards"]["reward_pool_exp"], 13);
     assert_eq!(finished.data["rewards"]["reward_mana"], 20);
     assert_eq!(finished.data["rewards"]["field_mana"], 7);
-    assert_eq!(load_player(service.port(), viewer_id)["item_list"]["13"], 6,);
+    assert_eq!(
+        load_player(service.port(), viewer_id)["item_list"]["13"],
+        4 * 2 * 3
+    );
 }
 
 // //// 验证挑战迷宫稀有掉落按倍率写入响应和存档 [@x380kkm 2026-08-26] ////
@@ -488,6 +535,13 @@ fn applies_drop_multiplier_to_challenge_dungeon_rare_pool_items() {
         &encode_request(&SignupRequest { device_id: 30 }),
     ));
     let viewer_id = signup.data_headers.viewer_id;
+    let database = Connection::open(root.path().join("personal-service.sqlite3")).unwrap();
+    database
+        .execute(
+            "UPDATE player_snapshots SET data_json=json_set(data_json, '$.item_list.500000', 1)",
+            [],
+        )
+        .unwrap();
     let before = load_player(service.port(), viewer_id);
     let item_ids = [
         (2_101, 42),
@@ -565,10 +619,9 @@ fn replays_cn_single_battle_state_changes() {
     let started = decode_response::<Value>(&start_battle(service.port(), viewer_id));
     let repeated_start = decode_response::<Value>(&start_battle(service.port(), viewer_id));
     assert_eq!(repeated_start.data, started.data);
-    assert_eq!(
-        load_player(service.port(), viewer_id)["user_info"]["stamina"],
-        4,
-    );
+    let loaded = load_player(service.port(), viewer_id);
+    assert_eq!(loaded["user_info"]["stamina"], 4);
+    let initial_vmoney = loaded["user_info"]["free_vmoney"].as_i64().unwrap();
 
     decode_response::<Value>(&continue_battle_with_request_state(
         service.port(),
@@ -591,7 +644,7 @@ fn replays_cn_single_battle_state_changes() {
     assert_eq!(retried_continue.data, second_continue.data);
     assert_eq!(
         load_player(service.port(), viewer_id)["user_info"]["free_vmoney"],
-        1400,
+        initial_vmoney - 100,
     );
     let continue_count = Connection::open(root.path().join("personal-service.sqlite3"))
         .expect("battle database is opened")
@@ -635,6 +688,9 @@ fn settles_carnival_raid_rush_and_score_attack_quests() {
     let service = PersonalService::start(root.path(), 0).expect("service starts");
     let settings = gameplay_settings_request(&service, "PUT", br#"{"drop_multiplier":3}"#);
     assert!(settings.starts_with("HTTP/1.1 200 OK"));
+    for activity_id in ["carnival:2", "raid:1", "rush:700006", "score-attack:1"] {
+        set_activity_always(&service, activity_id);
+    }
     set_virtual_time(&service, "2030-01-01T12:00:00.000Z");
     let viewer_id = decode_response::<SignupData>(&send_request(
         service.port(),
@@ -660,12 +716,22 @@ fn settles_carnival_raid_rush_and_score_attack_quests() {
     assert_eq!(carnival.data["category_id"], 22);
     assert_eq!(
         carnival.data["carnival_event"]["score"]["difficulty_bonus"],
-        2_000
+        1_000_000
     );
     assert_eq!(
         carnival.data["carnival_event"]["score"]["time_bonus"],
-        8_000
+        1_700_000
     );
+    assert!(carnival.data["carnival_event"]["reward_ids"]
+        .as_array()
+        .unwrap()
+        .contains(&json!(69)));
+    assert!(carnival.data["item_list"]["999005"].as_i64().unwrap() > 0);
+    assert!(carnival.data["equipment_list"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|entry| entry["equipment_id"] == 5070030));
 
     set_virtual_time(&service, "2030-01-02T12:00:00.000Z");
     assert!(
@@ -707,7 +773,18 @@ fn settles_carnival_raid_rush_and_score_attack_quests() {
         rush_folder.data["rush_event"]["rush_battle_reward_list"][0]["number"],
         450
     );
-    assert_eq!(rush_folder.data["item_list"]["2370006"], 450);
+    let dropped_coins = sum_drop_amounts(&rush_folder.data);
+    assert_eq!(
+        rush_folder.data["drop_score_reward_ids"]
+            .as_array()
+            .unwrap()
+            .len(),
+        4
+    );
+    assert_eq!(
+        rush_folder.data["item_list"]["2370006"],
+        450 + dropped_coins
+    );
 
     assert!(
         start_battle_for(service.port(), viewer_id, 24, 700_006_008, "rush", false)
@@ -724,7 +801,8 @@ fn settles_carnival_raid_rush_and_score_attack_quests() {
     ));
     assert_eq!(rush.data["rush_event"]["endless_battle_next_round"], 2);
     assert_eq!(rush.data["rush_event"]["endless_battle_max_round"], 1);
-    assert_eq!(rush.data["rush_event"]["high_score"], 70_000);
+    assert_eq!(rush.data["rush_event"]["high_score"], 0);
+    assert_eq!(rush.data["rush_event"]["best_elapsed_time_ms"], 70_000);
 
     set_virtual_time(&service, "2030-01-04T12:00:00.000Z");
     assert!(start_battle_for(
@@ -771,7 +849,12 @@ fn settles_carnival_raid_rush_and_score_attack_quests() {
         .as_array()
         .unwrap()
         .is_empty());
-    assert_eq!(score_attack.data["item_list"]["40501"], 9);
+    assert!(score_attack.data["mission_info"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|mission| mission["mission_id"] == 10075));
+    assert_eq!(score_attack.data["item_list"]["40501"], 23 + 6);
     service.stop().expect("service stops cleanly");
 
     let restarted = PersonalService::start(root.path(), 0).expect("service restarts");
@@ -792,7 +875,7 @@ fn settles_carnival_raid_rush_and_score_attack_quests() {
         .as_array()
         .is_some_and(|records| records
             .iter()
-            .any(|record| { record["folder_id"] == 1 && record["best_score"] == 10_000 })));
+            .any(|record| { record["folder_id"] == 1 && record["best_score"] == 2_700_000 })));
     let raid_state = decode_response::<Value>(&send_request(
         restarted.port(),
         "/api/index.php/event/raid/summary",
@@ -831,15 +914,19 @@ fn grants_character_and_duplicate_material_from_distinct_quests() {
     .viewer_id;
     let quests = [100_411_012, 200_105_012];
 
-    assert!(start_battle_for(
+    set_virtual_time(&service, "2023-09-01T12:00:00.000Z");
+    let first_start = start_battle_for(
         service.port(),
         viewer_id,
         18,
         quests[0],
         "character-a",
         false
-    )
-    .starts_with("HTTP/1.1 200 OK"));
+    );
+    assert_eq!(
+        decode_response::<Value>(&first_start).data_headers.result_code,
+        1
+    );
     let first_response = finish_battle_for(
         service.port(),
         viewer_id,
@@ -856,15 +943,19 @@ fn grants_character_and_duplicate_material_from_distinct_quests() {
     let first = decode_response::<Value>(&first_response);
     assert_eq!(first.data["joined_character_id_list"], json!([253013]));
 
-    assert!(start_battle_for(
+    set_virtual_time(&service, "2024-02-16T12:00:00.000Z");
+    let second_start = start_battle_for(
         service.port(),
         viewer_id,
         18,
         quests[1],
         "character-b",
         false
-    )
-    .starts_with("HTTP/1.1 200 OK"));
+    );
+    assert_eq!(
+        decode_response::<Value>(&second_start).data_headers.result_code,
+        1
+    );
     let second_response = finish_battle_for(
         service.port(),
         viewer_id,
@@ -992,7 +1083,21 @@ fn uses_viewer_bound_battle_for_finish_and_abort() {
         }),
     );
     assert!(wrong_abort.starts_with("HTTP/1.1 200 OK"));
-    assert!(finish_battle(service.port(), viewer_id).starts_with("HTTP/1.1 400 Bad Request"));
+    let database = Connection::open(root.path().join("personal-service.sqlite3"))
+        .expect("service database is opened");
+    let active_play_id: String = database
+        .query_row("SELECT play_id FROM active_single_quests", [], |row| {
+            row.get(0)
+        })
+        .expect("current battle remains active");
+    assert_eq!(active_play_id, "cn-single-battle-test");
+    assert!(finish_battle(service.port(), viewer_id).starts_with("HTTP/1.1 200 OK"));
+    let active_count: i64 = database
+        .query_row("SELECT COUNT(*) FROM active_single_quests", [], |row| {
+            row.get(0)
+        })
+        .expect("active battles are counted");
+    assert_eq!(active_count, 0);
     service.stop().expect("service stops cleanly");
 }
 // //// /验证单机战斗使用 viewer 绑定的活动记录 ////

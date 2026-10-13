@@ -14,6 +14,7 @@ param(
     [ValidateNotNullOrEmpty()][string]$EntryName = "production/upload/15/83d96aad4b9a46d19d19b6555d3f4232b29e25",
     [ValidateNotNullOrEmpty()][string]$CampaignEntryName = "production/upload/74/e7be1b0da0fd069aba147e2fd92da2b427d86e",
     [ValidateNotNullOrEmpty()][string]$FeatureBannerEntryName = "production/upload/8c/82c8e05db4ce4f8a06bcd25f90bbda2967808b",
+    [ValidateNotNullOrEmpty()][string]$FeatureContentEntryName = "production/upload/c8/79a1b712ae753afb0b5e796737fd141c8fa0ea",
     [ValidateNotNullOrEmpty()][string]$ConfigEntryName = "production/upload/97/858974661335a60a4bca865a9a283179fff13b",
     [ValidateNotNullOrEmpty()][string]$OriginalVersion = "1.4.54",
     [ValidateNotNullOrEmpty()][string]$TargetVersion = "1.4.55"
@@ -152,12 +153,15 @@ try {
     $CampaignPatchedMap = Join-Path $TempRoot "gacha_campaign.patched.orderedmap"
     $FeatureBannerInputMap = Join-Path $TempRoot "feature_banner.original.orderedmap"
     $FeatureBannerPatchedMap = Join-Path $TempRoot "feature_banner.patched.orderedmap"
+    $FeatureContentInputMap = Join-Path $TempRoot "gacha_feature_content.original.orderedmap"
+    $FeatureContentPatchedMap = Join-Path $TempRoot "gacha_feature_content.patched.orderedmap"
     $ConfigMap = Join-Path $TempRoot "config.orderedmap"
     $TemporaryArchive = Join-Path $TempRoot ([IO.Path]::GetFileName($OutputArchivePath))
 
     Copy-CnGachaArchiveEntry -ArchivePath $SourceArchivePath -EntryPath $EntryName -DestinationPath $InputMap
     Copy-CnGachaArchiveEntry -ArchivePath $CampaignSourceArchivePath -EntryPath $CampaignEntryName -DestinationPath $CampaignInputMap
     Copy-CnGachaArchiveEntry -ArchivePath $SourceArchivePath -EntryPath $FeatureBannerEntryName -DestinationPath $FeatureBannerInputMap
+    Copy-CnGachaArchiveEntry -ArchivePath $SourceArchivePath -EntryPath $FeatureContentEntryName -DestinationPath $FeatureContentInputMap
     Copy-CnGachaArchiveEntry -ArchivePath $ConfigSourceArchivePath -EntryPath $ConfigEntryName -DestinationPath $ConfigMap
     if ((Get-Item -LiteralPath $ConfigMap).Length -ne $ExpectedConfigBytes -or
         (Get-CnGachaEntitySha256 -FilePath $ConfigMap) -cne $ExpectedConfigHash) {
@@ -166,7 +170,8 @@ try {
 
     $PatcherOutput = @(& node $PatcherPath --input $InputMap --output $PatchedMap `
             --campaign-input $CampaignInputMap --campaign-output $CampaignPatchedMap `
-            --feature-banner-input $FeatureBannerInputMap --feature-banner-output $FeatureBannerPatchedMap 2>&1)
+            --feature-banner-input $FeatureBannerInputMap --feature-banner-output $FeatureBannerPatchedMap `
+            --feature-content-input $FeatureContentInputMap --feature-content-output $FeatureContentPatchedMap 2>&1)
     if ($LASTEXITCODE -ne 0) {
         $ErrorTail = ($PatcherOutput | Select-Object -Last 20) -join [Environment]::NewLine
         throw "gacha master patcher 失败: exit=$LASTEXITCODE`n$ErrorTail"
@@ -204,6 +209,13 @@ try {
             Path = $ConfigMap
             Bytes = (Get-Item -LiteralPath $ConfigMap).Length
             Hash = (Get-CnGachaEntitySha256 -FilePath $ConfigMap)
+        },
+        [pscustomobject][ordered]@{
+            Name = "GachaFeatureContent"
+            EntryName = $FeatureContentEntryName
+            Path = $FeatureContentPatchedMap
+            Bytes = (Get-Item -LiteralPath $FeatureContentPatchedMap).Length
+            Hash = (Get-CnGachaEntitySha256 -FilePath $FeatureContentPatchedMap)
         }
     )
 
@@ -346,6 +358,9 @@ try {
         TemporaryCampaignAliasCount = [int]$PatchReport.gachaCampaign.temporaryCampaignAliasCount
         GachaCampaignCount = [int]$PatchReport.gachaCampaign.retainedOriginalCampaignCount + [int]$PatchReport.gachaCampaign.temporaryCampaignAliasCount
         ProjectedFeatureLinkCount = [int]$PatchReport.featureBanner.projectedLinkCount
+        GachaFeaturePoolCount = [int]$PatchReport.featureContent.poolCount
+        GachaFeatureRecovered = @($PatchReport.featureContent.recovered)
+        GachaFeatureProjectedAliases = [int]$PatchReport.featureContent.projectedAliases
         OrderedMapBytes = $OrderedMapBytes
         OrderedMapSha256 = $OrderedMapHash
         CampaignOrderedMapBytes = $CampaignOrderedMapBytes
