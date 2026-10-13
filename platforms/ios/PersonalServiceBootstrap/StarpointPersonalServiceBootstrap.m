@@ -4,6 +4,7 @@
 // 该 Framework 在载入时启动个人服务. 服务数据位于当前 App 的 Application Support 目录.
 // 配置 STARPOINT_CN_CDN_BUNDLE_PATH 或 StarpointCNCDNBundlePath 后, direct 模式直接读取 bundle 内的 CN CDN, import 模式才复制.
 // App 返回前台时通过串行队列探测 loopback /health 并恢复监听, 激活收尾等待恢复完成信号.
+// 响应等待期间保留运行中的服务句柄, 服务线程停止后重建监听.
 // 同进程原生宿主通过复制接口读取管理 token.
 // TitleScene 控制进程内管理按钮, 按钮在 Safari 中打开仅访问 loopback 的管理页面.
 // CN 原生登录请求在 NSURLSession 任务创建时路由到 loopback 服务.
@@ -33,7 +34,6 @@ typedef void (^StarpointPersonalServiceRecoveryCompletion)(BOOL isReady);
 static const uint16_t StarpointPersonalServicePort = 17171;
 static const int StarpointPersonalServiceHealthProbeTimeoutMilliseconds = 150;
 static const NSUInteger StarpointForegroundRecoveryMaximumAttempts = 12;
-static const NSUInteger StarpointForegroundRecoveryRestartInterval = 4;
 static const uint64_t StarpointForegroundRecoveryRetryDelayNanoseconds =
     250 * NSEC_PER_MSEC;
 
@@ -751,7 +751,7 @@ static BOOL ensurePersonalServiceReadyOnQueue(void) {
 // //// /在串行队列中确保个人服务可用 ////
 
 // //// 恢复前台个人服务 [@x380kkm 2026-08-24] ////
-static BOOL recoverPersonalServiceForForegroundOnQueue(NSUInteger attempt) {
+static BOOL recoverPersonalServiceForForegroundOnQueue(void) {
     BOOL isReportedRunning = personalService != NULL &&
         starpoint_personal_service_is_running(personalService) != 0;
     StarpointPersonalServiceHealthState healthState = isReportedRunning
@@ -766,10 +766,7 @@ static BOOL recoverPersonalServiceForForegroundOnQueue(NSUInteger attempt) {
         return YES;
     }
 
-    BOOL shouldRestart = !isReportedRunning ||
-        healthState == StarpointPersonalServiceHealthUnreachable ||
-        (attempt > 0 && attempt % StarpointForegroundRecoveryRestartInterval == 0);
-    if (!shouldRestart) {
+    if (isReportedRunning) {
         return NO;
     }
     discardPersonalServiceOnQueue();
@@ -807,7 +804,7 @@ static void attemptPersonalServiceForegroundRecoveryOnQueue(
     if (!isPersonalServiceForegroundRecoveryCurrent(generation)) {
         return;
     }
-    if (recoverPersonalServiceForForegroundOnQueue(attempt)) {
+    if (recoverPersonalServiceForForegroundOnQueue()) {
         completePersonalServiceForegroundRecoveryOnQueue(generation, YES);
         return;
     }

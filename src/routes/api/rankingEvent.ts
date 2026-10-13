@@ -1,10 +1,14 @@
-// Handles mail.
+// audience: internal
+// # ranking-event
+// 客户端以空 best_record 表示尚未参赛, 非空成绩引用实际存在的角色.
 
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { getAccountPlayers, getPlayerQuestProgressSync, getPlayerSingleQuestProgressSync, getSession } from "../../data/wdfpData";
+import { getAccountPlayers, getPlayerCharactersSync, getPlayerPartyGroupListSync, getPlayerSingleQuestProgressSync, getSession } from "../../data/wdfpData";
 import { generateDataHeaders } from "../../utils";
 import { QuestCategory } from "../../lib/types";
+import { getCharacterDataSync } from "../../lib/assets";
 import { PlayerQuestProgress } from "../../data/types";
+import rankingEventSource from "../../../core/personal-service/assets/cn-ranking-rewards.json";
 
 interface ReceiveRewardBody {
     api_count: number,
@@ -18,57 +22,42 @@ interface GetSummaryBody {
     quest_kind: number
 }
 
-const rankingEventIdQuestMap: Record<number, number> = {
-    [1]: 1001,
-    [2]: 2001,
-    [3]: 3001,
-    [4]: 4001,
-    [5]: 5001
-}
+const rankingEvents: Record<string, { quest_ids: number[], reference_time_ms: number }> = rankingEventSource
 
-const rankingEventTopTimesMs: Record<number, number> = {
-    [1]: 54410,
-    [2]: 25800,
-    [3]: 18880,
-    [4]: 31720,
-    [5]: 6540
-}
-
-/**
- * Generates a ranking summary for a specific player & ranking event.
- * 
- * @param playerId 
- * @param eventId 
- * @returns 
- */
+// //// 从共享竞速目录读取最佳成绩和客户端百分数 [@x380kkm 2026-09-28] ////
 function getRankingSummary(
     playerId: number,
     eventId: number
 ): Object | null {
-    // get quest
-    const questId = rankingEventIdQuestMap[eventId]
-    if (questId === undefined) return null;
-
-    const topTime = rankingEventTopTimesMs[eventId] ?? 0
-
-    // get data for the ranking quest
-    const playerQuestData = getPlayerSingleQuestProgressSync(playerId, QuestCategory.RANKING_EVENT_SINGLE, questId)
-    const isAccomplished = playerQuestData !== null && playerQuestData.bestElapsedTimeMs !== undefined && playerQuestData.bestElapsedTimeMs !== null
+    const definition = rankingEvents[eventId]
+    if (definition === undefined) return null
+    const playerQuestData = definition.quest_ids
+        .map(questId => getPlayerSingleQuestProgressSync(playerId, QuestCategory.RANKING_EVENT_SINGLE, questId))
+        .filter((record): record is PlayerQuestProgress & { bestElapsedTimeMs: number } =>
+            record !== null && typeof record.bestElapsedTimeMs === "number" &&
+            Number.isFinite(record.bestElapsedTimeMs) && record.bestElapsedTimeMs > 0)
+        .sort((left, right) => left.bestElapsedTimeMs - right.bestElapsedTimeMs)[0]
+    if (playerQuestData === undefined) return { best_record: null }
+    const topTime = definition.reference_time_ms
+    const characters = getPlayerCharactersSync(playerId)
+    const parties = Object.values(getPlayerPartyGroupListSync(playerId)).flatMap(group => Object.values(group.list))
+    const leaderId = [...parties.flatMap(party => party.characterIds), ...Object.keys(characters).map(Number)]
+        .find(id => id !== null && id > 0 && getCharacterDataSync(id) !== null) ?? 1
 
     return {
         "best_record": {
-            "elapsed_time_ms": isAccomplished ? playerQuestData.bestElapsedTimeMs ?? 0 : 0,
-            "is_accomplished": isAccomplished,
-            "score": isAccomplished ? playerQuestData.highScore ?? 0 : 0
+            "elapsed_time_ms": playerQuestData.bestElapsedTimeMs,
+            "is_accomplished": true,
+            "score": playerQuestData.highScore ?? 0
         },
-        "leader_character_evolution_img_level": 1,
-        "leader_character_id": 1,
+        "leader_character_evolution_img_level": characters[leaderId]?.evolutionLevel ?? 0,
+        "leader_character_id": leaderId,
         "rank_border_top": {
             "elapsed_time_ms": topTime,
             "is_accomplished": true,
-            "score": 1110111
+            "score": 0
         },
-        "rank_percentage": isAccomplished ? 1 - (topTime / (playerQuestData.bestElapsedTimeMs ?? 1)) : 100
+        "rank_percentage": Math.max(0, Math.min(100, 100 * (1 - topTime / playerQuestData.bestElapsedTimeMs)))
     }
 }
 

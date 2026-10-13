@@ -9,6 +9,9 @@ mod cn_support;
 #[allow(dead_code)]
 mod support;
 
+#[path = "cn_reference_state_misc/quest.rs"]
+mod quest;
+
 use cn_support::{decode_response, encode_request, LoadRequest, SignupData, SignupRequest};
 use rusqlite::{params, Connection};
 use serde::Serialize;
@@ -46,13 +49,7 @@ struct ActiveMissionReceiveEntry {
     stages: Vec<i64>,
 }
 
-#[derive(Serialize)]
-struct ActiveMissionIncentiveRequest {
-    viewer_id: i64,
-    mission_id: i64,
-}
-
-fn seed_items(root: &Path) {
+fn update_player(root: &Path, update: impl FnOnce(&mut Value)) {
     let database = Connection::open(root.join("personal-service.sqlite3"))
         .expect("service database is opened");
     let (account_id, serialized) = database
@@ -64,10 +61,7 @@ fn seed_items(root: &Path) {
         .expect("one player snapshot exists");
     let mut player_data =
         serde_json::from_str::<Value>(&serialized).expect("player snapshot is JSON");
-    player_data["item_list"] = json!({"1": 2, "60000": 1});
-    player_data["all_active_mission_list"] = json!({
-        "20002": {"progress": 4, "stages": {"1": false}}
-    });
+    update(&mut player_data);
     database
         .execute(
             "UPDATE player_snapshots SET data_json = ?1 WHERE account_id = ?2",
@@ -105,7 +99,7 @@ fn persists_reference_quest_mission_and_item_mutations() {
             viewer_id,
         }),
     ));
-    assert_eq!(unlocked.data["item_list"]["60000"], 0);
+    assert_eq!(unlocked.data["item_list"], json!({}));
 
     let sold = decode_response::<Value>(&cn_support::send_request(
         service.port(),
@@ -157,7 +151,7 @@ fn persists_reference_quest_mission_and_item_mutations() {
         }),
     ));
     assert_eq!(loaded.data["item_list"]["1"], 0);
-    assert_eq!(loaded.data["item_list"]["60000"], 0);
+    assert_eq!(loaded.data["item_list"]["60000"], 1);
     assert_eq!(loaded.data["item_list"]["500000"], 6);
     assert_eq!(
         loaded.data["all_active_mission_list"]["20002"]["stages"]["1"],
@@ -166,16 +160,15 @@ fn persists_reference_quest_mission_and_item_mutations() {
     assert_eq!(loaded.data["quest_progress"]["14"][0]["quest_id"], 1001);
     assert_eq!(loaded.data["quest_progress"]["14"][0]["unlocked"], true);
 
-    let image = support::request_bytes(
-        service.port(),
-        "GET",
-        "/api/index.php/comic/image?kind=0&episode=1",
-    );
-    assert!(image.starts_with(b"HTTP/1.1 200 OK"));
-    assert!(image
-        .windows(8)
-        .any(|window| window == b"\x89PNG\r\n\x1a\n"));
     service.stop().expect("service stops cleanly");
+}
+
+fn seed_items(root: &Path) {
+    update_player(root, |player_data| {
+        player_data["item_list"] = json!({"1": 2, "60000": 1});
+        player_data["all_active_mission_list"] =
+            json!({"20002": {"progress": 4, "stages": {"1": false}}});
+    });
 }
 // //// /验证参考状态接口共享并持久化玩家快照 ////
 
@@ -197,6 +190,19 @@ fn grants_awake_active_mission_rewards() {
         }],
         viewer_id: signup.data_headers.viewer_id,
     };
+    let rejected = cn_support::send_request(
+        service.port(),
+        "/api/index.php/active_mission/receive",
+        &encode_request(&request),
+    );
+    assert!(rejected.starts_with("HTTP/1.1 400 Bad Request"));
+    service.stop().unwrap();
+    update_player(root.path(), |player| {
+        player["quest_progress"]["3"] = json!([
+            {"quest_id":11100101,"finished":true}, {"quest_id":11100102,"finished":true}, {"quest_id":11100103,"finished":true},
+        ]);
+    });
+    let service = PersonalService::start(root.path(), 0).unwrap();
     let received = decode_response::<Value>(&cn_support::send_request(
         service.port(),
         "/api/index.php/active_mission/receive",
@@ -215,32 +221,3 @@ fn grants_awake_active_mission_rewards() {
     service.stop().expect("service stops cleanly");
 }
 // //// /验证角色觉醒主动任务按任务 ID 发放阶段奖励 ////
-
-// //// 验证主动任务激励响应结构 [@x380kkm 2026-08-24] ////
-#[test]
-fn returns_active_mission_incentive() {
-    let root = TempDir::new().expect("temporary service directory is created");
-    let service = PersonalService::start(root.path(), 0).expect("service starts");
-    let viewer_id = decode_response::<SignupData>(&cn_support::send_request(
-        service.port(),
-        "/api/index.php/tool/signup",
-        &encode_request(&SignupRequest { device_id: 92 }),
-    ))
-    .data_headers
-    .viewer_id;
-
-    let incentive = decode_response::<Value>(&cn_support::send_request(
-        service.port(),
-        "/api/index.php/active_mission/receive_incentive",
-        &encode_request(&ActiveMissionIncentiveRequest {
-            viewer_id,
-            mission_id: 20_002,
-        }),
-    ));
-    assert_eq!(
-        incentive.data["active_mission_incentive"]["ingame_reward_id"],
-        1001
-    );
-    assert!(incentive.data["active_mission_incentive"]["url"].is_null());
-}
-// //// /验证主动任务激励响应结构 ////

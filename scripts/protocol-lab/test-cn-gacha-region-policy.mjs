@@ -60,23 +60,16 @@ function clientMasterFixture(document) {
     }))
 }
 
-function clientCampaignMasterFixture(campaignByGachaId) {
-    const gachaIdsByCampaign = new Map()
-    for (const [gachaId, campaignId] of Object.entries(campaignByGachaId)) {
-        gachaIdsByCampaign.set(String(campaignId), [
-            ...(gachaIdsByCampaign.get(String(campaignId)) ?? []),
-            gachaId,
-        ])
-    }
-    return Object.fromEntries([...gachaIdsByCampaign].map(([campaignId, gachaIds]) => [
+function clientCampaignMasterFixture(catalog) {
+    return Object.fromEntries(Object.entries(catalog).map(([campaignId, campaign]) => [
         campaignId,
         [
             `campaign_${campaignId}`,
             `Campaign ${campaignId}`,
-            "2",
+            String(campaign.kind),
             "2020-01-01 00:00:00",
             "2020-01-02 00:00:00",
-            gachaIds.sort((left, right) => Number(left) - Number(right)).join(","),
+            campaign.gachaIds.join(","),
             "(None)",
             "",
         ],
@@ -102,7 +95,7 @@ const document = JSON.parse(gachaBytes.toString("utf8"))
 const rawOddsEvidence = readJson("assets/gacha-raw-odds-signatures.json")
 const bannerResolution = readJson("assets/gacha-banner-resolution.json")
 const featureLinkEvidence = readJson("assets/gacha-feature-link-evidence.json")
-const campaignByGachaId = readJson("assets/gacha_campaign.json")
+const campaignCatalog = readJson("assets/gacha_campaign.json")
 const policy = readJson("assets/gacha-region-policy.json")
 const rebuilt = buildCnGachaRegionPolicy(
     document,
@@ -258,25 +251,30 @@ for (const canonicalId of ["6", "8", "63", "66", "71", "1526"]) {
     assert.equal(decodedMaster[temporaryId][46], "false")
 }
 
-const originalCampaignMaster = clientCampaignMasterFixture(campaignByGachaId)
+const originalCampaignMaster = clientCampaignMasterFixture(campaignCatalog)
 const patchedCampaignMaster = decodeOrderedMap(encodeOrderedMap(
-    applyCnGachaCampaignPolicy(originalCampaignMaster, policy, campaignByGachaId),
+    applyCnGachaCampaignPolicy(originalCampaignMaster, policy, campaignCatalog),
 ))
-const temporaryCampaignAliases = Object.entries(policy.temporaryAliases)
-    .filter(([, canonicalId]) => Object.hasOwn(campaignByGachaId, String(canonicalId)))
+const temporaryPools = new Map(Object.entries(policy.temporaryAliases).map(([alias, canonical]) => [String(canonical), alias]))
+const temporaryCampaignAliases = Object.entries(campaignCatalog).flatMap(([campaignId, campaign]) =>
+    Object.entries(campaign.temporaryCampaignIds).map(([gachaId, alias]) => ({ campaignId, gachaId, alias: String(alias) })))
 assert.equal(
     Object.keys(patchedCampaignMaster).length,
     Object.keys(originalCampaignMaster).length + temporaryCampaignAliases.length,
 )
-for (const [temporaryId, canonicalId] of temporaryCampaignAliases) {
-    const canonicalCampaignId = String(campaignByGachaId[canonicalId])
-    assert.equal(patchedCampaignMaster[temporaryId][0],
-        `${originalCampaignMaster[canonicalCampaignId][0]}_temporary_${canonicalId}`)
-    assert.equal(patchedCampaignMaster[temporaryId][3], "1970-01-01 00:00:00")
-    assert.equal(patchedCampaignMaster[temporaryId][4], "2200-12-31 23:59:59")
-    assert.equal(patchedCampaignMaster[temporaryId][5], temporaryId)
-    assert.deepEqual(patchedCampaignMaster[canonicalCampaignId], originalCampaignMaster[canonicalCampaignId])
+for (const { campaignId, gachaId, alias } of temporaryCampaignAliases) {
+    assert.equal(patchedCampaignMaster[alias][0],
+        `${originalCampaignMaster[campaignId][0]}_temporary_${gachaId}`)
+    assert.equal(patchedCampaignMaster[alias][2], String(campaignCatalog[campaignId].kind))
+    assert.equal(patchedCampaignMaster[alias][3], "1970-01-01 00:00:00")
+    assert.equal(patchedCampaignMaster[alias][4], "2200-12-31 23:59:59")
+    const temporaryPool = temporaryPools.get(gachaId)
+    assert.equal(patchedCampaignMaster[alias][5], temporaryPool ? `${gachaId},${temporaryPool}` : gachaId)
+    assert.deepEqual(patchedCampaignMaster[campaignId], originalCampaignMaster[campaignId])
 }
+assert.ok(campaignCatalog[1011].gachaIds.includes(1577))
+assert.ok(campaignCatalog[1012].gachaIds.includes(1577))
+assert.notEqual(campaignCatalog[1011].temporaryCampaignIds[1577], campaignCatalog[1012].temporaryCampaignIds[1577])
 
 const leasedPoolId = "1"
 const leasedAliasId = Object.entries(policy.temporaryAliases)

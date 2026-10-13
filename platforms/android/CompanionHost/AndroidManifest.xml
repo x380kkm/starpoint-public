@@ -48,5 +48,8 @@
         <receiver
             android:name=".GameInstallReceiver"
             android:exported="false" />
+        <service
+            android:name=".GameConnectionService"
+            android:exported="true" />
     </application>
 </manifest>

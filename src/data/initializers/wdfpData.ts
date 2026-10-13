@@ -505,6 +505,30 @@ export default function init(
         FOREIGN KEY (player_id) REFERENCES players (id) ON DELETE CASCADE
     )`).run()
 
+    // //// 将道具请求回执绑定到玩家和客户端会话 [@x380kkm 2026-09-28] ////
+    database.prepare(`CREATE TABLE IF NOT EXISTS player_item_use_receipts (
+        player_id INTEGER NOT NULL,
+        viewer_id INTEGER NOT NULL,
+        api_count INTEGER NOT NULL,
+        request_json TEXT NOT NULL,
+        response_json TEXT NOT NULL,
+        PRIMARY KEY (player_id, viewer_id, api_count),
+        FOREIGN KEY (player_id) REFERENCES players (id) ON DELETE CASCADE
+    )`).run()
+    // //// /将道具请求回执绑定到玩家和客户端会话 ////
+
+    // //// 将箱池抽取回执与玩家会话共同保存 [@x380kkm 2026-09-28] ////
+    database.prepare(`CREATE TABLE IF NOT EXISTS player_box_gacha_receipts (
+        player_id INTEGER NOT NULL,
+        viewer_id INTEGER NOT NULL,
+        api_count INTEGER NOT NULL,
+        request_json TEXT NOT NULL,
+        response_json TEXT NOT NULL,
+        PRIMARY KEY (player_id, viewer_id, api_count),
+        FOREIGN KEY (player_id) REFERENCES players (id) ON DELETE CASCADE
+    )`).run()
+    // //// /将箱池抽取回执与玩家会话共同保存 ////
+
     database.prepare(`CREATE TABLE IF NOT EXISTS player_mails (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         player_id INTEGER NOT NULL,

@@ -10,10 +10,12 @@ import { decodeOrderedMap } from "./decode-cn-orderedmap.mjs"
 import { readEntityRecords, readMasterBuffers } from "./generate-cn-activity-catalog.mjs"
 
 const SHOP_MASTER_SCHEMAS = [
+    { name: "special_pack_shop", shopType: 3, logicalPath: "master/shop/special_pack_shop.orderedmap", indices: { buyMaxCount: 23, maxFrequency: 24, dailyStock: 25, monthlyStock: 26 } },
+    { name: "mana_shop", shopType: 5, logicalPath: "master/shop/mana_shop.orderedmap", indices: { buyMaxCount: 17, maxFrequency: 18, dailyStock: 19, monthlyStock: null } },
     { name: "treasure_shop", shopType: 2, logicalPath: "master/shop/treasure_shop.orderedmap", indices: { buyMaxCount: 21, maxFrequency: 22, dailyStock: 23, monthlyStock: null } },
     { name: "event_item_shop", shopType: 4, logicalPath: "master/shop/event_item_shop.orderedmap", indices: { buyMaxCount: 29, maxFrequency: 30, dailyStock: 31, monthlyStock: null } },
-    { name: "boss_coin_shop", shopType: 7, logicalPath: "master/shop/boss_coin_shop.orderedmap", indices: { buyMaxCount: 27, maxFrequency: 29, dailyStock: 30, monthlyStock: 31 } },
-    { name: "general_shop", shopType: 8, logicalPath: "master/shop/general_shop.orderedmap", indices: { buyMaxCount: 23, maxFrequency: 24, dailyStock: 25, monthlyStock: 26 } },
+    { name: "boss_coin_shop", shopType: 7, logicalPath: "master/shop/boss_coin_shop.orderedmap", indices: { buyMaxCount: 28, maxFrequency: 29, dailyStock: 30, monthlyStock: 31 } },
+    { name: "general_shop", shopType: 8, logicalPath: "master/shop/general_shop.orderedmap", indices: { buyMaxCount: 23, maxFrequency: 24, dailyStock: 25, monthlyStock: 27 } },
     { name: "star_grain_shop", shopType: 9, logicalPath: "master/shop/star_grain_shop.orderedmap", indices: { buyMaxCount: 21, maxFrequency: 22, dailyStock: 23, monthlyStock: 24 } },
     { name: "equipment_enhancement_shop", shopType: 10, logicalPath: "master/equipment_enhancement/equipment_enhancement_shop.orderedmap", indices: { buyMaxCount: null, maxFrequency: null, dailyStock: null, monthlyStock: null } },
 ]

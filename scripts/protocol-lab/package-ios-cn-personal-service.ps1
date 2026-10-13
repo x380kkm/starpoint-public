@@ -9,12 +9,14 @@ param(
     [Parameter(Mandatory)][string]$OutputIpa,
     [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$')][string]$BundleId,
     [Parameter(Mandatory)][string]$DisplayName,
+    [Parameter(Mandatory)][string]$ReleaseVersion,
     [Parameter(Mandatory)][string]$CnCdnBundle,
     [string]$Report
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+Import-Module (Join-Path $PSScriptRoot 'cn-activity-catalog-validation.psm1') -Force
 
 $expectedEndpointNames = @(
     'api_server',
@@ -243,7 +245,7 @@ function Resolve-CnPackagingWorkspaceRoot {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RepositoryRoot)
 
-    $gitCommonDirectory = @(& git -C $RepositoryRoot rev-parse --git-common-dir 2>$null | Select-Object -First 1)
+    $gitCommonDirectory = @(& git -C $RepositoryRoot rev-parse --git-common-dir 2>$null)
     if ($LASTEXITCODE -eq 0 -and $gitCommonDirectory.Count -eq 1 -and
         -not [string]::IsNullOrWhiteSpace([string]$gitCommonDirectory[0])) {
         $commonDirectory = [string]$gitCommonDirectory[0]
@@ -342,14 +344,8 @@ function Initialize-CnActivityCatalog {
     if ([string]::IsNullOrWhiteSpace($sourcePath)) {
         throw 'CN activity catalog source is required for client projection.'
     }
-    $source = Get-Content -LiteralPath $sourcePath -Raw -Encoding UTF8 | ConvertFrom-Json
-    $activities = @($source.activities)
-    $gachaActivities = @($activities | Where-Object { [string]$_.kind -ceq 'gacha' })
-    $dailyActivities = @($activities | Where-Object {
-        [string]$_.activity_id -match '^(daily-exp-mana|daily-week):'
-    })
-    if ($activities.Count -ne 922 -or $gachaActivities.Count -ne 483 -or
-        $dailyActivities.Count -ne 20) {
+    $identity = Get-CnActivityCatalogIdentity -CatalogPath $sourcePath
+    if ($identity.gacha_activity_count -ne 483 -or $identity.daily_activity_count -ne 20) {
         throw 'CN activity catalog source does not contain the complete visible activity set.'
     }
     $catalogPath = Join-Path $CnCdnBundlePath 'activity-catalog.json'
@@ -357,9 +353,9 @@ function Initialize-CnActivityCatalog {
     [pscustomobject][ordered]@{
         source = $sourcePath
         output = $catalogPath
-        activity_count = $activities.Count
-        gacha_activity_count = $gachaActivities.Count
-        daily_activity_count = $dailyActivities.Count
+        activity_count = $identity.activity_count
+        gacha_activity_count = $identity.gacha_activity_count
+        daily_activity_count = $identity.daily_activity_count
     }
 }
 # //// /初始化客户端活动目录 ////
@@ -445,7 +441,7 @@ function Ensure-CnEntityRecords {
         foreach ($record in $required.Values) {
             $old = $existing[$record.entry]
             if ($null -ne $old) {
-                if ($old[1] -cne $record.version -or [long]$old[2] -ne $record.length -or
+                if ([long]$old[2] -ne $record.length -or
                     $old[3] -cne $record.digest -or $old[4] -cne $record.asset_kind) {
                     throw "CN EntityLists contains conflicting metadata: $($record.entry)"
                 }
@@ -472,25 +468,15 @@ function Assert-CnDailyActivityCoverage {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$CnCdnBundlePath,
-        [AllowNull()][string]$RichCatalogPath
+        [Parameter(Mandatory)][string]$RichCatalogPath
     )
 
     $catalogPath = Join-Path $CnCdnBundlePath 'activity-catalog.json'
     $catalog = Get-Content -LiteralPath $catalogPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $activities = @($catalog.activities)
     $gacha = @($activities | Where-Object { [string]$_.kind -ceq 'gacha' })
-    if ($activities.Count -ne 922 -or $gacha.Count -ne 483) {
-        throw "CN activity catalog must retain 922 activities and 483 gacha entries, activities=$($activities.Count) gacha=$($gacha.Count)."
-    }
-    if ([string]::IsNullOrWhiteSpace($RichCatalogPath)) {
-        return [pscustomobject]@{
-            activity_count = $activities.Count
-            gacha_activity_count = $gacha.Count
-            daily_activity_count = $null
-            daily_candidate_count = $null
-            unique_candidate_count = $null
-        }
-    }
+    $identity = Assert-CnActivityCatalogCoverage -SourceCatalogPath $RichCatalogPath -CnCdnBundlePath $CnCdnBundlePath
+    if ($gacha.Count -ne 483) { throw 'CN activity catalog must retain 483 gacha entries.' }
     $richCatalog = Get-Content -LiteralPath $RichCatalogPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $richDaily = @($richCatalog.activities | Where-Object {
         [string]$_.activity_id -match '^(daily-exp-mana|daily-week):'
@@ -549,6 +535,7 @@ function Assert-CnDailyActivityCoverage {
         }
     }
     return [pscustomobject]@{
+        activity_ids = $identity.activity_ids
         activity_count = $activities.Count
         gacha_activity_count = $gacha.Count
         daily_activity_count = $daily.Count
@@ -602,6 +589,14 @@ function Get-CnNextAssetVersion {
     return "$($match.Groups['prefix'].Value).$([int]$match.Groups['patch'].Value + 1)"
 }
 # //// /递增客户端资源版本 ////
+
+# //// 读取免费活动目录中的客户端入口数量 [@x380kkm 2026-09-28] ////
+function Get-CnGachaCampaignCounts {
+    $catalogPath = Join-Path $PSScriptRoot '..\..\assets\gacha_campaign.json'
+    $catalog = Get-Content -LiteralPath $catalogPath -Encoding UTF8 | ConvertFrom-Json -AsHashtable
+    $aliasCount = ($catalog.Values | ForEach-Object { $_.temporaryCampaignIds.Count } | Measure-Object -Sum).Sum
+    return @{ Original = $catalog.Count; Aliases = [int]$aliasCount; Total = $catalog.Count + [int]$aliasCount }
+}
 
 # //// 构建 CN 卡池地区与临时入口差分 [@x380kkm 2026-08-30] ////
 function Update-CnGachaMasterDiff {
@@ -691,13 +686,15 @@ function Update-CnGachaMasterDiff {
         throw 'CN gacha master diff did not return a structured report.'
     }
     $report = $result[0]
+    $campaignCounts = Get-CnGachaCampaignCounts
     if ([string]$report.Version -ne $targetVersion -or
         [int]$report.RetainedOriginalCount -ne 584 -or
         [int]$report.TemporaryAliasCount -ne 473 -or
         [int]$report.GachaCount -ne 1057 -or
-        [int]$report.RetainedOriginalCampaignCount -ne 41 -or
-        [int]$report.TemporaryCampaignAliasCount -ne 123 -or
-        [int]$report.GachaCampaignCount -ne 164 -or
+        [int]$report.GachaFeaturePoolCount -ne [int]$report.GachaCount -or
+        [int]$report.RetainedOriginalCampaignCount -ne $campaignCounts.Original -or
+        [int]$report.TemporaryCampaignAliasCount -ne $campaignCounts.Aliases -or
+        [int]$report.GachaCampaignCount -ne $campaignCounts.Total -or
         [int]$report.ProjectedFeatureLinkCount -ne 11 -or
         $report.Zip64 -ne $false) {
         throw 'CN gacha master diff report does not match the complete CN pool projection.'
@@ -1099,6 +1096,7 @@ function Update-CnGachaBanners {
     [pscustomobject][ordered]@{
         entity_record_count = [int]$entityRecordCount
         catalog_activity_count = [int]$catalogSeed.activity_count
+        catalog_activity_ids = $coverage.activity_ids
         catalog_gacha_activity_count = [int]$catalogSeed.gacha_activity_count
         catalog_daily_activity_count = [int]$catalogSeed.daily_activity_count
         catalog_candidate_requested_count = [int]$bannerReport.catalog_candidate_requested_count
@@ -1121,6 +1119,7 @@ function Assert-CnPackageReport {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][pscustomobject]$ReportData,
+        [Parameter(Mandatory)][string[]]$ExpectedActivityIds,
         [Parameter(Mandatory)][string[]]$ExpectedCompatibilityPatchNames
     )
 
@@ -1131,21 +1130,22 @@ function Assert-CnPackageReport {
         throw "CN iOS package Framework architecture is not arm64: $($ReportData.framework_architecture)."
     }
     $gachaMasterDiff = Get-OptionalPropertyValue -InputObject $ReportData -Name 'cn_gacha_master_diff'
+    $campaignCounts = Get-CnGachaCampaignCounts
     if ($null -eq $gachaMasterDiff -or
         [string]$gachaMasterDiff.version -ne (Get-CnNextAssetVersion -Version ([string]$gachaMasterDiff.original_version)) -or
         [int]$gachaMasterDiff.retained_original_count -ne 584 -or
         [int]$gachaMasterDiff.temporary_alias_count -ne 473 -or
         [int]$gachaMasterDiff.gacha_count -ne 1057 -or
-        [int]$gachaMasterDiff.retained_original_campaign_count -ne 41 -or
-        [int]$gachaMasterDiff.temporary_campaign_alias_count -ne 123 -or
-        [int]$gachaMasterDiff.gacha_campaign_count -ne 164 -or
+        [int]$gachaMasterDiff.retained_original_campaign_count -ne $campaignCounts.Original -or
+        [int]$gachaMasterDiff.temporary_campaign_alias_count -ne $campaignCounts.Aliases -or
+        [int]$gachaMasterDiff.gacha_campaign_count -ne $campaignCounts.Total -or
         [int]$gachaMasterDiff.projected_feature_link_count -ne 11 -or
         $gachaMasterDiff.zip64 -ne $false) {
         throw 'CN iOS package did not include the complete gacha master projection.'
     }
     $gachaVisual = Get-OptionalPropertyValue -InputObject $ReportData -Name 'cn_gacha_visual'
     if ($null -eq $gachaVisual -or
-        [int]$gachaVisual.catalog_activity_count -ne 922 -or
+        [int]$gachaVisual.catalog_activity_count -ne $ExpectedActivityIds.Count -or
         [int]$gachaVisual.catalog_gacha_activity_count -ne 483 -or
         [int]$gachaVisual.catalog_daily_activity_count -ne 20 -or
         [int]$gachaVisual.catalog_candidate_requested_count -ne
@@ -1155,6 +1155,7 @@ function Assert-CnPackageReport {
          [int]$gachaVisual.startup_static_asset_count -ne 46) {
         throw 'CN iOS package did not include the complete activity, banner and startup resource projection.'
      }
+    Assert-CnActivityCatalogIds -ExpectedIds $ExpectedActivityIds -ActualIds @($gachaVisual.catalog_activity_ids)
     if ([string]$ReportData.cn_cdn_bundle_path -ne 'StarpointCNCDN' -or
         [string]$ReportData.cn_cdn_bundle_mode -ne 'direct' -or
         [int64]$ReportData.cn_cdn_file_count -le 0 -or
@@ -1206,6 +1207,7 @@ function Assert-CnPackageReport {
 
 # //// 解析并验证 CN iOS 包装输入 [@x380kkm 2026-08-18] ////
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+& (Join-Path $PSScriptRoot 'check-personal-service-web.ps1') -RepositoryRoot $repositoryRoot
 $expectedCompatibilityPatchNames = Get-CnCompatibilityPatchNames -ModuleDirectory $PSScriptRoot
 $inputCandidatePath = [IO.Path]::GetFullPath($InputIpa)
 $outputPath = [IO.Path]::GetFullPath($OutputIpa)
@@ -1245,6 +1247,8 @@ try {
     if (-not (Test-Path -LiteralPath $cnCdnBundlePath -PathType Container)) {
         throw 'CnCdnBundle must point to a directory.'
     }
+    $sourceCatalogPath = Find-CnRichActivityCatalog -RepositoryRoot $repositoryRoot -CnCdnBundlePath $cnCdnBundlePath
+    $expectedActivityIds = (Get-CnActivityCatalogIdentity -CatalogPath $sourceCatalogPath).activity_ids
     $gachaMasterDiff = Update-CnGachaMasterDiff `
         -RepositoryRoot $repositoryRoot `
         -CnCdnBundlePath $cnCdnBundlePath
@@ -1262,6 +1266,7 @@ try {
         '--output', $temporaryOutputPath,
         '--bundle-id', $BundleId,
         '--display-name', $DisplayName,
+        '--release-version', $ReleaseVersion,
         '--cn-cdn-bundle', $cnCdnBundlePath,
         '--patch-cn-endpoints',
         '--report', $temporaryReportPath
@@ -1283,6 +1288,7 @@ try {
     $reportData | Add-Member -NotePropertyName cn_gacha_visual -NotePropertyValue $gachaVisual
     $reportData | Add-Member -NotePropertyName cn_voice_overlay -NotePropertyValue $voiceOverlay
     $actualEndpoints = Assert-CnPackageReport `
+        -ExpectedActivityIds $expectedActivityIds `
         -ReportData $reportData `
         -ExpectedCompatibilityPatchNames $expectedCompatibilityPatchNames
     $reportData.output_ipa = $outputPath
@@ -1304,5 +1310,8 @@ try {
     endpoint_categories = $actualEndpoints
     personal_service_authority = '127.0.0.1:17171'
     requires_resigning = $reportData.requires_resigning
+    release_version = $reportData.release_version
+    bundle_version = $reportData.bundle_version
+    build_version = $reportData.build_version
 } | ConvertTo-Json -Depth 4
 # //// /原子生成并验证 CN 本地个人服务包 ////

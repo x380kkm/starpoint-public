@@ -22,10 +22,16 @@ pub(super) fn route_authorized(
     match (request.method(), segments.as_slice()) {
         ("POST", ["import"]) => import_local_save(request, database),
         ("POST", ["import-encrypted"]) => import_encrypted_local_save(request, database),
+        ("POST", ["import-password"]) => recovery::import_password_save(request, database),
+        ("POST", ["import-encrypted-recovery"]) => recovery::import_encrypted_recovery(request, database),
+        ("POST", [slot_id, "password-export"]) => recovery::export_password_save(request, database, slot_id),
+        ("POST", [slot_id, "recovery-export"]) => recovery::export_local_recovery(request, database, slot_id),
+        ("DELETE", [slot_id]) => delete_local_save(request, database, slot_id),
         ("GET", [slot_id, "export"]) => export_local_save(database, slot_id),
         ("GET", [slot_id, "encrypted-export"]) => export_encrypted_local_save(database, slot_id),
         ("POST", [slot_id, "copy"]) => copy_local_save(request, database, slot_id),
         ("POST", [slot_id, "activate"]) => activate_local_save(request, database, slot_id),
+        ("POST", [slot_id, "activate-local"]) => activate_local_default_save(database, slot_id),
         ("GET", [slot_id, "context"]) => local_save_context(database, slot_id),
         ("GET", [slot_id, "snapshots"]) => list_snapshots(database, slot_id),
         ("POST", [slot_id, "snapshots"]) => create_snapshot(request, database, slot_id),
@@ -38,19 +44,66 @@ pub(super) fn route_authorized(
         }
         (_, ["import"])
         | (_, ["import-encrypted"])
+        | (_, ["import-password"])
+        | (_, ["import-encrypted-recovery"])
+        | (_, [_, "password-export"])
+        | (_, [_, "recovery-export"])
         | (_, [_, "export"])
         | (_, [_, "encrypted-export"])
         | (_, [_, "copy"])
         | (_, [_, "activate"])
+        | (_, [_, "activate-local"])
         | (_, [_, "context"])
         | (_, [_, "snapshots"])
         | (_, [_, "snapshots", _, "restore"])
         | (_, [_, "revisions"])
         | (_, [_, "revisions", _, "restore"]) => Ok(method_not_allowed()),
+        (_, [slot_id]) if parse_id(slot_id).is_some() => Ok(method_not_allowed()),
         _ => Ok(json_error("404 Not Found", "local_save_route_not_found")),
     }
 }
 // //// /分派本地存档管理请求 ////
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DeleteRequest {
+    confirm_name: String,
+}
+
+// //// 使用确认名称删除本地存档 [@x380kkm 2026-09-20] ////
+fn delete_local_save(
+    request: &HttpRequest,
+    database: &mut ServiceDatabase,
+    slot_id: &str,
+) -> Result<HttpResponse, PersonalServiceError> {
+    use crate::database::LocalSaveDeleteError;
+
+    let Some(slot_id) = parse_id(slot_id) else {
+        return Ok(json_error("400 Bad Request", "invalid_local_save_id"));
+    };
+    let Some(body) = parse_json::<DeleteRequest>(request) else {
+        return Ok(json_error(
+            "400 Bad Request",
+            "local_save_delete_confirmation_required",
+        ));
+    };
+    match database.delete_local_save(slot_id, &body.confirm_name) {
+        Ok(()) => list_local_saves(database),
+        Err(LocalSaveDeleteError::NotFound) => {
+            Ok(json_error("404 Not Found", "local_save_not_found"))
+        }
+        Err(LocalSaveDeleteError::ConfirmationMismatch) => Ok(json_error(
+            "409 Conflict",
+            "local_save_delete_confirmation_mismatch",
+        )),
+        Err(LocalSaveDeleteError::Active) => Ok(json_error("409 Conflict", "local_save_active")),
+        Err(LocalSaveDeleteError::LastSave) => {
+            Ok(json_error("409 Conflict", "local_save_last_slot"))
+        }
+        Err(LocalSaveDeleteError::Busy) => Ok(json_error("409 Conflict", "local_save_busy")),
+        Err(LocalSaveDeleteError::Storage(error)) => Err(error),
+    }
+}
 
 // //// 列出和导出本地存档 [@x380kkm 2026-07-23] ////
 fn list_local_saves(database: &ServiceDatabase) -> Result<HttpResponse, PersonalServiceError> {
@@ -187,6 +240,17 @@ fn activate_local_save(
         ));
     };
     match database.activate_local_save(slot_id, body.device_id) {
+        Ok(()) => list_local_saves(database),
+        Err(error) => map_store_error(error),
+    }
+}
+
+// //// 设置本机默认存档 [@x380kkm 2026-09-26] ////
+fn activate_local_default_save(database: &mut ServiceDatabase, slot_id: &str) -> Result<HttpResponse, PersonalServiceError> {
+    let Some(slot_id) = parse_id(slot_id) else {
+        return Ok(json_error("400 Bad Request", "invalid_local_save_id"));
+    };
+    match database.activate_local_default_save(slot_id) {
         Ok(()) => list_local_saves(database),
         Err(error) => map_store_error(error),
     }

@@ -1,11 +1,12 @@
 // audience: internal
 // # personal-service-cn-mana-awake
 //
-// 该模块按角色稀有度, Mana node 槽位和底座规格计算二板觉醒消耗并保存节点等级.
+// 该模块按角色稀有度, Mana node 槽位和底座规格计算觉醒消耗并保存节点等级.
 
+use super::progression::{illustration_evolution_level, reconcile_character_evolution};
 use super::{
     character_mut, character_time, character_value, deduct_mana, error_response, mana_node,
-    node_awake_levels, set_user_info_value, unlocked_nodes, user_info_value,
+    mana_node_with_board, node_awake_levels, set_user_info_value, user_info_value,
 };
 use crate::cn::{decode_request, msgpack_response_at, server_time};
 use crate::cn_tutorial::{
@@ -22,6 +23,7 @@ use std::sync::OnceLock;
 const CHARACTER_ASSET: &str = include_str!("../../../../assets/character.json");
 const MANA_BOARD_ASSET: &str = include_str!("../../../../assets/mana_board.json");
 const MANA_NODE_AWAKE_ASSET: &str = include_str!("../../../../assets/mana_node_awake.json");
+const MANA_NODE_AWAKE_LEVEL: i64 = 1;
 
 static CHARACTER_DATA: OnceLock<Result<Value, String>> = OnceLock::new();
 static MANA_BOARD_DATA: OnceLock<Result<Value, String>> = OnceLock::new();
@@ -40,18 +42,19 @@ struct AwakeCost {
     items: BTreeMap<i64, i64>,
 }
 
-struct ManaNodeBoardLocation {
-    board_index: i64,
-    pedestal_size: i64,
-}
-
-// //// 觉醒 CN Mana node 并保存完整节点状态 [@x380kkm 2026-08-23] ////
+// //// 觉醒 CN Mana node 并保存完整节点状态 [@x380kkm 2026-09-23] ////
 pub(super) fn awake_mana_node(
     request: &HttpRequest,
     database: &mut ServiceDatabase,
 ) -> Result<HttpResponse, PersonalServiceError> {
     let body = match decode_request::<AwakeManaNodeRequest>(request) {
-        Ok(body) if body.viewer_id > 0 && body.character_id > 0 && body.awake_level > 0 => body,
+        Ok(body)
+            if body.viewer_id > 0
+                && body.character_id > 0
+                && body.awake_level == MANA_NODE_AWAKE_LEVEL =>
+        {
+            body
+        }
         Ok(_) | Err(_) => return Ok(error_response("400 Bad Request", "invalid_request_body")),
     };
     let snapshot = match player_snapshot(database, body.viewer_id)? {
@@ -68,25 +71,30 @@ pub(super) fn awake_mana_node(
         Ok(rarity) => rarity,
         Err(_) => return Ok(error_response("400 Bad Request", "character_not_found")),
     };
-    let unlocked_set: BTreeSet<i64> = unlocked_nodes(root, body.character_id)
-        .into_iter()
-        .collect();
-    let mut awake_levels = node_awake_levels(root, body.character_id);
+    let awake_levels = node_awake_levels(root, body.character_id)?;
+    let mana_board_awake = crate::cn_mission::character_awake_qualification(
+        root,
+        body.character_id,
+    )?;
+    let mut updated_levels = BTreeMap::new();
     let mut mana_cost = 0_i64;
     let mut item_costs = BTreeMap::<i64, i64>::new();
     let mut response_nodes = Vec::new();
     let mut requested_node_ids = BTreeSet::new();
-    let mut awake_board_levels = BTreeMap::<i64, i64>::new();
 
     for node_id in &body.mana_node_multiplied_id_list {
         if !requested_node_ids.insert(*node_id) {
             continue;
         }
-        if !unlocked_set.contains(node_id) {
+        if !awake_levels.contains_key(node_id) {
             return Ok(error_response("400 Bad Request", "mana_node_not_unlocked"));
         }
-        let location = match mana_node_board_location(body.character_id, *node_id) {
-            Ok(Some(location)) => location,
+        let (board_index, node) = mana_node_with_board(body.character_id, *node_id)?;
+        if board_index != 1 || node.get("field1").and_then(Value::as_str) != Some("0") {
+            return Ok(error_response("400 Bad Request", "mana_node_not_awakable"));
+        }
+        let pedestal_size = match mana_node_pedestal_size(body.character_id, *node_id) {
+            Ok(Some(pedestal_size)) => pedestal_size,
             Ok(None) | Err(_) => {
                 return Ok(error_response(
                     "400 Bad Request",
@@ -94,10 +102,6 @@ pub(super) fn awake_mana_node(
                 ))
             }
         };
-        awake_board_levels
-            .entry(location.board_index)
-            .and_modify(|stored| *stored = (*stored).max(body.awake_level))
-            .or_insert(body.awake_level);
         let current_awake_level = awake_levels.get(node_id).copied().unwrap_or_default();
         if current_awake_level >= body.awake_level {
             response_nodes.push(json!({
@@ -106,7 +110,15 @@ pub(super) fn awake_mana_node(
             }));
             continue;
         }
-        let cost = match awake_cost(body.character_id, *node_id, rarity, location.pedestal_size) {
+        if mana_board_awake
+            .get("1")
+            .and_then(Value::as_i64)
+            .unwrap_or_default()
+            < body.awake_level
+        {
+            return Ok(error_response("400 Bad Request", "mana_board_not_awakened"));
+        }
+        let cost = match awake_cost(body.character_id, *node_id, rarity, pedestal_size) {
             Ok(cost) => cost,
             Err(_) => {
                 return Ok(error_response(
@@ -124,7 +136,7 @@ pub(super) fn awake_mana_node(
                 PersonalServiceError::new("CN Mana awake item cost exceeds range")
             })?;
         }
-        awake_levels.insert(*node_id, body.awake_level);
+        updated_levels.insert(*node_id, body.awake_level);
         response_nodes.push(json!({
             "mana_node_multiplied_id": node_id,
             "awake_level": body.awake_level,
@@ -160,16 +172,12 @@ pub(super) fn awake_mana_node(
     }
     set_user_info_value(root, "free_mana", new_free_mana)?;
     set_user_info_value(root, "paid_mana", new_paid_mana)?;
-    let stored_nodes = awake_levels
-        .iter()
-        .map(|(node_id, awake_level)| {
-            json!({"mana_node_multiplied_id": node_id, "awake_level": awake_level})
-        })
-        .collect();
-    require_object(root, "user_character_mana_node_list")?
-        .insert(body.character_id.to_string(), Value::Array(stored_nodes));
+    if !updated_levels.is_empty() {
+        super::state::save_awake_nodes(root, body.character_id, &updated_levels)?;
+    }
 
-    let (evolution_level, join_time, update_time, bond_token_list, mut mana_board_awake) = {
+    let evolved_level = reconcile_character_evolution(root, body.character_id)?;
+    let (evolution_level, join_time, update_time, bond_token_list) = {
         let character = character_mut(root, body.character_id)?;
         (
             character
@@ -182,38 +190,35 @@ pub(super) fn awake_mana_node(
                 .get("bond_token_list")
                 .and_then(Value::as_array)
                 .cloned(),
-            character
-                .get("mana_board_awake")
-                .and_then(Value::as_object)
-                .cloned()
-                .map(Value::Object)
-                .unwrap_or_else(|| Value::Object(Map::new())),
         )
     };
-    let awake_map = mana_board_awake
-        .as_object_mut()
-        .ok_or_else(|| PersonalServiceError::new("stored CN Mana board awake state is invalid"))?;
-    for (board_index, awake_level) in awake_board_levels {
-        let key = board_index.to_string();
-        let stored_level = awake_map
-            .get(&key)
-            .map(|value| {
-                value.as_i64().ok_or_else(|| {
-                    PersonalServiceError::new("stored CN Mana board awake level is invalid")
-                })
-            })
-            .transpose()?
-            .unwrap_or_default();
-        awake_map.insert(key, Value::from(stored_level.max(awake_level)));
-    }
     let response_time = server_time(database)?;
-    if !body.mana_node_multiplied_id_list.is_empty() {
-        database.save_player_snapshot(snapshot.account_id, &encode_player_data(&player_data)?)?;
-    }
+    let missions = if updated_levels.is_empty() {
+        Vec::new()
+    } else {
+        crate::cn_mission::record_economic_actions(
+            root,
+            &crate::cn_mission::plan_economic_missions(database, snapshot.account_id)?,
+            crate::cn_mission::EconomicActions {
+                mana_spent: mana_cost,
+                ..crate::cn_mission::EconomicActions::default()
+            },
+            response_time,
+        )?
+    };
+    let active_missions = if updated_levels.is_empty() {
+        Vec::new()
+    } else {
+        crate::cn_mission::record_active_counters(
+            root,
+            database,
+            &[("total_used_mana_count", mana_cost)],
+        )?
+    };
     let mut response_character = json!({
         "character_id": body.character_id,
         "evolution_level": evolution_level,
-        "evolution_img_level": evolution_level,
+        "evolution_img_level": illustration_evolution_level(evolution_level),
         "create_time": character_time(join_time.as_ref(), response_time),
         "update_time": character_time(update_time.as_ref(), response_time),
         "join_time": character_time(join_time.as_ref(), response_time),
@@ -225,24 +230,37 @@ pub(super) fn awake_mana_node(
             .expect("CN Mana awake character response is an object")
             .insert("bond_token_list".to_owned(), Value::Array(bond_token_list));
     }
-    msgpack_response_at(
+    let mut response = json!({
+        "user_info": {
+            "free_mana": new_free_mana,
+            "paid_mana": new_paid_mana,
+        },
+        "character_list": [response_character],
+        "user_character_mana_node_list": {
+            body.character_id.to_string(): response_nodes,
+        },
+        "item_list": response_items,
+            "evolution": evolved_level.map(|level| json!({
+                "character_id": body.character_id,
+                "level": level,
+                "img_level": illustration_evolution_level(level),
+            })).unwrap_or_else(|| json!([])),
+        "mission_info": missions,
+        "active_mission_list": active_missions,
+        "mail_arrived": false,
+    });
+    crate::cn_mission::apply_mission_reward_response(
+        &mut response,
+        root,
+        &missions,
         body.viewer_id,
-        false,
         response_time,
-        json!({
-            "user_info": {
-                "free_mana": new_free_mana,
-                "paid_mana": new_paid_mana,
-            },
-            "character_list": [response_character],
-            "user_character_mana_node_list": {
-                body.character_id.to_string(): response_nodes,
-            },
-            "item_list": response_items,
-            "evolution": [],
-            "mail_arrived": false,
-        }),
-    )
+    )?;
+    let response = msgpack_response_at(body.viewer_id, false, response_time, response)?;
+    if !updated_levels.is_empty() || evolved_level.is_some() {
+        database.save_player_snapshot(snapshot.account_id, &encode_player_data(&player_data)?)?;
+    }
+    Ok(response)
 }
 // //// /觉醒 CN Mana node 并保存完整节点状态 ////
 
@@ -307,21 +325,18 @@ fn awake_cost(
     Ok(AwakeCost { mana_amount, items })
 }
 
-// //// 读取 CN Mana node 的 board 位置 [@x380kkm 2026-08-28] ////
-fn mana_node_board_location(
+// //// 读取 CN Mana node 的底座规格 [@x380kkm 2026-09-23] ////
+fn mana_node_pedestal_size(
     character_id: i64,
     node_id: i64,
-) -> Result<Option<ManaNodeBoardLocation>, PersonalServiceError> {
+) -> Result<Option<i64>, PersonalServiceError> {
     let Some(boards) = asset(&MANA_BOARD_DATA, MANA_BOARD_ASSET, "Mana board")?
         .get(character_id.to_string())
         .and_then(Value::as_object)
     else {
         return Ok(None);
     };
-    for (board_index, board) in boards {
-        let board_index = board_index
-            .parse::<i64>()
-            .map_err(|_| PersonalServiceError::new("CN Mana board index is invalid"))?;
+    for board in boards.values() {
         let board = board
             .as_object()
             .ok_or_else(|| PersonalServiceError::new("CN Mana board is invalid"))?;
@@ -333,16 +348,13 @@ fn mana_node_board_location(
                 let pedestal_size = integer_value(row.get(4)).ok_or_else(|| {
                     PersonalServiceError::new("CN Mana node pedestal size is missing")
                 })?;
-                return Ok(Some(ManaNodeBoardLocation {
-                    board_index,
-                    pedestal_size,
-                }));
+                return Ok(Some(pedestal_size));
             }
         }
     }
     Ok(None)
 }
-// //// /读取 CN Mana node 的 board 位置 ////
+// //// /读取 CN Mana node 的底座规格 ////
 
 fn integer_value(value: Option<&Value>) -> Option<i64> {
     value

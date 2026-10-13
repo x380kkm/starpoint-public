@@ -2,7 +2,7 @@
 // # android-game-installer
 //
 // 该类把伴随 APK 内的游戏包提交给 Android 系统安装器. 安装动作由系统页面交给用户确认,
-// 游戏包只在目标包尚未安装时写入.
+// 同签名游戏按内嵌版本覆盖安装, 安装会话在进程重启后恢复或撤销.
 
 package dev.starpoint.personalservice;
 
@@ -17,6 +17,7 @@ import android.content.pm.Signature;
 import android.content.pm.SigningInfo;
 import android.content.res.AssetFileDescriptor;
 import android.os.Build;
+import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -37,6 +38,7 @@ final class GameInstaller {
     static final String GAME_PACKAGE = "com.leiting.wf";
     static final String GAME_ASSET = "starpoint-game.apk";
     static final String GAME_SIGNERS_ASSET = "starpoint-game-signers.sha256";
+    static final String GAME_VERSION_ASSET = "starpoint-game-version.txt";
     static final String INSTALL_RESULT_ACTION =
         "dev.starpoint.personalservice.action.GAME_INSTALL_RESULT";
     static final String EXTRA_INSTALL_SUCCEEDED =
@@ -47,17 +49,22 @@ final class GameInstaller {
     private static final String PREFERENCES = "game-installer";
     private static final String STATUS_KEY = "status";
     private static final String SESSION_KEY = "session-id";
+    private static final String SESSION_VERSION_KEY = "session-version";
     private static final int COPY_BUFFER_SIZE = 64 * 1024;
 
     private static final ExecutorService INSTALL_EXECUTOR =
         Executors.newSingleThreadExecutor();
     private static boolean installScheduled;
     private static Set<String> expectedSigners;
+    private static Long expectedVersionCode;
+    private static int submittedSessionId = -1;
+    private static Intent pendingConfirmation;
+    private static boolean confirmationLaunched;
 
     private GameInstaller() {
     }
 
-    // //// 查询游戏是否已安装 [@x380kkm 2026-08-31] ////
+    // //// 查询游戏签名和可用版本 [@x380kkm 2026-09-10] ////
     static boolean isInstalled(Context context) {
         return installedState(context) == InstalledState.COMPATIBLE;
     }
@@ -69,6 +76,31 @@ final class GameInstaller {
     static boolean hasUnverifiableInstallation(Context context) {
         return installedState(context) == InstalledState.UNVERIFIABLE;
     }
+
+    static boolean hasOutdatedInstallation(Context context) {
+        return installedState(context) == InstalledState.UPDATE_REQUIRED;
+    }
+
+    // //// 验证游戏 Binder 调用者的 UID 和签名 [@x380kkm 2026-09-10] ////
+    static boolean isTrustedGameCaller(Context context, int callingUid) {
+        try {
+            PackageManager manager = context.getPackageManager();
+            String[] packages = manager.getPackagesForUid(callingUid);
+            if (packages == null || !java.util.Arrays.asList(packages).contains(GAME_PACKAGE)) {
+                return false;
+            }
+            PackageInfo info = installedPackageInfo(manager);
+            return info.applicationInfo != null
+                && info.applicationInfo.uid == callingUid
+                && !Collections.disjoint(
+                    installedSignerDigests(info),
+                    expectedSignerDigests(context)
+                );
+        } catch (IOException | PackageManager.NameNotFoundException | RuntimeException error) {
+            return false;
+        }
+    }
+    // //// /验证游戏 Binder 调用者的 UID 和签名 ////
 
     private static InstalledState installedState(Context context) {
         PackageInfo packageInfo;
@@ -82,10 +114,15 @@ final class GameInstaller {
         try {
             Set<String> installedSigners = installedSignerDigests(packageInfo);
             Set<String> requiredSigners = expectedSignerDigests(context);
-            if (!Collections.disjoint(installedSigners, requiredSigners)) {
-                return InstalledState.COMPATIBLE;
+            if (Collections.disjoint(installedSigners, requiredSigners)) {
+                return InstalledState.SIGNATURE_MISMATCH;
             }
-            return InstalledState.SIGNATURE_MISMATCH;
+            long versionCode = Build.VERSION.SDK_INT >= 28
+                ? packageInfo.getLongVersionCode()
+                : packageInfo.versionCode;
+            return versionCode >= expectedGameVersionCode(context)
+                ? InstalledState.COMPATIBLE
+                : InstalledState.UPDATE_REQUIRED;
         } catch (IOException | RuntimeException error) {
             return InstalledState.UNVERIFIABLE;
         }
@@ -157,9 +194,34 @@ final class GameInstaller {
         expectedSigners = Collections.unmodifiableSet(signers);
         return expectedSigners;
     }
-    // //// /查询游戏是否已安装 ////
 
-    // //// 读写安装器状态 [@x380kkm 2026-08-31] ////
+    private static synchronized long expectedGameVersionCode(Context context) throws IOException {
+        if (expectedVersionCode != null) {
+            return expectedVersionCode;
+        }
+        try (
+            BufferedReader reader = new BufferedReader(new InputStreamReader(
+                context.getAssets().open(GAME_VERSION_ASSET),
+                StandardCharsets.UTF_8
+            ))
+        ) {
+            String value = reader.readLine();
+            if (value == null || !value.matches("[0-9]+") || reader.readLine() != null) {
+                throw new IOException("内嵌游戏版本号格式无效.");
+            }
+            long version = Long.parseLong(value);
+            if (version < 1_008_001L) {
+                throw new IOException("内嵌游戏版本号过低.");
+            }
+            expectedVersionCode = version;
+            return version;
+        } catch (NumberFormatException error) {
+            throw new IOException("内嵌游戏版本号超出范围.", error);
+        }
+    }
+    // //// /查询游戏签名和可用版本 ////
+
+    // //// 保存安装状态并转交用户确认 [@x380kkm 2026-09-10] ////
     static synchronized String status(Context context) {
         return context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .getString(STATUS_KEY, null);
@@ -173,14 +235,60 @@ final class GameInstaller {
     }
 
     static synchronized void clearSession(Context context) {
+        submittedSessionId = -1;
+        pendingConfirmation = null;
+        confirmationLaunched = false;
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .edit()
             .remove(SESSION_KEY)
+            .remove(SESSION_VERSION_KEY)
             .apply();
     }
-    // //// /读写安装器状态 ////
 
-    // //// 创建尚未存在的游戏安装会话 [@x380kkm 2026-08-31] ////
+    static synchronized boolean isCurrentSession(Context context, int sessionId) {
+        return sessionId >= 0 && sessionId == storedSessionId(context);
+    }
+
+    static synchronized void cancelSession(Context context, int sessionId, String message) {
+        if (!isCurrentSession(context, sessionId)) {
+            return;
+        }
+        try {
+            context.getPackageManager().getPackageInstaller().abandonSession(sessionId);
+        } catch (RuntimeException ignoredFinishedSession) {
+        }
+        clearSession(context);
+        setStatus(context, message);
+    }
+
+    static synchronized void setPendingUserConfirmation(
+        Context context,
+        int sessionId,
+        Intent confirmation
+    ) {
+        if (isCurrentSession(context, sessionId)) {
+            submittedSessionId = sessionId;
+            pendingConfirmation = confirmation;
+            confirmationLaunched = false;
+        }
+    }
+
+    static synchronized boolean launchPendingUserConfirmation(Context context) {
+        if (pendingConfirmation == null || confirmationLaunched) {
+            return false;
+        }
+        try {
+            context.startActivity(pendingConfirmation);
+            confirmationLaunched = true;
+            return true;
+        } catch (RuntimeException error) {
+            cancelSession(context, storedSessionId(context), "无法打开系统安装确认窗口, 请重试.");
+            return false;
+        }
+    }
+    // //// /保存安装状态并转交用户确认 ////
+
+    // //// 创建或恢复游戏覆盖安装会话 [@x380kkm 2026-09-10] ////
     static synchronized void beginInstallIfNeeded(Context context) {
         if (isInstalled(context) || installScheduled || hasActiveSession(context)) {
             return;
@@ -204,6 +312,7 @@ final class GameInstaller {
                 new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
             parameters.setAppPackageName(GAME_PACKAGE);
             long gameBytes = gameAssetLength(context);
+            long versionCode = expectedGameVersionCode(context);
             parameters.setSize(gameBytes);
             if (Build.VERSION.SDK_INT >= 31) {
                 parameters.setRequireUserAction(
@@ -211,10 +320,14 @@ final class GameInstaller {
                 );
             }
             sessionId = packageInstaller.createSession(parameters);
-            context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            boolean sessionRecorded = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
                 .edit()
                 .putInt(SESSION_KEY, sessionId)
-                .apply();
+                .putLong(SESSION_VERSION_KEY, versionCode)
+                .commit();
+            if (!sessionRecorded) {
+                throw new IOException("无法保存游戏安装进度, 请检查可用空间后重试.");
+            }
             session = packageInstaller.openSession(sessionId);
             setStatus(context, "正在写入游戏安装包...");
             try (
@@ -225,11 +338,14 @@ final class GameInstaller {
                 session.fsync(output);
             }
             setStatus(context, "请在系统窗口确认安装游戏...");
+            synchronized (GameInstaller.class) {
+                submittedSessionId = sessionId;
+            }
             session.commit(createInstallIntentSender(context, sessionId));
         } catch (Exception error) {
-            if (session != null) {
+            if (sessionId >= 0) {
                 try {
-                    session.abandon();
+                    context.getPackageManager().getPackageInstaller().abandonSession(sessionId);
                 } catch (RuntimeException ignoredClosedSession) {
                 }
             }
@@ -242,11 +358,16 @@ final class GameInstaller {
                     : "游戏安装准备失败: " + message
             );
         } finally {
-            if (session != null) {
-                session.close();
-            }
-            synchronized (GameInstaller.class) {
-                installScheduled = false;
+            try {
+                if (session != null) {
+                    session.close();
+                }
+            } catch (RuntimeException error) {
+                Log.w("StarpointPersonalService", "无法关闭游戏安装会话句柄.", error);
+            } finally {
+                synchronized (GameInstaller.class) {
+                    installScheduled = false;
+                }
             }
         }
     }
@@ -268,18 +389,60 @@ final class GameInstaller {
         return pendingIntent.getIntentSender();
     }
 
-    private static boolean hasActiveSession(Context context) {
+    private static synchronized boolean hasActiveSession(Context context) {
         PackageInstaller packageInstaller = context.getPackageManager().getPackageInstaller();
-        int storedSessionId = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            .getInt(SESSION_KEY, -1);
-        if (storedSessionId < 0) {
+        int sessionId = storedSessionId(context);
+        if (sessionId < 0) {
             return false;
         }
         try {
-            return packageInstaller.getSessionInfo(storedSessionId) != null;
-        } catch (RuntimeException ignoredUnavailableInstallerState) {
+            PackageInstaller.SessionInfo session = packageInstaller.getSessionInfo(sessionId);
+            if (session == null) {
+                clearSession(context);
+                return false;
+            }
+            long version = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+                .getLong(SESSION_VERSION_KEY, -1L);
+            if (version != expectedGameVersionCode(context)) {
+                cancelSession(context, sessionId, "游戏安装包已更新, 请重新确认安装.");
+                return false;
+            }
+            if (sessionId == submittedSessionId) {
+                return true;
+            }
+            if (!session.isSealed()) {
+                cancelSession(context, sessionId, "游戏安装准备被中断, 请重试.");
+                return false;
+            }
+            submittedSessionId = sessionId;
+            installScheduled = true;
+            Context applicationContext = context.getApplicationContext();
+            INSTALL_EXECUTOR.execute(() -> recommitSession(applicationContext, sessionId));
+            return true;
+        } catch (IOException | RuntimeException error) {
+            cancelSession(context, sessionId, "无法恢复游戏安装会话, 请重试.");
         }
         return false;
+    }
+
+    private static void recommitSession(Context context, int sessionId) {
+        try (
+            PackageInstaller.Session session = context.getPackageManager()
+                .getPackageInstaller().openSession(sessionId)
+        ) {
+            session.commit(createInstallIntentSender(context, sessionId));
+        } catch (IOException | RuntimeException error) {
+            cancelSession(context, sessionId, "无法恢复游戏安装确认, 请重试.");
+        } finally {
+            synchronized (GameInstaller.class) {
+                installScheduled = false;
+            }
+        }
+    }
+
+    private static int storedSessionId(Context context) {
+        return context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            .getInt(SESSION_KEY, -1);
     }
 
     private static void copy(InputStream input, OutputStream output) throws IOException {
@@ -311,11 +474,12 @@ final class GameInstaller {
         }
         return result.toString();
     }
-    // //// /创建尚未存在的游戏安装会话 ////
+    // //// /创建或恢复游戏覆盖安装会话 ////
 
     private enum InstalledState {
         ABSENT,
         COMPATIBLE,
+        UPDATE_REQUIRED,
         SIGNATURE_MISMATCH,
         UNVERIFIABLE
     }

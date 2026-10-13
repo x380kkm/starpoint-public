@@ -3,7 +3,7 @@
 //
 // 该模块实现 CN 邮件索引, 单封领取, 批量领取和受管理的本地发放.
 
-use crate::cn::{decode_request, msgpack_response_at, server_time};
+use crate::cn::{decode_request, msgpack_response_at, msgpack_result_code_response_at, server_time};
 use crate::cn_character_reward::grant_mailed_character;
 use crate::cn_tutorial::format_client_time;
 use crate::database::{
@@ -17,6 +17,14 @@ use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
+
+mod capacity;
+
+// //// 定义邮件领取结果码 [@x380kkm 2026-09-25] ////
+const MAIL_DELETED_RESULT_CODE: i64 = 2001;
+const MAIL_ALREADY_RECEIVED_RESULT_CODE: i64 = 2002;
+const MAIL_OUTDATED_RESULT_CODE: i64 = 2004;
+// //// /定义邮件领取结果码 ////
 
 // //// 定义本地邮件奖励目录 [@x380kkm 2026-08-20] ////
 const CN_GACHA_ASSET: &str = include_str!("../../../assets/cn_gacha.json");
@@ -693,17 +701,45 @@ fn claim_and_respond(
     };
     let account_id = snapshot.account_id;
     let now = server_time(database)?;
-    let requested_mail_count = mail_ids.as_ref().map(Vec::len);
     let initial_user_info = read_claim_user_info(database, viewer_id)?;
     let initial_encyclopedia_info = read_claim_encyclopedia_info(database, viewer_id)?;
+    let mission_plan = crate::cn_mission::plan_collect_item_missions(database)?;
+    let economic_plan = crate::cn_mission::plan_economic_missions(database, account_id)?;
+    let mut mission_info = Vec::new();
+    let mut conversion_response = json!({});
     let result = database.claim_mails(
         account_id,
         mail_ids.as_deref(),
         now,
-        |player_data, rewards| apply_rewards(player_data, rewards, viewer_id, now),
+        |player_data, rewards| {
+            crate::cn_exp_pool::settle(require_root(player_data)?, now)?;
+            let mut claim = capacity::allocate(require_root_readonly(player_data)?, rewards)?;
+            if !claim.granted.has_rewards() {
+                return Ok(claim);
+            }
+            let before_mana = crate::cn_mission::total_mana(require_root_readonly(player_data)?)?;
+            let applied = apply_rewards(player_data, &claim.granted, viewer_id, now)?;
+            let acquired = applied.item_list.iter().filter_map(|(item_id, count)| {
+                item_id.parse::<i64>().ok().map(|item_id| (item_id, *count))
+            }).collect();
+            mission_info.extend(crate::cn_mission::record_collected_item_rewards(require_root(player_data)?, &mission_plan, &acquired, now)?);
+            let mana_acquired = crate::cn_mission::total_mana(require_root_readonly(player_data)?)?.saturating_sub(before_mana);
+            mission_info.extend(crate::cn_mission::record_economic_actions(require_root(player_data)?, &economic_plan,
+                crate::cn_mission::EconomicActions { mana_acquired, ..crate::cn_mission::EconomicActions::default() }, now)?);
+            crate::cn_reward_overflow::apply_response(&mut conversion_response, require_root(player_data)?)?;
+            claim.updates = applied;
+            Ok(claim)
+        },
     )?;
-    if !receive_all && result.mail_ids.is_empty() {
-        return Ok(error_response("400 Bad Request", "mail_not_found"));
+    if !receive_all && result.mail_ids.is_empty() && result.retained_mail_count == 0 {
+        let result_code = if result.expired_mail_count > 0 {
+            MAIL_OUTDATED_RESULT_CODE
+        } else if result.already_mail_count > 0 {
+            MAIL_ALREADY_RECEIVED_RESULT_CODE
+        } else {
+            MAIL_DELETED_RESULT_CODE
+        };
+        return msgpack_result_code_response_at(viewer_id, now, result_code);
     }
     let user_info = changed_user_info(
         &initial_user_info,
@@ -715,18 +751,15 @@ fn claim_and_respond(
         &read_claim_encyclopedia_info(database, viewer_id)?,
     );
     let mut data = if receive_all {
-        let already_mail_count = requested_mail_count
-            .map(|count| count.saturating_sub(result.mail_ids.len()))
-            .unwrap_or_default();
         json!({
             "ex_boost_item_list": [],
             "mail_ids": result.mail_ids,
-            "already_mail_count": already_mail_count,
+            "already_mail_count": result.already_mail_count,
             "auto_sale_expired_mail_count": 0,
-            "deleted_mail_count": 0,
+            "deleted_mail_count": result.deleted_mail_count,
             "dispose_expired_mail_count": 0,
             "max_overed_mail_count": 0,
-            "outdated_mail_count": 0,
+            "outdated_mail_count": result.expired_mail_count,
             "total_count": result.total_count,
             "mail_arrived": result.remaining_count > 0,
         })
@@ -767,6 +800,15 @@ fn claim_and_respond(
             "encyclopedia_info".to_owned(),
             Value::Object(encyclopedia_info),
         );
+    }
+    if let Some(over_max) = conversion_response.get("over_max") {
+        data_object.insert("over_max".to_owned(), over_max.clone());
+    }
+    if !mission_info.is_empty() {
+        let updated = player_snapshot(database, viewer_id)?.ok_or_else(|| PersonalServiceError::new("claimed mail player is missing"))?;
+        let mut player = decode_player_data(&updated.data)?;
+        crate::cn_mission::apply_mission_reward_response(&mut data, require_root(&mut player)?, &mission_info, viewer_id, now)?;
+        data["mission_info"] = Value::Array(mission_info);
     }
     msgpack_response_at(viewer_id, false, server_time(database)?, data)
 }
@@ -914,20 +956,7 @@ fn normalize_rewards(value: Value) -> Result<MailReward, String> {
     {
         return Err("invalid_mail_rewards".to_owned());
     }
-    let has_reward = rewards.item_list.values().any(|value| *value > 0)
-        || rewards.equipment_list.values().any(|value| *value > 0)
-        || !rewards.character_list.is_empty()
-        || rewards.free_mana > 0
-        || rewards.paid_mana > 0
-        || rewards.free_vmoney > 0
-        || rewards.vmoney > 0
-        || rewards.exp_pool > 0
-        || rewards.star_crumb > 0
-        || rewards.bond_token > 0
-        || rewards.boss_boost_point > 0
-        || rewards.boost_point > 0
-        || rewards.rank_point > 0;
-    if !has_reward {
+    if !rewards.has_rewards() {
         return Err("mail_rewards_empty".to_owned());
     }
     Ok(rewards)
@@ -951,7 +980,6 @@ fn apply_rewards(
         ("bond_token", rewards.bond_token),
         ("boss_boost_point", rewards.boss_boost_point),
         ("boost_point", rewards.boost_point),
-        ("rank_point", rewards.rank_point),
     ] {
         let current = user_info
             .get(key)
@@ -962,9 +990,7 @@ fn apply_rewards(
         })?;
         user_info.insert(key.to_owned(), Value::from(total));
     }
-    if rewards.exp_pool > 0 {
-        user_info.insert("exp_pooled_time".to_owned(), Value::from(server_time));
-    }
+    crate::cn_rank_reward::grant_rank_points(root, rewards.rank_point, server_time)?;
     let item_list = require_object(root, "item_list")?;
     let mut applied = MailClaimReward::default();
     for (item_id, amount) in &rewards.item_list {
@@ -1036,12 +1062,8 @@ fn apply_rewards(
     }
 
     for character_id in &rewards.character_list {
-        let joined =
-            !require_object(root, "user_character_list")?.contains_key(&character_id.to_string());
         let character = grant_mailed_character(root, viewer_id, *character_id, server_time)?;
-        if joined {
-            crate::cn_gacha::record_character_encyclopedia_state(root, *character_id)?;
-        }
+        crate::cn_character_reward::record_character_encyclopedia_state(root, *character_id)?;
         applied.character_list.push(character);
     }
     Ok(applied)
@@ -1107,6 +1129,8 @@ fn read_claim_user_info(
         "boss_boost_point": user_info.get("boss_boost_point").and_then(Value::as_i64).unwrap_or_default(),
         "boost_point": user_info.get("boost_point").and_then(Value::as_i64).unwrap_or_default(),
         "rank_point": user_info.get("rank_point").and_then(Value::as_i64).unwrap_or_default(),
+        "stamina": user_info.get("stamina").and_then(Value::as_i64).unwrap_or_default(),
+        "stamina_heal_time": user_info.get("stamina_heal_time").and_then(Value::as_i64).unwrap_or_default(),
     }))
 }
 

@@ -142,7 +142,7 @@ fn applies_disabled_raid_state_to_every_entry() {
     let root = TempDir::new().expect("temporary service directory is created");
     let service = PersonalService::start(root.path(), 0).expect("service starts");
     let viewer_id = signup(&service, 62);
-    let event_id = 9_004;
+    let event_id = 1;
 
     close_activity(&service, &format!("raid:{event_id}"));
 
@@ -165,17 +165,7 @@ fn applies_disabled_raid_state_to_every_entry() {
         ),
         (
             "/api/index.php/event/raid/ranking/party",
-            json!({ "quest_id": 9_004_001, "viewer_id": viewer_id, "rank_number": 1 }),
-        ),
-        (
-            "/api/index.php/event/raid/battle/start",
-            json!({
-                "quest_id": 9_004_001,
-                "party_group_id": 1,
-                "play_id": "closed-raid",
-                "is_auto_start_mode": false,
-                "viewer_id": viewer_id
-            }),
+            json!({ "quest_id": 1_001, "viewer_id": viewer_id, "rank_number": 1 }),
         ),
         (
             "/api/index.php/event/raid/select_folder",
@@ -193,6 +183,18 @@ fn applies_disabled_raid_state_to_every_entry() {
             "{path} did not share the disabled state: {response}"
         );
     }
+    let battle = decode_response::<Value>(&send(
+        &service,
+        "/api/index.php/event/raid/battle/start",
+        json!({
+            "quest_id": 1_001,
+            "party_group_id": 1,
+            "play_id": "closed-raid",
+            "is_auto_start_mode": false,
+            "viewer_id": viewer_id
+        }),
+    ));
+    assert_eq!(battle.data_headers.result_code, 4050);
     service.stop().expect("service stops cleanly");
 }
 // //// /验证 raid 全部入口共享禁用状态 ////
@@ -238,16 +240,6 @@ fn applies_rush_window_and_persists_folder_party_reward_and_battle() {
             json!({ "viewer_id": viewer_id }),
         ),
         (
-            "/api/index.php/event/rush/battle/start",
-            json!({
-                "is_auto_start_mode": false,
-                "party_id": 1,
-                "play_id": "closed-rush",
-                "quest_id": 700_001_001,
-                "viewer_id": viewer_id
-            }),
-        ),
-        (
             "/api/index.php/event/rush/reset",
             json!({ "event_id": event_id, "quest_type": 1, "viewer_id": viewer_id }),
         ),
@@ -267,6 +259,18 @@ fn applies_rush_window_and_persists_folder_party_reward_and_battle() {
             "{path} did not share the not-started state: {response}"
         );
     }
+    let battle = decode_response::<Value>(&send(
+        &service,
+        "/api/index.php/event/rush/battle/start",
+        json!({
+            "is_auto_start_mode": false,
+            "party_id": 1,
+            "play_id": "closed-rush",
+            "quest_id": 700_001_001,
+            "viewer_id": viewer_id
+        }),
+    ));
+    assert_eq!(battle.data_headers.result_code, 4050);
 
     set_virtual_time(&service, "2030-01-03T12:00:00.000Z");
     let party = decode_response::<Value>(&send(
@@ -296,11 +300,12 @@ fn applies_rush_window_and_persists_folder_party_reward_and_battle() {
             "viewer_id": viewer_id
         }),
     ));
-    decode_response::<Value>(&send(
+    let reward = send(
         &service,
         "/api/index.php/event/rush/reward",
         json!({ "event_id": event_id, "viewer_id": viewer_id }),
-    ));
+    );
+    assert!(reward.contains("activity_reward_not_ready"), "{reward}");
     service.stop().expect("service stops cleanly");
     let restarted = PersonalService::start(root.path(), 0).expect("service restarts");
     let summary = decode_response::<Value>(&send(

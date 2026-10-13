@@ -7,6 +7,9 @@
 mod cn_support;
 mod support;
 
+#[path = "cn_asset/download_updates.rs"]
+mod download_updates;
+
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use serde_json::{json, Value};
@@ -122,7 +125,7 @@ fn returns_local_cn_asset_metadata() {
     assert!(version.data["files_list"]
         .as_str()
         .expect("files list is text")
-        .ends_with("/entities/empty.csv"));
+        .ends_with("/entities/10939-android_medium.csv"));
     assert_eq!(version.data["total_size"], 8);
 
     let title_version_response = send_request(
@@ -145,7 +148,7 @@ fn returns_local_cn_asset_metadata() {
         service.port(),
         "/api/index.php/asset/get_path",
         &request_body,
-        "1.4.0",
+        "",
     );
     let path = decode_response::<Value>(&path_response);
     assert!(path.data_headers.asset_update);
@@ -171,7 +174,7 @@ fn returns_local_cn_asset_metadata() {
         &["archive", "original_version", "version"],
     );
     assert_eq!(path.data["full"]["version"], "1.4.0");
-    assert_eq!(path.data["info"]["client_asset_version"], "1.4.0");
+    assert_eq!(path.data["info"]["client_asset_version"], "");
     assert_eq!(path.data["info"]["target_asset_version"], "1.4.1");
     assert_eq!(path.data["info"]["eventual_target_asset_version"], "1.4.1");
     assert_eq!(path.data["info"]["latest_maj_first_version"], "1.4.0");
@@ -242,7 +245,7 @@ fn returns_ios_asset_metadata_for_device_one() {
     assert!(version.data["files_list"]
         .as_str()
         .expect("files list is text")
-        .ends_with("/EntityLists/empty.csv"));
+        .ends_with("/EntityLists/10939-ios_medium.csv"));
     assert_eq!(version.data["total_size"], 33);
 
     let title_version_response = send_request_with_device_kind(
@@ -263,7 +266,7 @@ fn returns_ios_asset_metadata_for_device_one() {
         service.port(),
         "/api/index.php/asset/get_path",
         &request_body,
-        "1.4.0",
+        "",
         "1",
     );
     let path = decode_response::<Value>(&path_response).data;
@@ -316,6 +319,192 @@ fn accepts_an_asset_path_request_without_a_viewer_id() {
     service.stop().expect("service stops cleanly");
 }
 // //// /接受不携带 viewer_id 的资产路径请求 ////
+
+// //// 按本地已安装版本复用资源归档 [@x380kkm 2026-09-07] ////
+#[test]
+fn omits_archives_when_the_client_reports_the_current_target_version() {
+    let root = TempDir::new().expect("temporary service directory is created");
+    write_archive(
+        root.path(),
+        "archive-common-full",
+        "pinball-1.4.0-1-test.zip",
+        b"full",
+    );
+    write_archive(
+        root.path(),
+        "archive-common-diff",
+        "pinball-1.4.0-1.4.1-1-test.zip",
+        b"diff",
+    );
+    let service = PersonalService::start(root.path(), 0).expect("service starts");
+    let request_body = encode_request(&json!({
+        "viewer_id": 42,
+        "target_asset_version": "1.4.1"
+    }));
+
+    let response = send_request_with_resource_version(
+        service.port(),
+        "/api/index.php/asset/get_path",
+        &request_body,
+        "1.4.1",
+    );
+    let path = decode_response::<Value>(&response);
+
+    assert!(!path.data_headers.asset_update);
+    assert_eq!(path.data["info"]["client_asset_version"], "1.4.1");
+    assert_eq!(path.data["info"]["is_initial"], false);
+    assert!(path.data["full"].is_null());
+    assert!(path.data["diff"].is_null());
+    service.stop().expect("service stops cleanly");
+}
+// //// /按本地已安装版本复用资源归档 ////
+
+// //// 为首次安装和未知已装版本提供完整下载链 [@x380kkm 2026-09-21] ////
+#[test]
+fn provides_initial_archives_when_only_the_requested_target_is_current() {
+    let root = TempDir::new().expect("temporary service directory is created");
+    write_archive(
+        root.path(),
+        "archive-common-full",
+        "pinball-1.4.0-1-test.zip",
+        b"full",
+    );
+    write_archive(
+        root.path(),
+        "archive-common-diff",
+        "pinball-1.4.0-1.4.1-1-test.zip",
+        b"diff",
+    );
+    let service = PersonalService::start(root.path(), 0).expect("service starts");
+    let request_body = encode_request(&json!({
+        "viewer_id": 42,
+        "target_asset_version": "1.4.1"
+    }));
+
+    for installed_version in [None, Some(""), Some("0"), Some("1.4.99")] {
+        let headers = installed_version
+            .map(|version| vec![("RES_VER", version)])
+            .unwrap_or_default();
+        let response = request_with_headers(
+            service.port(),
+            "POST",
+            "/api/index.php/asset/get_path",
+            "application/x-www-form-urlencoded",
+            &headers,
+            request_body.as_bytes(),
+        );
+        let path = decode_response::<Value>(&response);
+
+        assert!(path.data_headers.asset_update);
+        assert_eq!(
+            path.data["info"]["client_asset_version"],
+            installed_version.unwrap_or_default()
+        );
+        assert_eq!(path.data["info"]["eventual_target_asset_version"], "1.4.1");
+        assert_eq!(path.data["info"]["is_initial"], true);
+        assert_eq!(path.data["full"]["version"], "1.4.0");
+        assert_eq!(
+            path.data["full"]["archive"].as_array().map(Vec::len),
+            Some(1)
+        );
+        assert_eq!(path.data["diff"][0]["original_version"], "1.4.0");
+        assert_eq!(path.data["diff"][0]["version"], "1.4.1");
+        assert_eq!(
+            path.data["diff"][0]["archive"].as_array().map(Vec::len),
+            Some(1)
+        );
+    }
+    service.stop().expect("service stops cleanly");
+}
+// //// /为首次安装和未知已装版本提供完整下载链 ////
+
+// //// 保留平台空归档过渡并复用完整差分链的终点版本 [@x380kkm 2026-09-08] ////
+#[test]
+fn preserves_platform_empty_diff_steps_before_an_android_override() {
+    let root = TempDir::new().expect("temporary service directory is created");
+    let full_name = "pinball-1.4.0-1-test.zip";
+    write_archive(root.path(), "archive-common-full", full_name, b"full");
+    write_override_archive(
+        root.path(),
+        "archive-android-diff",
+        "starpoint-cn-activity-overlay.zip",
+        b"activity overlay",
+    );
+    write_path_manifest(
+        root.path(),
+        json!({
+            "info": {
+                "client_asset_version": "",
+                "target_asset_version": "1.4.1",
+                "eventual_target_asset_version": "1.4.1",
+                "is_initial": true,
+                "latest_maj_first_version": "1.4.0"
+            },
+            "full": {
+                "version": "1.4.0",
+                "archive": [{
+                    "location": format!("https://retired.invalid/archive-common-full/{full_name}"),
+                    "size": 4,
+                    "sha256": STANDARD.encode(Sha256::digest(b"full"))
+                }]
+            },
+            "diff": [{
+                "original_version": "1.4.0",
+                "version": "1.4.1",
+                "archive": [{
+                    "location": "https://retired.invalid/archive-ios-diff/voice.zip",
+                    "size": 5,
+                    "sha256": STANDARD.encode(Sha256::digest(b"voice"))
+                }]
+            }],
+            "asset_version_hash": "fixture-hash"
+        }),
+    );
+    let service = PersonalService::start(root.path(), 0).expect("service starts");
+    let body = encode_request(&json!({"target_asset_version": "1.4.2"}));
+    let response = send_request_with_device_kind(
+        service.port(),
+        "/api/index.php/asset/get_path",
+        &body,
+        "",
+        "2",
+    );
+    let path = decode_response::<Value>(&response).data;
+    let diffs = path["diff"].as_array().expect("diff chain exists");
+    assert_eq!(diffs.len(), 2);
+    assert_eq!(diffs[0]["archive"], json!([]));
+    assert_eq!(diffs[1]["archive"].as_array().map(Vec::len), Some(1));
+
+    let mut installed_version = path["full"]["version"]
+        .as_str()
+        .expect("initial version exists");
+    for _ in 0..diffs.len() {
+        let next = diffs
+            .iter()
+            .find(|group| group["original_version"] == installed_version)
+            .expect("each version has a next diff step");
+        installed_version = next["version"].as_str().expect("diff version exists");
+    }
+    assert_eq!(installed_version, "1.4.2");
+    assert_eq!(
+        path["info"]["eventual_target_asset_version"],
+        installed_version
+    );
+
+    let repeated_response = send_request_with_device_kind(
+        service.port(),
+        "/api/index.php/asset/get_path",
+        &body,
+        installed_version,
+        "2",
+    );
+    let repeated = decode_response::<Value>(&repeated_response);
+    assert!(!repeated.data_headers.asset_update);
+    assert!(repeated.data["full"].is_null());
+    assert!(repeated.data["diff"].is_null());
+    service.stop().expect("service stops cleanly");
+}
+// //// /保留平台空归档过渡并复用完整差分链的终点版本 ////
 
 // //// 本地化已有 CN 资产路径清单 [@x380kkm 2026-08-10] ////
 #[test]
@@ -497,6 +686,23 @@ fn uses_override_archive_metadata_in_path_manifest() {
         updated_path["full"]["archive"][0]["sha256"],
         STANDARD.encode(Sha256::digest(updated_override_body))
     );
+
+    fs::write(&override_path, b"").expect("override archive is truncated");
+    let fallback_version = decode_response::<Value>(&send_request(
+        service.port(),
+        "/api/index.php/asset/version_info",
+        "{}",
+    ));
+    assert_eq!(fallback_version.data["total_size"], base_body.len());
+    let fallback = decode_response::<Value>(&send_request_with_resource_version(
+        service.port(),
+        "/api/index.php/asset/get_path",
+        &request_body,
+        "1.4.0",
+    ));
+    let archive = &fallback.data["full"]["archive"][0];
+    assert_eq!(archive["size"], base_body.len());
+    assert_eq!(archive["sha256"], STANDARD.encode(Sha256::digest(base_body)));
     service.stop().expect("service stops cleanly");
 }
 // //// /使用覆盖归档的实际下载元数据 ////
@@ -573,9 +779,8 @@ fn discovers_an_additive_ios_override_archive() {
         .iter()
         .filter_map(|group| group["version"].as_str())
         .collect::<Vec<_>>();
-    assert!(versions.contains(&"1.4.57"));
-    assert!(versions.contains(&"1.4.58"));
-    assert!(versions.contains(&"1.4.59"));
+    assert_eq!(versions, ["1.4.59"]);
+    assert!(path["full"].is_null());
     let target_group = path["diff"]
         .as_array()
         .expect("iOS diff groups exist")

@@ -8,12 +8,12 @@ import {
     collectPlayerDataPooledExpSync,
     dailyResetPlayerDataSync,
     getPlayerFromAccountIdSync,
-    getPlayerSync,
     getSession,
 } from "../../data/wdfpData"
-import { getClientSerializedData } from "../../data/utils"
+import { normalizeAndSerializeCnPlayerDataSync } from "../../data/cnPlayerData"
 import { CN_BASELINE_GACHA_ID } from "../../lib/cnAssets"
-import { CN_TUTORIAL_GACHA_ID } from "../../lib/tutorial"
+import { projectActiveGachaCampaigns } from "../../lib/gachaCampaign"
+import { CN_TUTORIAL_GACHA_ID, getCnTutorialGachaSync } from "../../lib/tutorial"
 import { generateDataHeaders, getServerDate, getServerTime } from "../../utils"
 
 interface CnLoadBody {
@@ -106,9 +106,14 @@ const routes = async (fastify: FastifyInstance) => {
         const now = getServerDate()
         dailyResetPlayerDataSync(player, now)
         collectPlayerDataPooledExpSync(player, now)
-        const clientData = getClientSerializedData(player.id, { viewerId }) as Record<string, any> | null
+        const clientData = normalizeAndSerializeCnPlayerDataSync(player.id, { viewerId }) as Record<string, any> | null
         if (clientData === null) return reply.status(500).send({ error: "no_player_data" })
 
+        clientData.gacha_campaign_list = projectActiveGachaCampaigns(
+            clientData.gacha_campaign_list ?? [],
+            getServerTime(now),
+            gachaId => getCnTutorialGachaSync(gachaId) !== null,
+        )
         addCnLoadCompatibilityFields(clientData, typeof request.headers.res_ver === "string" ? request.headers.res_ver : undefined)
         return reply.header("content-type", "application/x-msgpack").send({
             data_headers: generateDataHeaders({ asset_update: true, viewer_id: viewerId, servertime: getServerTime() }),

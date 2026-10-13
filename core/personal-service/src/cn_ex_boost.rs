@@ -1,62 +1,49 @@
 // audience: internal
 // # personal-service-cn-ex-boost
-//
-// 该模块实现 CN 角色 EX 能力抽取、暂存和确认.
+// EX 材料按主表消耗, 抽取结果和请求凭据随玩家快照保存. 暂存结果通过载入响应恢复确认.
+
+mod catalog;
+mod timestamps;
+
+pub(crate) use timestamps::normalize_saved_character_times;
 
 use crate::cn::{decode_request, msgpack_response_at, server_time};
+use crate::cn_character::serialize_character;
+use crate::cn_request_receipt::RequestReceipt;
 use crate::cn_tutorial::{
-    decode_player_data, encode_player_data, format_client_time, player_snapshot, require_object,
-    require_root,
+    decode_player_data, encode_player_data, player_snapshot, require_object, require_root,
 };
 use crate::database::ServiceDatabase;
 use crate::http::{HttpRequest, HttpResponse};
 use crate::PersonalServiceError;
-use getrandom::getrandom;
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use std::sync::OnceLock;
 
-const EX_BOOST_ASSET: &str = include_str!("../../../assets/ex_boost.json");
-const EX_STATUS_ASSET: &str = include_str!("../../../assets/ex_status.json");
-const EX_ABILITY_ASSET: &str = include_str!("../../../assets/ex_ability.json");
+pub(crate) const RECEIPTS_FIELD: &str = "ex_boost_request_receipts";
 const CHARACTER_ASSET: &str = include_str!("../../../assets/character.json");
-static EX_BOOST_DATA: OnceLock<Result<Value, String>> = OnceLock::new();
-static EX_STATUS_DATA: OnceLock<Result<Value, String>> = OnceLock::new();
-static EX_ABILITY_DATA: OnceLock<Result<Value, String>> = OnceLock::new();
 static CHARACTER_DATA: OnceLock<Result<Value, String>> = OnceLock::new();
-
-const ABILITY_GROUP_A_PREFIXES: &[&str] = &[
-    "atk_self_",
-    "skilldamage_self_",
-    "directdamage_self_",
-    "abilitydamage_self_",
-    "abilitydagame_self_",
-    "atk_party_",
-    "skilldamage_party_",
-    "directdamage_party_",
-    "abilitydamage_party_",
-    "abilitydagame_party_",
-    "powerflipdamage_",
-    "hp_self_",
-];
-const ABILITY_GROUP_B_OVERRIDES: &[&str] = &["powerflipdamage_buffextend_"];
 
 #[derive(Deserialize)]
 struct DrawRequest {
     viewer_id: i64,
     character_id: i64,
     cost_item_id: i64,
+    api_count: Option<i64>,
 }
 
 #[derive(Deserialize)]
 struct SelectRequest {
     viewer_id: i64,
     is_confirm: bool,
+    api_count: Option<i64>,
 }
 
+#[derive(Deserialize)]
 struct DrawResult {
     character_id: i64,
     status_id: i64,
+    #[serde(rename = "ability_id_list")]
     ability_ids: Vec<i64>,
 }
 
@@ -78,73 +65,89 @@ pub(crate) fn route(
 }
 // //// /分派 CN EX 能力请求 ////
 
-// //// 消耗素材并生成 EX 能力 [@x380kkm 2026-08-22] ////
+// //// 消耗素材并保存 EX 抽取结果和请求凭据 [@x380kkm 2026-09-23] ////
 fn draw(
     request: &HttpRequest,
     database: &mut ServiceDatabase,
     auto_accept: bool,
 ) -> Result<HttpResponse, PersonalServiceError> {
     let body = match decode_request::<DrawRequest>(request) {
-        Ok(body) if body.viewer_id > 0 && body.character_id > 0 && body.cost_item_id > 0 => body,
-        Ok(_) | Err(_) => return Ok(error_response("400 Bad Request", "invalid_request_body")),
+        Ok(body)
+            if body.viewer_id > 0
+                && body.character_id > 0
+                && body.cost_item_id > 0
+                && body.api_count.map_or(true, |count| count >= 0) =>
+        {
+            body
+        }
+        _ => return Ok(error_response("invalid_request_body")),
     };
     let snapshot = match player_snapshot(database, body.viewer_id)? {
         Ok(snapshot) => snapshot,
         Err(response) => return Ok(response),
     };
-    let material = match asset_object(&EX_BOOST_DATA, EX_BOOST_ASSET, body.cost_item_id)? {
-        Some(material) => material,
-        None => return Ok(error_response("400 Bad Request", "invalid_cost_item")),
-    };
-    let character_asset = match asset_object(&CHARACTER_DATA, CHARACTER_ASSET, body.character_id)? {
-        Some(character) => character,
-        None => return Ok(error_response("400 Bad Request", "character_not_found")),
-    };
-    if material
-        .get("element")
-        .and_then(Value::as_i64)
-        .is_some_and(|element| {
-            character_asset.get("element").and_then(Value::as_i64) != Some(element)
-        })
-    {
-        return Ok(error_response(
-            "400 Bad Request",
-            "invalid_cost_item_element",
-        ));
-    }
-    let tier = material
-        .get("tier")
-        .and_then(Value::as_i64)
-        .ok_or_else(|| PersonalServiceError::new("CN EX material tier is missing"))?;
-    let required_count = material
-        .get("count")
-        .and_then(Value::as_i64)
-        .ok_or_else(|| PersonalServiceError::new("CN EX material count is missing"))?;
     let mut player_data = decode_player_data(&snapshot.data)?;
     let root = require_root(&mut player_data)?;
-    let character = root
+    let action = if auto_accept { "first_draw" } else { "draw" };
+    let receipt = body.api_count.map(|count| {
+        RequestReceipt::new(
+            "ex_boost",
+            action,
+            body.viewer_id,
+            count,
+            json!({"character_id":body.character_id,"cost_item_id":body.cost_item_id}),
+        )
+    });
+    if let Some(response) = receipt
+        .as_ref()
+        .map(|value| value.replay(root))
+        .transpose()?
+        .flatten()
+    {
+        return Ok(response);
+    }
+    if root
+        .get("pending_ex_boost")
+        .is_some_and(|value| !value.is_null())
+    {
+        return Ok(error_response("ex_boost_draw_pending"));
+    }
+    let Some(material) = catalog::material(body.cost_item_id)? else {
+        return Ok(error_response("invalid_cost_item"));
+    };
+    let Some(character_asset) = character_asset(body.character_id)? else {
+        return Ok(error_response("character_not_found"));
+    };
+    if !character_asset
+        .get("element")
+        .and_then(Value::as_i64)
+        .is_some_and(|element| material.elements.contains(&element))
+    {
+        return Ok(error_response("invalid_cost_item_element"));
+    }
+    let Some(character) = root
         .get("user_character_list")
         .and_then(Value::as_object)
         .and_then(|characters| characters.get(&body.character_id.to_string()))
         .and_then(Value::as_object)
-        .cloned()
-        .ok_or_else(|| PersonalServiceError::new("CN EX character is not owned"))?;
-    let rarity = character_asset
-        .get("rarity")
-        .and_then(Value::as_i64)
-        .unwrap_or_default();
-    let max_over_limit = match rarity {
-        1 => 12,
-        2 => 10,
-        3 => 8,
-        4 => 6,
-        5 => 4,
-        _ => {
-            return Ok(error_response(
-                "400 Bad Request",
-                "invalid_character_rarity",
-            ))
-        }
+    else {
+        return Ok(error_response("character_not_owned"));
+    };
+    let has_ex_boost = character.get("ex_boost").is_some_and(Value::is_object);
+    if auto_accept == has_ex_boost {
+        return Ok(error_response(if auto_accept {
+            "ex_boost_already_initialized"
+        } else {
+            "ex_boost_not_initialized"
+        }));
+    }
+    let max_over_limit = match character_asset.get("rarity").and_then(Value::as_i64) {
+        Some(1) => 12,
+        Some(2) => 10,
+        Some(3) => 8,
+        Some(4) => 6,
+        Some(5) => 4,
+        _ => return Ok(error_response("invalid_character_rarity")),
     };
     if character
         .get("over_limit_step")
@@ -152,10 +155,7 @@ fn draw(
         .unwrap_or_default()
         < max_over_limit
     {
-        return Ok(error_response(
-            "400 Bad Request",
-            "character_not_max_over_limit",
-        ));
+        return Ok(error_response("character_not_max_over_limit"));
     }
     let items = require_object(root, "item_list")?;
     let item_key = body.cost_item_id.to_string();
@@ -163,53 +163,47 @@ fn draw(
         .get(&item_key)
         .and_then(Value::as_i64)
         .unwrap_or_default()
-        .checked_sub(required_count)
+        .checked_sub(material.cost_item_count)
     {
         Some(value) if value >= 0 => value,
-        _ => return Ok(error_response("400 Bad Request", "not_enough_cost_item")),
+        _ => return Ok(error_response("not_enough_cost_item")),
     };
+    let result = catalog::draw(body.character_id, material)?;
     items.insert(item_key.clone(), Value::from(remaining_items));
-    let result = DrawResult {
-        character_id: body.character_id,
-        status_id: choose_asset_id(&EX_STATUS_DATA, EX_STATUS_ASSET, tier, 0)?,
-        ability_ids: draw_ability_ids(tier, material.contains_key("element"))?,
-    };
-    let mut item_response = Map::new();
-    item_response.insert(item_key, Value::from(remaining_items));
     let response_time = server_time(database)?;
+    let mail_arrived = database.has_unreceived_mail(snapshot.account_id, response_time)?;
     let data = if auto_accept {
-        let character = require_object(root, "user_character_list")?
-            .get_mut(&body.character_id.to_string())
-            .and_then(Value::as_object_mut)
-            .ok_or_else(|| PersonalServiceError::new("stored CN character data is invalid"))?;
-        character.insert("ex_boost".to_owned(), draw_value(&result));
+        let character = apply_result(root, &result, response_time)?;
         json!({
             "character_list": [serialize_character(body.viewer_id, body.character_id, character, response_time)],
-            "item_list": item_response,
-            "mail_arrived": false,
+            "item_list": {item_key:remaining_items},
+            "mail_arrived": mail_arrived,
         })
     } else {
         root.insert("pending_ex_boost".to_owned(), pending_draw_value(&result));
         json!({
             "character_id": body.character_id,
             "draw_result": draw_value(&result),
-            "item_list": item_response,
-            "mail_arrived": false,
+            "item_list": {item_key:remaining_items},
+            "mail_arrived": mail_arrived,
         })
     };
+    if let Some(receipt) = receipt {
+        receipt.record(root, &data, response_time)?;
+    }
     database.save_player_snapshot(snapshot.account_id, &encode_player_data(&player_data)?)?;
     msgpack_response_at(body.viewer_id, false, response_time, data)
 }
-// //// /消耗素材并生成 EX 能力 ////
+// //// /消耗素材并保存 EX 抽取结果和请求凭据 ////
 
-// //// 接受或丢弃暂存的 EX 能力 [@x380kkm 2026-08-22] ////
+// //// 接受或丢弃暂存结果并重放已提交的选择 [@x380kkm 2026-09-23] ////
 fn select(
     request: &HttpRequest,
     database: &mut ServiceDatabase,
 ) -> Result<HttpResponse, PersonalServiceError> {
     let body = match decode_request::<SelectRequest>(request) {
-        Ok(body) if body.viewer_id > 0 => body,
-        Ok(_) | Err(_) => return Ok(error_response("400 Bad Request", "invalid_request_body")),
+        Ok(body) if body.viewer_id > 0 && body.api_count.map_or(true, |count| count >= 0) => body,
+        _ => return Ok(error_response("invalid_request_body")),
     };
     let snapshot = match player_snapshot(database, body.viewer_id)? {
         Ok(snapshot) => snapshot,
@@ -217,182 +211,94 @@ fn select(
     };
     let mut player_data = decode_player_data(&snapshot.data)?;
     let root = require_root(&mut player_data)?;
+    let receipt = body.api_count.map(|count| {
+        RequestReceipt::new(
+            "ex_boost",
+            "select",
+            body.viewer_id,
+            count,
+            json!({"is_confirm":body.is_confirm}),
+        )
+    });
+    if let Some(response) = receipt
+        .as_ref()
+        .map(|value| value.replay(root))
+        .transpose()?
+        .flatten()
+    {
+        return Ok(response);
+    }
     let pending = match root.remove("pending_ex_boost") {
         Some(pending) => pending,
-        None => return Ok(error_response("400 Bad Request", "ex_boost_draw_not_found")),
+        None => return Ok(error_response("ex_boost_draw_not_found")),
     };
     let result = decode_pending_draw(&pending)?;
     let response_time = server_time(database)?;
+    let mail_arrived = database.has_unreceived_mail(snapshot.account_id, response_time)?;
     let data = if body.is_confirm {
-        let character = require_object(root, "user_character_list")?
-            .get_mut(&result.character_id.to_string())
-            .and_then(Value::as_object_mut)
-            .ok_or_else(|| PersonalServiceError::new("stored CN character data is invalid"))?;
-        character.insert("ex_boost".to_owned(), draw_value(&result));
+        let character = apply_result(root, &result, response_time)?;
         json!({
             "character_list": [serialize_character(body.viewer_id, result.character_id, character, response_time)],
-            "mail_arrived": false,
+            "mail_arrived": mail_arrived,
         })
     } else {
-        json!({"mail_arrived": false})
+        json!({"mail_arrived":mail_arrived})
     };
+    if let Some(receipt) = receipt {
+        receipt.record(root, &data, response_time)?;
+    }
     database.save_player_snapshot(snapshot.account_id, &encode_player_data(&player_data)?)?;
     msgpack_response_at(body.viewer_id, false, response_time, data)
 }
-// //// /接受或丢弃暂存的 EX 能力 ////
+// //// /接受或丢弃暂存结果并重放已提交的选择 ////
 
-fn serialize_character(
-    viewer_id: i64,
-    character_id: i64,
-    character: &Map<String, Value>,
+// //// 将暂存结果投影为客户端启动时的 EX 确认数据 [@x380kkm 2026-09-23] ////
+pub(crate) fn project_pending_draw(
+    root: &mut Map<String, Value>,
+) -> Result<(), PersonalServiceError> {
+    let pending = root
+        .get("pending_ex_boost")
+        .filter(|value| !value.is_null())
+        .map(decode_pending_draw)
+        .transpose()?;
+    root.insert(
+        "ex_boost_draw_result".to_owned(),
+        pending.map_or(Value::Null, |result| {
+            json!({
+                "character_id":result.character_id,"draw_result":draw_value(&result),
+            })
+        }),
+    );
+    Ok(())
+}
+// //// /将暂存结果投影为客户端启动时的 EX 确认数据 ////
+
+// //// 写入角色已接受的 EX 能力及更新时间 [@x380kkm 2026-09-23] ////
+fn apply_result<'a>(
+    root: &'a mut Map<String, Value>,
+    result: &DrawResult,
     response_time: i64,
-) -> Value {
-    let mut response = character.clone();
-    response.insert("viewer_id".to_owned(), Value::from(viewer_id));
-    response.insert("character_id".to_owned(), Value::from(character_id));
-    let time = format_client_time(response_time);
-    response.insert("create_time".to_owned(), Value::String(time.clone()));
-    response.insert("update_time".to_owned(), Value::String(time.clone()));
-    response.insert("join_time".to_owned(), Value::String(time));
-    Value::Object(response)
+) -> Result<&'a Map<String, Value>, PersonalServiceError> {
+    let character = require_object(root, "user_character_list")?
+        .get_mut(&result.character_id.to_string())
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| PersonalServiceError::new("stored CN EX character data is invalid"))?;
+    character.insert("ex_boost".to_owned(), draw_value(result));
+    character.insert("update_time".to_owned(), Value::from(response_time));
+    Ok(character)
 }
+// //// /写入角色已接受的 EX 能力及更新时间 ////
 
-fn choose_asset_id(
-    cache: &'static OnceLock<Result<Value, String>>,
-    asset: &'static str,
-    tier: i64,
-    offset: usize,
-) -> Result<i64, PersonalServiceError> {
-    let document = parsed_asset(cache, asset)?;
-    let values = document
-        .get(tier.to_string())
-        .and_then(Value::as_array)
-        .filter(|values| !values.is_empty())
-        .ok_or_else(|| PersonalServiceError::new("CN EX draw pool is missing"))?;
-    values[(random_index(values.len())? + offset) % values.len()]
-        .as_i64()
-        .ok_or_else(|| PersonalServiceError::new("CN EX draw pool id is invalid"))
-}
-
-fn draw_ability_ids(tier: i64, uses_element_stone: bool) -> Result<Vec<i64>, PersonalServiceError> {
-    let weights = ability_rarity_weights(tier, uses_element_stone)
-        .ok_or_else(|| PersonalServiceError::new("CN EX ability weights are missing"))?;
-    [true, false]
-        .into_iter()
-        .zip(weights)
-        .filter_map(|(is_group_a, rarity_weights)| {
-            choose_ability_id(is_group_a, rarity_weights).transpose()
-        })
-        .collect()
-}
-
-fn choose_ability_id(
-    is_group_a: bool,
-    rarity_weights: [usize; 3],
-) -> Result<Option<i64>, PersonalServiceError> {
-    let Some(rarity) = choose_weighted_rarity(rarity_weights)? else {
-        return Ok(None);
-    };
-    let document = parsed_asset(&EX_ABILITY_DATA, EX_ABILITY_ASSET)?;
-    let abilities = document
-        .as_object()
-        .ok_or_else(|| PersonalServiceError::new("CN EX ability asset is invalid"))?;
-    let pool = abilities
-        .iter()
-        .filter_map(|(id, row)| {
-            let name = ability_name(row)?;
-            (ability_is_group_a(name) == is_group_a && ability_rarity(name) == rarity)
-                .then(|| id.parse::<i64>().ok())
-                .flatten()
-        })
-        .collect::<Vec<_>>();
-    if pool.is_empty() {
-        return Err(PersonalServiceError::new("CN EX ability pool is missing"));
-    }
-    Ok(Some(pool[random_index(pool.len())?]))
-}
-
-fn choose_weighted_rarity(weights: [usize; 3]) -> Result<Option<usize>, PersonalServiceError> {
-    let total = weights.iter().sum::<usize>();
-    if total == 0 {
-        return Ok(None);
-    }
-    let roll = random_index(total)?;
-    let mut cumulative = 0;
-    for rarity in (1..=3).rev() {
-        cumulative += weights[rarity - 1];
-        if roll < cumulative {
-            return Ok(Some(rarity));
-        }
-    }
-    Ok(None)
-}
-
-fn ability_rarity_weights(tier: i64, uses_element_stone: bool) -> Option<[[usize; 3]; 2]> {
-    match (uses_element_stone, tier) {
-        (false, 1) => Some([[188, 413, 150], [170, 375, 136]]),
-        (false, 2) => Some([[166, 457, 208], [151, 415, 189]]),
-        (false, 3) => Some([[0, 100, 900], [0, 91, 818]]),
-        (true, 1) => Some([[200, 400, 200], [182, 364, 182]]),
-        (true, 2) => Some([[178, 445, 267], [162, 405, 243]]),
-        (true, 3) => Some([[0, 0, 1000], [0, 0, 909]]),
-        _ => None,
-    }
-}
-
-fn ability_name(row: &Value) -> Option<&str> {
-    row.as_array()?.first()?.as_array()?.first()?.as_str()
-}
-
-fn ability_is_group_a(name: &str) -> bool {
-    !ABILITY_GROUP_B_OVERRIDES
-        .iter()
-        .any(|prefix| name.starts_with(prefix))
-        && ABILITY_GROUP_A_PREFIXES
-            .iter()
-            .any(|prefix| name.starts_with(prefix))
-}
-
-fn ability_rarity(name: &str) -> usize {
-    if name.ends_with("_r5") {
-        3
-    } else if name.ends_with("_r4") {
-        2
-    } else {
-        1
-    }
-}
-
-fn random_index(length: usize) -> Result<usize, PersonalServiceError> {
-    let mut bytes = [0_u8; 8];
-    getrandom(&mut bytes).map_err(|error| {
-        PersonalServiceError::new(format!("failed to draw CN EX boost: {error}"))
-    })?;
-    Ok(u64::from_le_bytes(bytes) as usize % length)
-}
-
-fn asset_object(
-    cache: &'static OnceLock<Result<Value, String>>,
-    asset: &'static str,
-    id: i64,
-) -> Result<Option<Map<String, Value>>, PersonalServiceError> {
-    Ok(parsed_asset(cache, asset)?
-        .get(id.to_string())
-        .and_then(Value::as_object)
-        .cloned())
-}
-
-fn parsed_asset(
-    cache: &'static OnceLock<Result<Value, String>>,
-    asset: &'static str,
-) -> Result<&'static Value, PersonalServiceError> {
-    cache
+fn character_asset(id: i64) -> Result<Option<&'static Map<String, Value>>, PersonalServiceError> {
+    Ok(CHARACTER_DATA
         .get_or_init(|| {
-            serde_json::from_str(asset)
-                .map_err(|error| format!("failed to decode CN EX asset: {error}"))
+            serde_json::from_str(CHARACTER_ASSET)
+                .map_err(|error| format!("failed to decode CN character asset: {error}"))
         })
         .as_ref()
-        .map_err(|error| PersonalServiceError::new(error.clone()))
+        .map_err(|error| PersonalServiceError::new(error.clone()))?
+        .get(id.to_string())
+        .and_then(Value::as_object))
 }
 
 fn draw_value(result: &DrawResult) -> Value {
@@ -400,37 +306,15 @@ fn draw_value(result: &DrawResult) -> Value {
 }
 
 fn pending_draw_value(result: &DrawResult) -> Value {
-    json!({
-        "character_id": result.character_id,
-        "status_id": result.status_id,
-        "ability_id_list": result.ability_ids,
-    })
+    json!({"character_id":result.character_id,"status_id":result.status_id,"ability_id_list":result.ability_ids})
 }
 
 fn decode_pending_draw(value: &Value) -> Result<DrawResult, PersonalServiceError> {
-    Ok(DrawResult {
-        character_id: value
-            .get("character_id")
-            .and_then(Value::as_i64)
-            .ok_or_else(|| PersonalServiceError::new("stored CN EX character id is invalid"))?,
-        status_id: value
-            .get("status_id")
-            .and_then(Value::as_i64)
-            .ok_or_else(|| PersonalServiceError::new("stored CN EX status id is invalid"))?,
-        ability_ids: value
-            .get("ability_id_list")
-            .and_then(Value::as_array)
-            .ok_or_else(|| PersonalServiceError::new("stored CN EX ability list is invalid"))?
-            .iter()
-            .map(|value| {
-                value
-                    .as_i64()
-                    .ok_or_else(|| PersonalServiceError::new("stored CN EX ability id is invalid"))
-            })
-            .collect::<Result<Vec<_>, _>>()?,
+    serde_json::from_value(value.clone()).map_err(|error| {
+        PersonalServiceError::new(format!("stored CN EX draw is invalid: {error}"))
     })
 }
 
-fn error_response(status: &'static str, code: &str) -> HttpResponse {
-    HttpResponse::json(status, format!("{{\"error\":\"{code}\"}}"))
+fn error_response(code: &str) -> HttpResponse {
+    HttpResponse::json("400 Bad Request", json!({"error":code}).to_string())
 }

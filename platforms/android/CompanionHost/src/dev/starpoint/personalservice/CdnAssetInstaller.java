@@ -1,17 +1,20 @@
 // audience: internal
 // # android-companion-cdn
 //
-// 该类读取伴随 APK 的 CDN 清单, 从尾随 bundle 流式解包资源到应用外部目录,
+// 该类读取伴随 APK 的 CDN 清单, 从安装包或用户选择的资源流解包到应用外部目录,
 // 并为个人服务提供已验证的版本化目录.
 
 package dev.starpoint.personalservice;
 
 import android.content.Context;
 import android.content.res.AssetManager;
+import android.util.Log;
 
 import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,7 +24,10 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -48,6 +54,7 @@ final class CdnAssetInstaller {
     private static final long FREE_SPACE_MARGIN = 64L * 1024L * 1024L;
 
     private static volatile String lastStatus = "等待个人服务 CDN";
+    private static volatile boolean resourceDocumentRequired;
 
     private CdnAssetInstaller() {
     }
@@ -59,6 +66,10 @@ final class CdnAssetInstaller {
     // //// 取得 CDN 安装状态 [@x380kkm 2026-08-31] ////
     static String status() {
         return lastStatus;
+    }
+
+    static boolean requiresResourceDocument() {
+        return resourceDocumentRequired;
     }
     // //// /取得 CDN 安装状态 ////
 
@@ -76,12 +87,22 @@ final class CdnAssetInstaller {
             if (!destination.getCanonicalPath().startsWith(installPath)) {
                 throw new IllegalStateException("外部 CDN 路径越过安装目录.");
             }
-            if (
-                hasMatchingManifest(destination, manifest.digest)
-                    && hasCompleteMarker(destination, manifest.digest)
-            ) {
+            updateStatus(statusListener, "正在检查 CDN 资源文件");
+            if (isCompleteDirectory(destination, manifest)) {
+                cleanupObsoleteVersions(installRoot, manifest.version);
+                resourceDocumentRequired = false;
                 updateStatus(statusListener, "CDN 已就绪");
                 return destination;
+            }
+            if (usesResourceDocument(context.getAssets())) {
+                if (recoverCompleteDirectory(installRoot, destination, manifest)) {
+                    cleanupObsoleteVersions(installRoot, manifest.version);
+                    resourceDocumentRequired = false;
+                    updateStatus(statusListener, "CDN 已就绪");
+                    return destination;
+                }
+                resourceDocumentRequired = true;
+                throw new IllegalStateException("请选择与安装包配套的 .starpoint-resources 文件.");
             }
             updateStatus(statusListener, "正在检查 CDN 可用空间");
             installBundle(
@@ -91,6 +112,8 @@ final class CdnAssetInstaller {
                 destination,
                 statusListener
             );
+            cleanupObsoleteVersions(installRoot, manifest.version);
+            resourceDocumentRequired = false;
             updateStatus(statusListener, "CDN 已就绪");
             return destination;
         } catch (IOException error) {
@@ -102,6 +125,59 @@ final class CdnAssetInstaller {
         }
     }
     // //// /复用或安装已验证的 CDN 目录 ////
+
+    // //// 从用户选择的资源流安装签名清单中的文件 [@x380kkm 2026-09-26] ////
+    static synchronized void importResourceDocument(Context context, InputStream source, StatusListener listener)
+        throws IOException {
+        AssetManifest manifest = readManifest(context.getAssets());
+        File externalFiles = context.getExternalFilesDir(null);
+        if (externalFiles == null) throw new IOException("伴随应用外部数据目录不可用.");
+        File installRoot = new File(externalFiles, EXTERNAL_CDN_DIRECTORY);
+        File destination = new File(installRoot, manifest.version);
+        if (!destination.getCanonicalPath().startsWith(installRoot.getCanonicalPath() + File.separator)) {
+            throw new IOException("外部 CDN 路径越过安装目录.");
+        }
+        installResourceStream(source, manifest, installRoot, destination, listener);
+        resourceDocumentRequired = false;
+        cleanupObsoleteVersions(installRoot, manifest.version);
+        updateStatus(listener, "CDN 已就绪");
+    }
+
+    private static boolean usesResourceDocument(AssetManager assets) throws IOException {
+        try (InputStream input = assets.open(ASSET_ROOT + "/resource-delivery.txt")) {
+            String mode = new String(readAll(input), StandardCharsets.UTF_8).trim();
+            if (mode.equals("external")) return true;
+            if (mode.equals("embedded")) return false;
+            throw new IOException("资源分发模式无效.");
+        } catch (FileNotFoundException missing) {
+            return false;
+        }
+    }
+
+    private static void installResourceStream(InputStream source, AssetManifest manifest,
+        File installRoot, File destination, StatusListener listener) throws IOException {
+        byte[] bytes = new byte[BUNDLE_FOOTER_SIZE];
+        new DataInputStream(source).readFully(bytes);
+        ByteBuffer header = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+        byte[] magic = new byte[BUNDLE_MAGIC.length];
+        header.get(magic);
+        int version = header.getInt();
+        int flags = header.getInt();
+        long offset = header.getLong();
+        long length = header.getLong();
+        byte[] digest = new byte[32];
+        header.get(digest);
+        if (!Arrays.equals(magic, BUNDLE_MAGIC) || version != BUNDLE_VERSION || flags != 0
+                || offset != BUNDLE_FOOTER_SIZE || length != manifest.totalBytes
+                || !Arrays.equals(digest, digestBytes(manifest.bytes))) {
+            throw new IOException("资源文件与当前安装包的清单不匹配.");
+        }
+        installPayload(manifest, installRoot, destination, listener, staging -> {
+            extractPayload(source, manifest, staging, listener);
+            if (source.read() != -1) throw new IOException("资源文件包含清单之外的数据.");
+        });
+    }
+    // //// /从用户选择的资源流安装签名清单中的文件 ////
 
     // //// 读取并验证 APK 内的 CDN 清单 [@x380kkm 2026-08-31] ////
     private static AssetManifest readManifest(AssetManager assets) throws IOException {
@@ -170,9 +246,32 @@ final class CdnAssetInstaller {
         if (!Arrays.equals(bundle.manifestDigest, digestBytes(manifest.bytes))) {
             throw new IOException("APK bundle 清单摘要不一致.");
         }
+        if (bundle.payloadLength != manifest.totalBytes) {
+            throw new IOException("CDN 清单长度与 payload 不一致.");
+        }
+        installPayload(manifest, installRoot, destination, statusListener, staging -> {
+            try (FileInputStream source = new FileInputStream(sourceFile)) {
+                source.getChannel().position(bundle.payloadOffset);
+                extractPayload(source, manifest, staging, statusListener);
+            }
+        });
+    }
+
+    private interface PayloadExtractor {
+        void extract(File staging) throws IOException;
+    }
+
+    private static void installPayload(AssetManifest manifest, File installRoot, File destination,
+        StatusListener statusListener, PayloadExtractor extractor) throws IOException {
         if (!installRoot.isDirectory() && !installRoot.mkdirs()) {
             throw new IOException("无法创建 CDN 安装目录.");
         }
+        if (recoverCompleteDirectory(installRoot, destination, manifest)) {
+            return;
+        }
+        File staging = new File(installRoot, "." + manifest.version + ".staging");
+        deleteRecursively(staging);
+        deleteRecursively(new File(installRoot, "." + manifest.version + ".previous"));
         long requiredBytes = requiredBytes(manifest);
         long usableBytes = installRoot.getUsableSpace();
         if (usableBytes < requiredBytes) {
@@ -180,24 +279,25 @@ final class CdnAssetInstaller {
                 "可用空间不足: required=" + requiredBytes + " available=" + usableBytes
             );
         }
-
-        File staging = new File(installRoot, "." + manifest.version + ".staging");
-        deleteRecursively(staging);
         if (!staging.mkdirs()) {
             throw new IOException("无法创建 CDN 临时目录.");
         }
         try {
             updateStatus(statusListener, "正在解包 CDN 资源");
-            extractPayload(sourceFile, bundle, manifest, staging, statusListener);
-            writeFile(staging, MANIFEST_NAME, manifest.bytes);
-            writeFile(
+            extractor.extract(staging);
+            writeFileAtomically(staging, MANIFEST_NAME, manifest.bytes);
+            writeFileAtomically(
                 staging,
                 COMPLETE_MARKER,
                 (manifest.digest + "\n").getBytes(StandardCharsets.UTF_8)
             );
             replaceDirectory(staging, destination, installRoot, manifest.version);
         } catch (IOException | RuntimeException error) {
-            deleteRecursively(staging);
+            try {
+                deleteRecursively(staging);
+            } catch (IOException cleanupError) {
+                error.addSuppressed(cleanupError);
+            }
             throw error;
         }
     }
@@ -217,57 +317,44 @@ final class CdnAssetInstaller {
     }
 
     private static void extractPayload(
-        File sourceFile,
-        BundleLocation bundle,
+        InputStream source,
         AssetManifest manifest,
         File staging,
         StatusListener statusListener
     ) throws IOException {
-        long payloadEnd = checkedAdd(bundle.payloadOffset, bundle.payloadLength);
-        try (RandomAccessFile source = new RandomAccessFile(sourceFile, "r")) {
-            source.seek(bundle.payloadOffset);
-            byte[] buffer = new byte[COPY_BUFFER_SIZE];
-            for (int index = 0; index < manifest.entries.size(); index++) {
-                CdnEntry entry = manifest.entries.get(index);
-                if (entry.length > payloadEnd - source.getFilePointer()) {
-                    throw new IOException("CDN payload 长度不足: " + entry.relativePath);
-                }
-                File target = resolveStagingFile(staging, entry.relativePath);
-                File parent = target.getParentFile();
-                if (!parent.isDirectory() && !parent.mkdirs()) {
-                    throw new IOException("无法创建 CDN 文件目录: " + parent);
-                }
-                MessageDigest digest = newDigest();
-                long remaining = entry.length;
-                try (FileOutputStream output = new FileOutputStream(target)) {
-                    while (remaining > 0) {
-                        int requested = (int) Math.min(buffer.length, remaining);
-                        int count = source.read(buffer, 0, requested);
-                        if (count < 0) {
-                            throw new IOException("CDN payload 提前结束: " + entry.relativePath);
-                        }
-                        output.write(buffer, 0, count);
-                        digest.update(buffer, 0, count);
-                        remaining -= count;
+        byte[] buffer = new byte[COPY_BUFFER_SIZE];
+        for (int index = 0; index < manifest.entries.size(); index++) {
+            CdnEntry entry = manifest.entries.get(index);
+            File target = resolveStagingFile(staging, entry.relativePath);
+            File parent = target.getParentFile();
+            if (!parent.isDirectory() && !parent.mkdirs()) {
+                throw new IOException("无法创建 CDN 文件目录: " + parent);
+            }
+            MessageDigest digest = newDigest();
+            long remaining = entry.length;
+            try (FileOutputStream output = new FileOutputStream(target)) {
+                while (remaining > 0) {
+                    int requested = (int) Math.min(buffer.length, remaining);
+                    int count = source.read(buffer, 0, requested);
+                    if (count <= 0) {
+                        throw new IOException("CDN payload 提前结束: " + entry.relativePath);
                     }
-                }
-                String actualDigest = hex(digest.digest());
-                if (!entry.digest.equals(actualDigest)) {
-                    throw new IOException(
-                        "CDN 文件摘要不一致: " + entry.relativePath
-                            + " expected=" + entry.digest + " actual=" + actualDigest
-                    );
-                }
-                int completed = index + 1;
-                if (completed == manifest.entries.size() || completed % 64 == 0) {
-                    updateStatus(
-                        statusListener,
-                        "正在解包 CDN 资源 " + completed + "/" + manifest.entries.size()
-                    );
+                    output.write(buffer, 0, count);
+                    digest.update(buffer, 0, count);
+                    remaining -= count;
                 }
             }
-            if (source.getFilePointer() != payloadEnd) {
-                throw new IOException("CDN 清单长度与 payload 不一致.");
+            String actualDigest = hex(digest.digest());
+            if (!entry.digest.equals(actualDigest)) {
+                throw new IOException(
+                    "CDN 文件摘要不一致: " + entry.relativePath
+                        + " expected=" + entry.digest + " actual=" + actualDigest
+                );
+            }
+            int completed = index + 1;
+            if (completed == manifest.entries.size() || completed % 64 == 0) {
+                updateStatus(statusListener,
+                    "正在解包 CDN 资源 " + completed + "/" + manifest.entries.size());
             }
         }
     }
@@ -281,11 +368,33 @@ final class CdnAssetInstaller {
         return target;
     }
 
-    private static void writeFile(File directory, String relativePath, byte[] bytes) throws IOException {
+    private static void writeFileAtomically(
+        File directory,
+        String relativePath,
+        byte[] bytes
+    ) throws IOException {
         File target = resolveStagingFile(directory, relativePath);
-        try (FileOutputStream output = new FileOutputStream(target)) {
+        File temporary = new File(target.getPath() + ".tmp");
+        try (FileOutputStream output = new FileOutputStream(temporary)) {
             output.write(bytes);
             output.flush();
+            output.getFD().sync();
+        }
+        try {
+            Files.move(
+                temporary.toPath(),
+                target.toPath(),
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING
+            );
+        } catch (AtomicMoveNotSupportedException | UnsupportedOperationException error) {
+            if (!temporary.renameTo(target)) {
+                throw new IOException("无法原子写入 CDN 标记: " + target.getAbsolutePath(), error);
+            }
+        } finally {
+            if (temporary.exists() && !temporary.delete()) {
+                throw new IOException("无法清理 CDN 临时标记: " + temporary.getAbsolutePath());
+            }
         }
     }
 
@@ -329,6 +438,86 @@ final class CdnAssetInstaller {
         }
     }
     // //// /从 APK 尾随 bundle 安装 CDN ////
+
+    // //// 恢复已完成目录并回收失去引用的 CDN 版本 [@x380kkm 2026-09-26] ////
+    private static boolean recoverCompleteDirectory(
+        File installRoot,
+        File destination,
+        AssetManifest manifest
+    ) throws IOException {
+        File staging = new File(installRoot, "." + manifest.version + ".staging");
+        if (isCompleteDirectory(staging, manifest)) {
+            replaceDirectory(staging, destination, installRoot, manifest.version);
+            return true;
+        }
+        File previous = new File(installRoot, "." + manifest.version + ".previous");
+        if (isCompleteDirectory(previous, manifest)) {
+            deleteRecursively(destination);
+            if (!moveAtomically(previous, destination)) {
+                throw new IOException("无法恢复已完成的 CDN 目录.");
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean isCompleteDirectory(File directory, AssetManifest manifest) throws IOException {
+        if (Files.isSymbolicLink(directory.toPath())
+            || !hasMatchingManifest(directory, manifest.digest)
+            || !hasCompleteMarker(directory, manifest.digest)) {
+            return false;
+        }
+        for (CdnEntry entry : manifest.entries) {
+            File target = new File(directory, entry.relativePath);
+            try {
+                BasicFileAttributes attributes = Files.readAttributes(
+                    target.toPath(), BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                if (!attributes.isRegularFile() || attributes.size() != entry.length) {
+                    return false;
+                }
+            } catch (NoSuchFileException error) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static void cleanupObsoleteVersions(File installRoot, String activeVersion) {
+        File[] directories = installRoot.listFiles();
+        if (directories == null) {
+            return;
+        }
+        for (File directory : directories) {
+            String name = directory.getName();
+            if (name.equals(activeVersion) || Files.isSymbolicLink(directory.toPath())) {
+                continue;
+            }
+            try {
+                boolean temporary = name.matches("\\.[0-9a-f]{16}\\.(staging|previous)");
+                if (temporary || isOwnedVersionDirectory(directory)) {
+                    deleteRecursively(directory);
+                }
+            } catch (IOException error) {
+                Log.w("StarpointPersonalService", "无法清理旧 CDN 目录: " + name, error);
+            }
+        }
+    }
+
+    private static boolean isOwnedVersionDirectory(File directory) throws IOException {
+        if (!directory.getName().matches("[0-9a-f]{16}")) {
+            return false;
+        }
+        File manifest = new File(directory, MANIFEST_NAME);
+        if (!manifest.isFile()) {
+            return false;
+        }
+        String digest;
+        try (InputStream input = new FileInputStream(manifest)) {
+            digest = sha256(readAll(input));
+        }
+        return digest.startsWith(directory.getName()) && hasCompleteMarker(directory, digest);
+    }
+    // //// /恢复已完成目录并回收失去引用的 CDN 版本 ////
 
     // //// 读取尾随 footer 并核对重复 EOCD [@x380kkm 2026-08-31] ////
     private static BundleLocation readBundleLocation(RandomAccessFile source) throws IOException {
@@ -536,6 +725,10 @@ final class CdnAssetInstaller {
     }
 
     private static void deleteRecursively(File path) throws IOException {
+        if (Files.isSymbolicLink(path.toPath())) {
+            Files.deleteIfExists(path.toPath());
+            return;
+        }
         if (!path.exists()) {
             return;
         }

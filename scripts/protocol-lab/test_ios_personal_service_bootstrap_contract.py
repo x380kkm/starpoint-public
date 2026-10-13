@@ -250,9 +250,11 @@ class IosPersonalServiceBootstrapContractTest(unittest.TestCase):
         )
         self.assertIn("dispatch_sync(personalServiceQueue", readiness)
         self.assertIn("StarpointForegroundRecoveryMaximumAttempts", scheduling)
-        self.assertIn("StarpointForegroundRecoveryRestartInterval", recovery)
-        self.assertIn("healthState == StarpointPersonalServiceHealthUnreachable", recovery)
-        self.assertIn("attempt > 0", recovery)
+        self.assertIn("if (isReportedRunning) {\n        return NO;\n    }", recovery)
+        self.assertLess(
+            recovery.index("if (isReportedRunning)"),
+            recovery.index("discardPersonalServiceOnQueue();"),
+        )
         self.assertIn("&foregroundRecoveryScheduled", scheduling)
         self.assertIn("foregroundRecoveryCompletions", scheduling)
         self.assertIn("completePersonalServiceForegroundRecoveryOnQueue", scheduling)

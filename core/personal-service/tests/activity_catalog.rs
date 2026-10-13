@@ -5,6 +5,8 @@
 
 #[allow(dead_code)]
 mod support;
+#[path = "support/materialized_activity_catalog.rs"]
+mod materialized_activity_catalog;
 
 use rusqlite::Connection;
 use serde_json::Value;
@@ -123,7 +125,7 @@ fn write_manifest(cdn_root: &Path) {
     .expect("unreferenced banner is written");
 }
 
-fn write_permanent_activity_manifest(cdn_root: &Path) {
+fn write_daily_coverage_manifest(cdn_root: &Path) {
     fs::write(
         cdn_root.join("activity-catalog.json"),
         r#"{
@@ -133,7 +135,7 @@ fn write_permanent_activity_manifest(cdn_root: &Path) {
             "asset_version": "1.4.64",
             "activities": [
                 {
-                    "activity_id": "daily-week:1",
+                    "activity_id": "daily-week:13",
                     "name": "每日素材",
                     "kind": "daily",
                     "tags": ["daily"],
@@ -144,7 +146,7 @@ fn write_permanent_activity_manifest(cdn_root: &Path) {
             ]
         }"#,
     )
-    .expect("permanent activity manifest is written");
+    .expect("daily coverage manifest is written");
 }
 
 fn get_catalog(service: &PersonalService, query: &str) -> Value {
@@ -201,44 +203,91 @@ fn catalog_activity<'a>(catalog: &'a Value, activity_id: &str) -> &'a Value {
         .expect("activity exists in catalog")
 }
 
-// //// 验证未配置永久活动使用长期开放基线 [@x380kkm 2026-08-30] ////
+// //// 验证元素日常覆盖及等价入口隐藏 [@x380kkm 2026-09-25] ////
 #[test]
-fn keeps_unscheduled_permanent_activity_open_in_catalog() {
+fn keeps_selected_daily_coverage_consistent_with_catalog() {
     let root = TempDir::new().expect("service root exists");
     let cdn_root = TempDir::new().expect("CN asset root exists");
-    write_permanent_activity_manifest(cdn_root.path());
+    write_daily_coverage_manifest(cdn_root.path());
     let service = PersonalService::start_with_cdn_root(root.path(), 0, cdn_root.path())
         .expect("service starts");
 
-    let catalog = get_catalog(&service, "?q=daily-week%3A1");
-    let activity = catalog_activity(&catalog, "daily-week:1");
+    let catalog = get_catalog(&service, "?q=daily-week%3A13");
+    let activity = catalog_activity(&catalog, "daily-week:13");
     assert_eq!(activity["status"], "open");
     assert_eq!(activity["underlying_status"], "open");
     assert_eq!(activity["is_open"], true);
-    assert_eq!(activity["mode"], "always");
+    assert_eq!(activity["mode"], "window");
     let future_catalog = get_catalog(
         &service,
-        "?q=daily-week%3A1&from=2099-01-01&to=2099-01-01",
+        "?q=daily-week%3A13&from=2099-01-01&to=2099-01-01",
     );
     assert_eq!(future_catalog["total"], 1);
 
     let created = update_activity(
         &service,
         "POST",
-        "/v1/activities/daily-week%3A1/temporary-open",
+        "/v1/activities/daily-week%3A13/temporary-open",
         br#"{}"#,
     );
     assert_eq!(created["underlying_status"], "open");
     let deleted = update_activity(
         &service,
         "DELETE",
-        "/v1/activities/daily-week%3A1/temporary-open",
+        "/v1/activities/daily-week%3A13/temporary-open",
         b"",
     );
     assert_eq!(deleted["underlying_status"], "open");
     assert_eq!(deleted["status"], "open");
+    assert_eq!(get_catalog(&service, "?q=daily-week%3A2")["total"], 0);
+    update_activity(
+        &service, "PUT", "/v1/activities/calendar/daily-week%3A2",
+        br#"{"enabled":true,"start_at":"2019-01-01T00:00:00.000Z","end_at":"2099-01-01T00:00:00.000Z"}"#,
+    );
+    let aliases = get_catalog(&service, "?q=daily-week%3A2");
+    assert_eq!(aliases["total"], 1);
+    assert_eq!(catalog_activity(&aliases, "daily-week:2")["is_open"], true);
+    assert_eq!(get_catalog(&service, "?q=daily-week%3A13")["total"], 0);
+    update_activity(
+        &service, "PUT", "/v1/activities/calendar/daily-week%3A2",
+        br#"{"enabled":false,"start_at":"2019-01-01T00:00:00.000Z","end_at":"2099-01-01T00:00:00.000Z"}"#,
+    );
+    let disabled = get_catalog(&service, "?q=daily-week%3A2");
+    assert_eq!(catalog_activity(&disabled, "daily-week:2")["is_open"], false);
+    assert_eq!(get_catalog(&service, "?q=daily-week%3A13")["total"], 0);
 }
-// //// /验证未配置永久活动使用长期开放基线 ////
+// //// /验证元素日常覆盖及等价入口隐藏 ////
+
+// //// 保留回忆录源展示期并支持独立管理改期 [@x380kkm 2026-09-25] ////
+#[test]
+fn manages_player_history_with_its_original_display_period() {
+    let root = TempDir::new().unwrap();
+    let cdn_root = TempDir::new().unwrap();
+    write_manifest(cdn_root.path());
+    let service = PersonalService::start_with_cdn_root(root.path(), 0, cdn_root.path()).unwrap();
+    set_virtual_time(&service, "2025-06-20T12:00:00.000Z");
+    let catalog = get_catalog(&service, "?kind=player-history");
+    assert_eq!(catalog["total"], 1);
+    let history = catalog_activity(&catalog, "player-history:1");
+    assert_eq!(history["status"], "not_started");
+    assert_eq!(history["default_start_at_ms"], 1_752_724_800_000_i64);
+    assert_eq!(history["default_end_at_ms"], 1_755_187_200_000_i64);
+    set_virtual_time(&service, "2025-07-18T12:00:00.000Z");
+    let catalog = get_catalog(&service, "?kind=player-history");
+    assert_eq!(catalog_activity(&catalog, "player-history:1")["is_open"], true);
+    set_virtual_time(&service, "2025-08-15T12:00:00.000Z");
+    let catalog = get_catalog(&service, "?kind=player-history");
+    assert_eq!(catalog_activity(&catalog, "player-history:1")["status"], "ended");
+    update_activity(
+        &service, "PUT", "/v1/activities/calendar/player-history%3A1",
+        br#"{"enabled":true,"start_at":"2030-01-01T00:00:00.000Z","end_at":"2030-01-10T00:00:00.000Z"}"#,
+    );
+    set_virtual_time(&service, "2030-01-05T12:00:00.000Z");
+    let catalog = get_catalog(&service, "?kind=player-history");
+    assert_eq!(catalog["total"], 1);
+    assert_eq!(catalog_activity(&catalog, "player-history:1")["is_open"], true);
+    service.stop().unwrap();
+}
 
 // //// 验证活动目录筛选和收藏持久化 [@x380kkm 2026-08-19] ////
 #[test]
@@ -282,13 +331,13 @@ fn filters_catalog_and_persists_instance_favorite() {
     let open = get_catalog(&service, "?q=seasonal&kind=raid");
     assert_eq!(open["activities"][0]["status"], "open");
     assert_eq!(open["activities"][0]["is_open"], true);
-    assert_eq!(get_catalog(&service, "?from=2101-01-01")["total"], 0);
+    assert_eq!(get_catalog(&service, "?kind=raid&from=2101-01-01")["total"], 0);
     assert_eq!(
-        get_catalog(&service, "?from=4102617600000&to=4102617600000")["total"],
+        get_catalog(&service, "?kind=raid&from=4102617600000&to=4102617600000")["total"],
         0
     );
     assert_eq!(
-        get_catalog(&service, "?from=2099-12-01&to=2100-12-31")["total"],
+        get_catalog(&service, "?kind=raid&from=2099-12-01&to=2100-12-31")["total"],
         1
     );
 
@@ -508,21 +557,23 @@ fn serves_only_valid_banner_files() {
 }
 // //// /验证 banner 内容类型和路径隔离 ////
 
-// //// 验证本机物化的完整 CN 活动目录 [@x380kkm 2026-08-19] ////
+// //// 验证本机物化的完整 CN 活动目录 [@x380kkm 2026-09-26] ////
 #[test]
-fn loads_materialized_cn_activity_catalog_when_configured() {
-    let Ok(cdn_root) = env::var("STARPOINT_CN_CDN_ROOT") else {
-        return;
-    };
+#[ignore = "需要 STARPOINT_CN_CDN_ROOT 指向完整 CN 分发资源目录"]
+fn loads_materialized_cn_activity_catalog() {
+    let cdn_root = env::var("STARPOINT_CN_CDN_ROOT")
+        .expect("set STARPOINT_CN_CDN_ROOT before running this ignored test");
+    let expected = materialized_activity_catalog::expected_activity_images(Path::new(&cdn_root));
     let root = TempDir::new().expect("service root exists");
     let service = PersonalService::start_with_cdn_root(root.path(), 0, &cdn_root)
         .expect("service starts with the materialized CN catalog");
 
     let catalog = get_catalog(&service, "");
+    assert_eq!(catalog["manifest_state"], "loaded");
     let activities = catalog["activities"]
         .as_array()
         .expect("activities are an array");
-    assert_eq!(activities.len(), 1000);
+    assert_eq!(catalog["total"], activities.len());
     let activity_ids = activities
         .iter()
         .map(|activity| {
@@ -532,6 +583,11 @@ fn loads_materialized_cn_activity_catalog_when_configured() {
         })
         .collect::<HashSet<_>>();
     assert_eq!(activity_ids.len(), activities.len());
+    assert_eq!(
+        activity_ids,
+        expected.keys().map(String::as_str).collect::<HashSet<_>>(),
+        "management activities match the complete source catalogs"
+    );
     let activities_with_images = activities
         .iter()
         .filter(|activity| {
@@ -540,24 +596,66 @@ fn loads_materialized_cn_activity_catalog_when_configured() {
                 .is_some_and(|candidates| !candidates.is_empty())
         })
         .count();
-    assert_eq!(activities_with_images, 704);
-    let image_url = activities
-        .iter()
-        .find_map(|activity| activity["banner_url"].as_str())
-        .expect("at least one activity has an image");
-    let image = get_binary_response(service.port(), image_url);
-    let header_end = image
-        .windows(4)
-        .position(|window| window == b"\r\n\r\n")
-        .expect("binary response has headers");
-    let image_headers = std::str::from_utf8(&image[..header_end]).expect("headers are UTF-8");
-    assert!(image_headers.starts_with("HTTP/1.1 200 OK"));
-    assert!(image_headers.contains("Content-Type: image/"));
+    assert_eq!(
+        activities_with_images,
+        expected.values().filter(|images| !images.is_empty()).count()
+    );
+    let mut checked_images = HashSet::new();
+    for activity in activities {
+        let activity_id = activity["activity_id"].as_str().unwrap();
+        let candidates = activity["image_candidates"].as_array().unwrap();
+        let candidate_keys = candidates
+            .iter()
+            .map(|candidate| candidate["key"].as_str().expect("image key is text"))
+            .collect::<HashSet<_>>();
+        assert_eq!(candidate_keys.len(), candidates.len(), "{activity_id}");
+        assert_eq!(
+            candidate_keys,
+            expected[activity_id].iter().map(String::as_str).collect(),
+            "{activity_id} retains every source image candidate"
+        );
+        if let Some(first) = candidates.first() {
+            assert_eq!(activity["banner_key"], first["key"], "{activity_id}");
+            assert_eq!(activity["banner_url"], first["url"], "{activity_id}");
+        } else {
+            assert!(activity["banner_key"].is_null(), "{activity_id}");
+            assert!(activity["banner_url"].is_null(), "{activity_id}");
+        }
+        for candidate in candidates {
+            let key = candidate["key"].as_str().unwrap();
+            let image_url = candidate["url"].as_str().expect("image URL is text");
+            assert_eq!(image_url, format!("/manage/assets/activity-banners/{key}"));
+            if !checked_images.insert(key) {
+                continue;
+            }
+            let source_image = fs::read(Path::new(&cdn_root).join("activity-banners").join(key))
+                .unwrap_or_else(|error| panic!("missing catalog image {key}: {error}"));
+            assert!(!source_image.is_empty(), "empty catalog image {key}");
+            let image = get_binary_response(service.port(), image_url);
+            let header_end = image
+                .windows(4)
+                .position(|window| window == b"\r\n\r\n")
+                .expect("binary response has headers");
+            let headers = std::str::from_utf8(&image[..header_end]).expect("headers are UTF-8");
+            assert!(headers.starts_with("HTTP/1.1 200 OK"), "{image_url}: {headers}");
+            assert!(
+                response_header(headers, "Content-Type")
+                    .is_some_and(|mime| mime.starts_with("image/")),
+                "{image_url}: {headers}"
+            );
+            assert!(
+                image[header_end + 4..] == source_image,
+                "{image_url} response matches its nonempty source file"
+            );
+        }
+    }
+    assert!(!checked_images.is_empty(), "materialized catalog has images");
 
     println!(
-        "materialized CN activity catalog: total={}, with_images={}",
+        "materialized CN activity catalog: total={}, with_images={}, checked_images={}",
         activities.len(),
-        activities_with_images
+        activities_with_images,
+        checked_images.len()
     );
     service.stop().expect("service stops");
 }
@@ -616,14 +714,14 @@ fn persists_manual_and_periodic_activity_rules() {
     assert_eq!(
         get_catalog(
             &restarted,
-            "?from=2029-01-01T00:00:00.000Z&to=2029-12-31T23:59:59.999Z"
+            "?kind=raid&from=2029-01-01T00:00:00.000Z&to=2029-12-31T23:59:59.999Z"
         )["total"],
         0
     );
     assert_eq!(
         get_catalog(
             &restarted,
-            "?from=2030-01-31T02:00:00.000Z&to=2030-01-31T02:00:00.000Z"
+            "?kind=raid&from=2030-01-31T02:00:00.000Z&to=2030-01-31T02:00:00.000Z"
         )["total"],
         0
     );
@@ -635,7 +733,7 @@ fn persists_manual_and_periodic_activity_rules() {
     assert!(daily_activity["active_start_at_ms"].is_number());
     assert!(daily_activity["next_start_at_ms"].is_number());
     assert_eq!(
-        get_catalog(&restarted, "?from=2031-06-01&to=2031-06-02")["total"],
+        get_catalog(&restarted, "?kind=raid&from=2031-06-01&to=2031-06-02")["total"],
         1
     );
 
@@ -683,14 +781,14 @@ fn persists_manual_and_periodic_activity_rules() {
     assert_eq!(
         get_catalog(
             &restarted,
-            "?from=2030-02-01T00:00:00.000Z&to=2030-02-27T23:59:59.999Z"
+            "?kind=raid&from=2030-02-01T00:00:00.000Z&to=2030-02-27T23:59:59.999Z"
         )["total"],
         0
     );
     assert_eq!(
         get_catalog(
             &restarted,
-            "?from=2030-02-28T00:00:00.000Z&to=2030-02-28T23:59:59.999Z"
+            "?kind=raid&from=2030-02-28T00:00:00.000Z&to=2030-02-28T23:59:59.999Z"
         )["total"],
         1
     );
@@ -716,7 +814,7 @@ fn persists_manual_and_periodic_activity_rules() {
         br#"{"period":"monthly","interval_days":1}"#,
     );
     assert_eq!(
-        get_catalog(&restarted, "?from=1970-01-01&to=2200-12-31")["total"],
+        get_catalog(&restarted, "?kind=raid&from=1970-01-01&to=2200-12-31")["total"],
         0
     );
 

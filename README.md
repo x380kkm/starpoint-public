@@ -13,7 +13,7 @@ Starpoint Mobile 把本地个人服务, 管理页面, CN 客户端兼容逻辑�
 | [`ios`](https://github.com/x380kkm/starpoint-public/tree/ios) | iOS Bootstrap, Framework, 客户端处理, macOS 构建和签名脚本. |
 | [`android`](https://github.com/x380kkm/starpoint-public/tree/android) | Android CompanionHost, JNI, 客户端处理, CDN 合包和无头 AVD 工具. |
 
-每个分支是一条独立的单提交历史. 选择目标平台后直接克隆对应分支:
+选择目标平台后直接克隆对应分支:
 
 ```powershell
 git clone --branch ios --single-branch https://github.com/x380kkm/starpoint-public.git starpoint-ios
@@ -51,7 +51,10 @@ pwsh scripts/protocol-lab/build-android-cn-distribution.ps1 `
   -OutputDirectory D:\outputs\starpoint-android `
   -SourceCdnRoot .cdn\cn `
   -KeystorePath D:\signing\release.keystore `
-  -KeystorePasswordFile D:\signing\release-password.txt
+  -KeystorePasswordFile D:\signing\release-password.txt `
+  -ServiceBaselineRef HEAD `
+  -ReleaseVersion 0.0.43 `
+  -VersionCode 43
 ```
 
 APK, keystore, 密码文件, AVD 数据和 ADB 日志保持在仓库外.
@@ -163,6 +166,7 @@ pwsh scripts/protocol-lab/build-ios-cn-candidate.ps1 `
   -CnCdnBundle .cdn\cn `
   -BundleId dev.example.starpoint `
   -DisplayName Starpoint `
+  -ReleaseVersion 0.0.43 `
   -SshHost my-mac
 ```
 
@@ -178,7 +182,10 @@ pwsh scripts/protocol-lab/build-android-cn-distribution.ps1 `
   -OutputDirectory D:\outputs\starpoint-android `
   -SourceCdnRoot .cdn\cn `
   -KeystorePath D:\signing\release.keystore `
-  -KeystorePasswordFile D:\signing\release-password.txt
+  -KeystorePasswordFile D:\signing\release-password.txt `
+  -ServiceBaselineRef HEAD `
+  -ReleaseVersion 0.0.43 `
+  -VersionCode 43
 ```
 
 Android 客户端验证使用项目创建的专用无头 AVD. ADB 调用由项目脚本绑定到该 AVD 的 serial, 使验证环境与其他窗口和设备隔离:

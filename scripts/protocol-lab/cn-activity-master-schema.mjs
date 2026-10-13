@@ -128,7 +128,7 @@ export const EVENT_LIST_SCHEMA = Object.freeze({
 
 export const INDEPENDENT_ACTIVITY_SCHEMAS = Object.freeze([
     independentSchema("collect_item_event", "master/reward/event/collect_item_event.orderedmap", {
-        kind: "collect-item", label: "Collect item", imageIndexes: [7, 9, 12, 13, 14, 15, 16], bannerIndex: 7,
+        kind: "collect-item", label: "Collect item", nameIndex: 1, imageIndexes: [7, 9, 11, 12, 13, 14, 15, 16], bannerIndex: 7,
         startIndex: 20, endIndex: 21,
     }),
     independentSchema("gacha", "master/gacha/gacha.orderedmap", {
@@ -153,6 +153,29 @@ export const INDEPENDENT_ACTIVITY_SCHEMAS = Object.freeze([
     }),
     independentSchema("pass_card_event", "master/pass_card/pass_card_event.orderedmap", {
         kind: "pass-card", label: "Pass card", startIndex: 8, endIndex: 9,
+    }),
+    independentSchema("player_history", "master/player_history/player_history.orderedmap", {
+        kind: "player-history", label: "回忆录", startIndex: 2, endIndex: 3,
+    }),
+    independentSchema("multi_special_exchange_campaign", "master/campaign/multi_special_exchange/multi_special_exchange_campaign.orderedmap", {
+        identityPrefix: "multi-special-exchange", kind: "multi-special-exchange", label: "Multi special exchange", nameIndex: 1,
+        imageIndexes: [6, 7, 11, 13, 15], bannerIndex: 6, startIndex: 3, endIndex: 4,
+    }),
+    independentSchema("special_exchange_campaign", "master/campaign/special_exchange/special_exchange_campaign.orderedmap", {
+        identityPrefix: "special-exchange", kind: "special-exchange", label: "Special exchange", nameIndex: 1,
+        imageIndexes: [8, 12], bannerIndex: 8, startIndex: 4, endIndex: 5,
+    }),
+    independentSchema("start_dash_exchange_campaign", "master/campaign/start_dash_exchange/start_dash_exchange_campaign.orderedmap", {
+        identityPrefix: "start-dash-exchange", kind: "start-dash-exchange", label: "Start dash exchange", nameIndex: 1,
+        imageIndexes: [5, 8], bannerIndex: 5, startIndex: 2, endIndex: 3,
+    }),
+    independentSchema("treasure_vault_exchange_campaign", "master/campaign/treasure_vault_exchange/treasure_vault_exchange_campaign.orderedmap", {
+        identityPrefix: "treasure-vault-exchange", kind: "treasure-vault-exchange", label: "Treasure vault exchange", nameIndex: 1,
+        imageIndexes: [8, 10], bannerIndex: 8, startIndex: 4, endIndex: 5,
+    }),
+    independentSchema("character_election", "master/character_election/character_election.orderedmap", {
+        identityPrefix: "character-election", kind: "character-election", label: "角色投票",
+        imageIndexes: [1], bannerIndex: 1, startIndex: 2, endIndex: 3,
     }),
 ])
 

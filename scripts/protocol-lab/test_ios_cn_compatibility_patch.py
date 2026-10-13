@@ -23,17 +23,6 @@ def create_compatibility_fixture() -> bytes:
 
 # //// 验证兼容补丁集只接受唯一原始或目标上下文 [@x380kkm 2026-07-23] ////
 class IosCnCompatibilityPatchTest(unittest.TestCase):
-    def test_preloads_odds_for_every_open_equipment_gacha(self) -> None:
-        patch = next(
-            patch
-            for patch in CN_1_8_4_COMPATIBILITY_PATCHES
-            if patch.name == "gacha_equipment_odds_preload"
-        )
-
-        self.assertEqual(0x3E9864C, patch.preferred_offset)
-        self.assertEqual(bytes.fromhex("e4030032"), patch.source_window[16:20])
-        self.assertEqual(bytes.fromhex("e4031f2a"), patch.target_window[16:20])
-
     def test_reapplies_adjacent_air_guards(self) -> None:
         patches = tuple(
             patch

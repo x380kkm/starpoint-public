@@ -1,0 +1,47 @@
+{
+  "200001": {
+    "costs": [],
+    "rewards": [
+      {
+        "type": 2,
+        "count": 5000
+      }
+    ],
+    "userCost": {
+      "type": 0,
+      "amount": 50
+    },
+    "availableFrom": "2015-03-01 15:00:00",
+    "availableUntil": null
+  },
+  "200002": {
+    "costs": [],
+    "rewards": [
+      {
+        "type": 2,
+        "count": 30000
+      }
+    ],
+    "userCost": {
+      "type": 0,
+      "amount": 250
+    },
+    "availableFrom": "2015-03-01 15:00:00",
+    "availableUntil": null
+  },
+  "200003": {
+    "costs": [],
+    "rewards": [
+      {
+        "type": 2,
+        "count": 60000
+      }
+    ],
+    "userCost": {
+      "type": 0,
+      "amount": 500
+    },
+    "availableFrom": "2015-03-01 15:00:00",
+    "availableUntil": null
+  }
+}

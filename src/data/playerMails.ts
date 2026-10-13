@@ -1,13 +1,14 @@
 // audience: internal
 // # player-mails
-// 此模块保存玩家邮件, 管理邮件奖励并在领取时原子写入玩家数据.
+// 邮件领取把当前容量内的奖励原子写入玩家数据, 余量保留在同封邮件.
 
 import getDatabase, { Database } from "."
 import { Player } from "./types"
-import { getPlayerSync, givePlayerItemSync, updatePlayerSync } from "./wdfpData"
+import { getPlayerItemSync, getPlayerSync, givePlayerItemSync, updatePlayerItemSync, updatePlayerSync } from "./wdfpData"
 import { givePlayerCharacterSync } from "../lib/character"
 import { givePlayerEquipmentSync } from "../lib/equipment"
 import { getServerTime } from "../utils"
+import { hasMailRewards, mailItemCapacity, splitMailRewardsSync } from "./mailRewardCapacity"
 
 const db = getDatabase(Database.WDFP_DATA)
 const MAX_MAIL_PAGE_SIZE = 100
@@ -57,6 +58,7 @@ export interface PlayerMailClaimResult {
     equipmentList: object[]
     characterList: object[]
     expiredMailCount: number
+    maxOveredMailCount: number
     remainingCount: number
 }
 
@@ -113,13 +115,7 @@ function normalizeRewards(value: unknown): PlayerMailReward {
         vmoney: assertCount(rewards.vmoney ?? 0, "vmoney"),
         expPool: assertCount(rewards.expPool ?? 0, "expPool"),
     }
-    if (
-        Object.keys(normalized.itemList).length === 0 &&
-        Object.keys(normalized.equipmentList).length === 0 &&
-        normalized.characterList.length === 0 &&
-        normalized.freeMana === 0 && normalized.paidMana === 0 &&
-        normalized.freeVmoney === 0 && normalized.vmoney === 0 && normalized.expPool === 0
-    ) throw new Error("rewards must contain at least one value.")
+    if (!hasMailRewards(normalized)) throw new Error("rewards must contain at least one value.")
     return normalized
 }
 
@@ -174,17 +170,12 @@ export function getPlayerMailsSync(playerId: number, page = 1, pageSize = 20): P
 }
 
 function emptyClaimResult(): PlayerMailClaimResult {
-    return { mailIds: [], itemList: {}, equipmentList: [], characterList: [], expiredMailCount: 0, remainingCount: 0 }
+    return { mailIds: [], itemList: {}, equipmentList: [], characterList: [], expiredMailCount: 0, maxOveredMailCount: 0, remainingCount: 0 }
 }
 
-function addItem(result: PlayerMailClaimResult, itemId: string, count: number): void {
-    result.itemList[itemId] = (result.itemList[itemId] ?? 0) + count
-}
-
-function applyRewards(playerId: number, rewards: PlayerMailReward, result: PlayerMailClaimResult): void {
+function applyRewards(playerId: number, rewards: PlayerMailReward, remaining: PlayerMailReward, result: PlayerMailClaimResult): void {
     for (const [itemId, count] of Object.entries(rewards.itemList)) {
-        givePlayerItemSync(playerId, itemId, count)
-        addItem(result, itemId, count)
+        result.itemList[itemId] = givePlayerItemSync(playerId, itemId, count)
     }
     for (const [equipmentId, count] of Object.entries(rewards.equipmentList)) {
         result.equipmentList.push(givePlayerEquipmentSync(playerId, Number(equipmentId), count))
@@ -193,7 +184,19 @@ function applyRewards(playerId: number, rewards: PlayerMailReward, result: Playe
         const given = givePlayerCharacterSync(playerId, characterId)
         if (given === null) throw new Error(`character ${characterId} does not exist.`)
         result.characterList.push(given.character)
-        if (given.item !== undefined) addItem(result, String(given.item.id), given.item.count)
+        if (given.item !== undefined) {
+            const { id, count } = given.item
+            const total = getPlayerItemSync(playerId, id) ?? 0
+            const received = Math.min(count, Math.max(0, mailItemCapacity(id) - (total - count)))
+            const overflow = count - received
+            if (overflow > 0) {
+                const remainder = (remaining.itemList[id] ?? 0) + overflow
+                if (!Number.isSafeInteger(remainder)) throw new Error("Mail item remainder exceeds the supported range.")
+                remaining.itemList[id] = remainder
+                updatePlayerItemSync(playerId, id, total - overflow)
+            }
+            result.itemList[id] = total - overflow
+        }
     }
     const player = getPlayerSync(playerId) as Player
     updatePlayerSync({
@@ -206,16 +209,23 @@ function applyRewards(playerId: number, rewards: PlayerMailReward, result: Playe
     })
 }
 
+// //// 领取可容纳的奖励并更新同封邮件的剩余数量 [@x380kkm 2026-09-28] ////
 function claimMailInTransaction(playerId: number, mailId: number, result: PlayerMailClaimResult, now: number): void {
     const raw = selectMail(mailId, playerId)
     if (raw === undefined || raw.received_at !== null) return
-    db.prepare("UPDATE player_mails SET received_at = ? WHERE id = ? AND player_id = ? AND received_at IS NULL").run(now, mailId, playerId)
-    result.mailIds.push(mailId)
     if (raw.expires_at !== null && raw.expires_at <= now) {
+        db.prepare("UPDATE player_mails SET received_at = ? WHERE id = ? AND player_id = ? AND received_at IS NULL").run(now, mailId, playerId)
         result.expiredMailCount += 1
         return
     }
-    applyRewards(playerId, normalizeRewards(JSON.parse(raw.rewards_json)), result)
+    const rewards = normalizeRewards(JSON.parse(raw.rewards_json))
+    const { credited, remaining } = splitMailRewardsSync(playerId, rewards)
+    if (!hasMailRewards(credited)) return
+    applyRewards(playerId, credited, remaining, result)
+    const hasRemaining = hasMailRewards(remaining)
+    db.prepare("UPDATE player_mails SET rewards_json = ?, received_at = ? WHERE id = ? AND player_id = ? AND received_at IS NULL")
+        .run(JSON.stringify(hasRemaining ? remaining : credited), hasRemaining ? null : now, mailId, playerId)
+    result.mailIds.push(mailId)
 }
 
 function claimMailsSync(playerId: number, mailIds?: number[]): PlayerMailClaimResult {
@@ -225,7 +235,7 @@ function claimMailsSync(playerId: number, mailIds?: number[]): PlayerMailClaimRe
     const result = emptyClaimResult()
     const transaction = db.transaction(() => {
         const ids = mailIds ?? (db.prepare("SELECT id FROM player_mails WHERE player_id = ? AND received_at IS NULL").all(playerId) as { id: number }[]).map((row) => row.id)
-        for (const mailId of ids) {
+        for (const mailId of new Set(ids)) {
             if (!Number.isSafeInteger(mailId) || mailId <= 0) throw new Error("mailIds must contain positive integers.")
             claimMailInTransaction(playerId, mailId, result, now)
         }

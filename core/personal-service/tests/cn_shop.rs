@@ -10,6 +10,19 @@ mod cn_support;
 #[allow(dead_code)]
 mod support;
 
+#[path = "cn_shop/enhancement.rs"]
+mod enhancement;
+#[path = "cn_shop/lifecycle.rs"]
+mod lifecycle;
+#[path = "cn_shop/entry.rs"]
+mod entry;
+#[path = "cn_shop/quantities.rs"]
+mod quantities;
+#[path = "cn_shop/settlement.rs"]
+mod settlement;
+#[path = "cn_shop/stamina.rs"]
+mod stamina;
+
 use cn_support::{decode_response, encode_request, LoadRequest, SignupData, SignupRequest};
 use rusqlite::{params, Connection};
 use serde::Serialize;
@@ -165,7 +178,7 @@ fn returns_available_sales_for_valid_viewer() {
     assert!(!sales.is_empty());
     assert!(sales
         .iter()
-        .all(|sale| sale["shop_type"] == 2 && sale["shop_item_id"].is_i64()));
+        .all(|sale| matches!(sale["shop_type"].as_i64(), Some(2 | 3)) && sale["shop_item_id"].is_i64()));
     assert!(sales.iter().all(|sale| {
         sale["group_info"]["group_total_stock_quantity"].is_i64()
             && sale["group_info"]["group_total_purchase_num"].is_i64()
@@ -189,7 +202,7 @@ fn selects_current_equipment_enhancement_stage_and_buys_same_item() {
     update_player_snapshot(root.path(), |player_data| {
         player_data["user_equipment_list"]["5020035"] = json!({
             "equipment_id": 5_020_035,
-            "level": 1,
+            "level": 5,
             "enhancement_level": 70,
             "protection": false,
             "stack": 1,
@@ -271,7 +284,8 @@ fn selects_current_equipment_enhancement_stage_and_buys_same_item() {
         }),
     ));
     assert_eq!(bought.data["equipment_list"][0]["equipment_id"], 5_020_035);
-    assert_eq!(bought.data["equipment_list"][0]["enhancement_level"], 98);
+    assert_eq!(bought.data["equipment_list"][0]["enhancement_level"], 71);
+    assert_eq!(bought.data["item_list"]["14033"], 98);
     service.stop().expect("service stops cleanly");
 }
 // //// /验证装备强化目录选择当前阶段并购买同一商品 ////
@@ -413,7 +427,7 @@ fn filters_sales_and_purchases_by_client_shop_master() {
     let service = PersonalService::start(root.path(), 0).expect("service starts");
     let viewer_id = signup(&service, 88);
 
-    set_virtual_time(&service, "2019-12-02T12:00:00.000Z");
+    set_virtual_time(&service, "2023-09-22T12:00:00.000Z");
     let star_grain = decode_response::<Value>(&cn_support::send_request(
         service.port(),
         "/api/index.php/shop/get_sales_list",
@@ -518,10 +532,7 @@ fn persists_shop_rewards_and_receive_history() {
         initial_free_mana - 300
     );
     assert_eq!(bought.data["user_info"]["exp_pool"], initial_exp_pool);
-    assert_eq!(
-        bought.data["active_mission_list"],
-        json!([{"mission_id": 12010, "progress_value": 146, "stages": []}])
-    );
+    assert_eq!(bought.data["active_mission_list"], json!([]));
     let history = decode_response::<Value>(&cn_support::send_request(
         service.port(),
         "/api/index.php/history/receive",
@@ -542,7 +553,7 @@ fn persists_shop_rewards_and_receive_history() {
     assert_eq!(loaded.data["item_list"]["1"], initial_item_count + 1);
     assert_eq!(
         loaded.data["all_active_mission_list"]["12010"]["progress"],
-        146
+        145
     );
     let restarted_history = decode_response::<Value>(&cn_support::send_request(
         restarted.port(),
@@ -560,7 +571,7 @@ fn persists_star_grain_shop_item_reward() {
     let root = TempDir::new().expect("temporary service directory is created");
     let service = PersonalService::start(root.path(), 0).expect("service starts");
     let viewer_id = signup(&service, 97);
-    set_virtual_time(&service, "2022-04-20T12:00:00.000Z");
+    set_virtual_time(&service, "2023-09-22T12:00:00.000Z");
     update_player_snapshot(root.path(), |player_data| {
         player_data["item_list"]["990008"] = Value::from(200);
         player_data["item_list"]["101"] = Value::from(2);
@@ -575,7 +586,7 @@ fn persists_star_grain_shop_item_reward() {
         &encode_request(&BuyRequest {
             viewer_id,
             shop_type: 9,
-            shop_item_id: 100_005,
+            shop_item_id: 100_014,
             number: 1,
         }),
     ));
@@ -666,9 +677,11 @@ fn persists_bulk_shop_rewards() {
     update_player_snapshot(root.path(), |player_data| {
         player_data["item_list"]["990008"] = Value::from(100);
         player_data["all_active_mission_list"] = json!({
-            "12010": {"progress": 145, "stages": {"1": false}}
+            "12010": {"progress": 0, "stages": {}}
         });
     });
+    load(service.port(), viewer_id);
+    let before = read_player_snapshot(root.path());
 
     let response = cn_support::send_request(
         service.port(),
@@ -685,23 +698,37 @@ fn persists_bulk_shop_rewards() {
     assert!(response.starts_with("HTTP/1.1 200 OK"), "{response}");
     let bought = decode_response::<Value>(&response);
     assert_eq!(bought.data_headers.result_code, 1);
-    assert_eq!(bought.data["item_list"]["990008"], 85);
-    assert_eq!(bought.data["item_list"]["101"], 1);
-    assert_eq!(bought.data["item_list"]["102"], 1);
     assert_eq!(
-        bought.data["active_mission_list"],
-        json!([{"mission_id": 12010, "progress_value": 147, "stages": []}])
+        bought.data["item_list"]["990008"],
+        before["item_list"]["990008"]
+            .as_i64()
+            .expect("shop currency is numeric")
+            - 15
+    );
+    for item_id in ["101", "102"] {
+        assert_eq!(
+            bought.data["item_list"][item_id],
+            before["item_list"][item_id].as_i64().unwrap_or_default() + 1
+        );
+    }
+    assert_eq!(bought.data["active_mission_list"], json!([]));
+    assert_eq!(
+        read_player_snapshot(root.path())["all_active_mission_list"],
+        before["all_active_mission_list"]
     );
 
     service.stop().expect("service stops cleanly");
     let restarted = PersonalService::start(root.path(), 0).expect("service restarts");
     let loaded = load(restarted.port(), viewer_id);
-    assert_eq!(loaded.data["item_list"]["990008"], 85);
-    assert_eq!(loaded.data["item_list"]["101"], 1);
-    assert_eq!(loaded.data["item_list"]["102"], 1);
+    for item_id in ["990008", "101", "102"] {
+        assert_eq!(
+            loaded.data["item_list"][item_id],
+            bought.data["item_list"][item_id]
+        );
+    }
     assert_eq!(
         loaded.data["all_active_mission_list"]["12010"]["progress"],
-        147
+        0
     );
     restarted.stop().expect("service stops cleanly");
 }
@@ -735,8 +762,12 @@ fn refreshes_shop_stock_from_purchase_baseline() {
         "/api/index.php/shop/buy",
         &encode_request(&request),
     );
-    assert!(exhausted.starts_with("HTTP/1.1 400 Bad Request"));
-    assert!(exhausted.ends_with("{\"error\":\"shop_stock_exceeded\"}"));
+    assert_eq!(
+        decode_response::<Value>(&exhausted)
+            .data_headers
+            .result_code,
+        3010
+    );
 
     let authorization_value = format!("Bearer {}", service.management_token());
     let authorization = [("Authorization", authorization_value.as_str())];
@@ -791,8 +822,10 @@ fn rejects_a_purchase_above_the_client_buy_max_count() {
         "/api/index.php/shop/buy",
         &encode_request(&request),
     );
-    assert!(response.starts_with("HTTP/1.1 400 Bad Request"));
-    assert!(response.ends_with("{\"error\":\"shop_stock_exceeded\"}"));
+    assert_eq!(
+        decode_response::<Value>(&response).data_headers.result_code,
+        3010
+    );
     let stored = read_player_snapshot(root.path());
     assert_eq!(stored["user_info"]["free_mana"], 20);
     assert!(stored["shop_purchase_counts"].get("2:200001").is_none());
@@ -1001,25 +1034,32 @@ fn selects_only_requested_boss_coin_categories() {
 
 // //// 验证免费余额优先扣除并持久化体力 [@x380kkm 2026-08-04] ////
 #[test]
-fn does_not_use_paid_vmoney_for_stamina_recovery() {
+fn spends_combined_vmoney_for_stamina_recovery() {
     let root = TempDir::new().expect("temporary service directory is created");
     let service = PersonalService::start(root.path(), 0).expect("service starts");
     set_virtual_time(&service, STAMINA_TEST_TIME);
     let viewer_id = signup(&service, 81);
+    load(service.port(), viewer_id);
     service.stop().expect("service stops cleanly");
     set_resources(root.path(), 20, STAMINA_TEST_TIME_SECONDS, 30, 40);
 
     let service = PersonalService::start(root.path(), 0).expect("service restarts");
     let recovered = decode_response::<Value>(&recover_stamina(service.port(), viewer_id));
-    assert_eq!(recovered.data_headers.result_code, 0);
-    assert!(recovered
-        .data
-        .as_object()
-        .is_some_and(serde_json::Map::is_empty));
-
+    assert_eq!(recovered.data_headers.result_code, 1);
+    assert_eq!(recovered.data["user_info"]["stamina"], 120);
+    assert_eq!(recovered.data["user_info"]["free_vmoney"], 0);
+    assert_eq!(recovered.data["user_info"]["vmoney"], 20);
+    service.stop().expect("service stops cleanly");
+    let service = PersonalService::start(root.path(), 0).expect("service restarts");
+    let saved = read_player_snapshot(root.path());
+    let replay = decode_response::<Value>(&recover_stamina(service.port(), viewer_id));
+    assert_eq!(replay.data, recovered.data);
+    assert_eq!(replay.data_headers.servertime, recovered.data_headers.servertime);
+    assert_eq!(read_player_snapshot(root.path()), saved);
     let loaded = load(service.port(), viewer_id);
-    assert_eq!(loaded.data["user_info"]["free_vmoney"], 30);
-    assert_eq!(loaded.data["user_info"]["vmoney"], 40);
+    assert_eq!(loaded.data["user_info"]["stamina"], 120);
+    assert_eq!(loaded.data["user_info"]["free_vmoney"], 0);
+    assert_eq!(loaded.data["user_info"]["vmoney"], 20);
     service.stop().expect("service stops cleanly");
 }
 // //// /验证免费余额优先扣除并持久化体力 ////
@@ -1031,6 +1071,7 @@ fn spends_only_free_vmoney_when_it_covers_the_cost() {
     let service = PersonalService::start(root.path(), 0).expect("service starts");
     set_virtual_time(&service, STAMINA_TEST_TIME);
     let viewer_id = signup(&service, 84);
+    load(service.port(), viewer_id);
     service.stop().expect("service stops cleanly");
     set_resources(root.path(), 20, STAMINA_TEST_TIME_SECONDS, 80, 40);
 
@@ -1038,7 +1079,7 @@ fn spends_only_free_vmoney_when_it_covers_the_cost() {
     let recovered = decode_response::<Value>(&recover_stamina(service.port(), viewer_id));
     assert_eq!(recovered.data["user_info"]["stamina"], 120);
     assert_eq!(recovered.data["user_info"]["free_vmoney"], 30);
-    assert!(recovered.data["user_info"]["vmoney"].is_null());
+    assert_eq!(recovered.data["user_info"]["vmoney"], 40);
     let loaded = load(service.port(), viewer_id);
     assert_eq!(loaded.data["user_info"]["free_vmoney"], 30);
     assert_eq!(loaded.data["user_info"]["vmoney"], 40);
@@ -1053,12 +1094,15 @@ fn rejects_insufficient_vmoney_without_mutation() {
     let service = PersonalService::start(root.path(), 0).expect("service starts");
     set_virtual_time(&service, STAMINA_TEST_TIME);
     let viewer_id = signup(&service, 82);
+    load(service.port(), viewer_id);
     service.stop().expect("service stops cleanly");
     set_resources(root.path(), 20, STAMINA_TEST_TIME_SECONDS, 20, 20);
 
     let service = PersonalService::start(root.path(), 0).expect("service restarts");
+    let before = read_player_snapshot(root.path());
     let response = decode_response::<Value>(&recover_stamina(service.port(), viewer_id));
     assert_eq!(response.data_headers.result_code, 0);
+    assert_eq!(read_player_snapshot(root.path()), before);
     assert!(response
         .data
         .as_object()
@@ -1082,12 +1126,15 @@ fn returns_stamina_limit_result_without_mutation() {
     let service = PersonalService::start(root.path(), 0).expect("service starts");
     set_virtual_time(&service, STAMINA_TEST_TIME);
     let viewer_id = signup(&service, 83);
+    load(service.port(), viewer_id);
     service.stop().expect("service stops cleanly");
     set_resources(root.path(), 999, STAMINA_TEST_TIME_SECONDS, 30, 40);
 
     let service = PersonalService::start(root.path(), 0).expect("service restarts");
+    let before = read_player_snapshot(root.path());
     let capped = decode_response::<Value>(&recover_stamina(service.port(), viewer_id));
     assert_eq!(capped.data_headers.result_code, 2_102);
+    assert_eq!(read_player_snapshot(root.path()), before);
     assert!(capped
         .data
         .as_object()

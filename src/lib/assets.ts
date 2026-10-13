@@ -28,8 +28,7 @@ import exStatus from "../../assets/ex_status.json";
 import gachas from "../../assets/gacha.json";
 import mainQuests from "../../assets/main_quest.json";
 import manaNodes from "../../assets/mana_node.json";
-import rareScoreRewards from "../../assets/rare_score_reward.json";
-import scoreRewards from "../../assets/score_reward.json";
+import battleRewardSource from "../../core/personal-service/assets/cn-battle-reward-rules.json";
 import gachaCampaigns from "../../assets/gacha_campaign.json";
 import bossCoinShopItems from "../../assets/boss_coin_shop.json";
 import bossCoinShopItemCategoryMap from "../../assets/boss_coin_shop_item_category_map.json";
@@ -39,7 +38,33 @@ import generalShopItems from "../../assets/general_shop.json";
 import starGrainShopItems from "../../assets/star_grain_shop.json";
 import treasureShopItems from "../../assets/treasure_shop.json";
 import rushEventQuestFolders from "../../assets/rush_event_quest_folder.json"
-import { AssetCharacter, BattleQuest, BossCoinShopItems, BoxGacha, ClearRewards, EventItemShopIdMapItem, EventShopItems, ExAbilities, ExBoostItem, ExBoostItems, ExStatus, Gacha, Gachas, ManaNode, ManaNodes, QuestCategory, RareScoreReward, RareScoreRewardGroups, RawAssetCharacters, RawBoxGachas, RawBoxRewards, RawQuests, Reward, RushEventFolders, ScoreReward, ScoreRewardGroups, ShopItem, ShopItems, ShopType, StoryQuest } from "./types";
+import { AssetCharacter, BattleQuest, BossCoinShopItems, BoxGacha, ClearRewards, EventItemShopIdMapItem, EventShopItems, ExAbilities, ExBoostItem, ExBoostItems, ExStatus, Gacha, Gachas, ManaNode, ManaNodes, QuestCategory, RareScoreReward, RawAssetCharacters, RawBoxGachas, RawBoxRewards, RawQuests, Reward, RushEventFolders, ScoreReward, ScoreRewardGroups, ShopItem, ShopItems, ShopType, StoryQuest } from "./types";
+
+interface BattleRewardRule {
+    master_fields: RawQuests[string]
+    score_reward_group_id: number | null
+    score_reward_counts: number[]
+    element: number | null
+}
+
+const battleRewardRules = battleRewardSource as unknown as {
+    common_reward_multiplier_by_multi_play_mode: number
+    quest_rewards: Record<string, BattleRewardRule>
+    score_reward_groups: ScoreRewardGroups
+    rare_reward_groups: Record<string, RareScoreReward[]>
+    reward_element_map: Record<string, Record<string, Record<string, number[]>>>
+}
+
+// //// 读取多人普通掉落的客户端配置倍率 [@x380kkm 2026-09-28] ////
+export function getMultiplayerCommonRewardMultiplier(): number {
+    return battleRewardRules.common_reward_multiplier_by_multi_play_mode
+}
+
+// //// 将主表元素稀有度解析为关卡对应的素材编号 [@x380kkm 2026-09-28] ////
+export function getElementRewardItemId(kind: number, rarity: number, questElement: number): number {
+    const enemyElement = [3, 0, 1, 2, 5, 4][questElement]
+    return battleRewardRules.reward_element_map[kind === 6 ? "1" : "2"][rarity][enemyElement][0]
+}
 
 /**
  * Gets a clear reward from its ID.
@@ -63,8 +88,7 @@ export function getClearRewardSync(
 export function getRareScoreRewardGroup(
     groupId: string | number
 ): RareScoreReward[] | null {
-    const group = (rareScoreRewards as RareScoreRewardGroups)[String(groupId)]
-    return group ? group as RareScoreReward[] : null
+    return battleRewardRules.rare_reward_groups[String(groupId)] ?? null
 }
 
 /**
@@ -76,8 +100,7 @@ export function getRareScoreRewardGroup(
 export function getScoreRewardGroup(
     groupId: string | number
 ): ScoreReward[] | null {
-    const group = (scoreRewards as ScoreRewardGroups)[String(groupId)]
-    return group ? group as ScoreReward[] : null
+    return battleRewardRules.score_reward_groups[String(groupId)] ?? null
 }
 
 /**
@@ -89,20 +112,28 @@ export function getScoreRewardGroup(
  */
 function getQuestSync(
     quests: RawQuests,
-    questId: string | number
+    questId: string | number,
+    category: QuestCategory,
 ): BattleQuest | StoryQuest | null {
-    const quest = quests[String(questId)]
+    const rawQuest = quests[String(questId)]
 
     // return null if the quest doesn't exist
-    if (!quest) return null;
+    if (!rawQuest) return null;
+
+    const rule = battleRewardRules.quest_rewards[`${category}:${questId}`]
+    const quest = rule === undefined ? rawQuest : { ...rawQuest, ...rule.master_fields }
+    const groupId = category === QuestCategory.SCORE_ATTACK_EVENT
+        ? undefined : rule?.score_reward_group_id ?? undefined
 
     // return either a story quest or a battle quest depending on the keys present
-    return 'manaReward' in quest ? {
+    return 'manaReward' in rawQuest ? {
         name: quest.name,
-        clearReward: quest.clearRewardId === undefined ? undefined : getClearRewardSync(quest.clearRewardId),
-        sPlusReward: quest.sPlusRewardId === undefined ? undefined : getClearRewardSync(quest.sPlusRewardId),
-        scoreRewardGroupId: quest.scoreRewardGroupId,
-        scoreRewardGroup: quest.scoreRewardGroupId === undefined ? undefined : getScoreRewardGroup(quest.scoreRewardGroupId),
+        clearReward: quest.clearRewardId == null ? undefined : getClearRewardSync(quest.clearRewardId),
+        sPlusReward: quest.sPlusRewardId == null ? undefined : getClearRewardSync(quest.sPlusRewardId),
+        scoreRewardGroupId: groupId,
+        scoreRewardGroup: groupId === undefined ? undefined : getScoreRewardGroup(groupId),
+        scoreRewardCounts: rule?.score_reward_counts ?? [0, 0, 0, 0, 0],
+        element: rule?.element ?? 0,
         bRankTime: quest.bRankTime,
         aRankTime: quest.aRankTime,
         sRankTime: quest.sRankTime,
@@ -117,7 +148,7 @@ function getQuestSync(
         rushEventRound: quest.rushEventRound
     } as BattleQuest : {
         name: quest.name,
-        clearReward: quest.clearRewardId === undefined ? undefined : getClearRewardSync(quest.clearRewardId),
+        clearReward: quest.clearRewardId == null ? undefined : getClearRewardSync(quest.clearRewardId),
     } as StoryQuest
 }
 
@@ -130,7 +161,7 @@ function getQuestSync(
 export function getMainQuestSync(
     questId: string | number
 ): BattleQuest | StoryQuest | null {
-    return getQuestSync((mainQuests as RawQuests), questId)
+    return getQuestSync((mainQuests as RawQuests), questId, QuestCategory.MAIN)
 }
 
 /**
@@ -142,7 +173,7 @@ export function getMainQuestSync(
 export function getExQuestSync(
     questId: string | number
 ): BattleQuest | null {
-    return getQuestSync((exQuests as RawQuests), questId) as BattleQuest | null
+    return getQuestSync((exQuests as RawQuests), questId, QuestCategory.EX) as BattleQuest | null
 }
 
 /**
@@ -154,7 +185,7 @@ export function getExQuestSync(
 export function getBossBattleQuestSync(
     questId: string | number
 ): BattleQuest | null {
-    return getQuestSync((bossBattleQuests as RawQuests), questId) as BattleQuest | null
+    return getQuestSync((bossBattleQuests as RawQuests), questId, QuestCategory.BOSS_BATTLE) as BattleQuest | null
 }
 
 /**
@@ -166,7 +197,7 @@ export function getBossBattleQuestSync(
 export function getCharacterQuestSync(
     questId: string | number
 ): StoryQuest | null {
-    return getQuestSync((characterQuests as any as RawQuests), questId) as StoryQuest | null
+    return getQuestSync((characterQuests as any as RawQuests), questId, QuestCategory.CHARACTER) as StoryQuest | null
 }
 
 /**
@@ -178,7 +209,7 @@ export function getCharacterQuestSync(
 export function getWorldStoryEventQuestSync(
     questId: string | number
 ): StoryQuest | null {
-    return getQuestSync((worldStoryEventQuests as RawQuests), questId) as StoryQuest | null
+    return getQuestSync((worldStoryEventQuests as RawQuests), questId, QuestCategory.WORLD_STORY_EVENT) as StoryQuest | null
 }
 
 /**
@@ -190,7 +221,7 @@ export function getWorldStoryEventQuestSync(
 export function getWorldStoryEventBossBattleQuestSync(
     questId: string | number
 ): StoryQuest | null {
-    return getQuestSync((worldStoryEventBossBattleQuests as RawQuests), questId) as StoryQuest | null
+    return getQuestSync((worldStoryEventBossBattleQuests as RawQuests), questId, QuestCategory.WORLD_STORY_EVENT_BOSS_BATTLE) as StoryQuest | null
 }
 
 /**
@@ -202,7 +233,7 @@ export function getWorldStoryEventBossBattleQuestSync(
 export function getAdventEventQuest(
     questId: string | number
 ): StoryQuest | null {
-    return getQuestSync((adventEventQuests as RawQuests), questId) as StoryQuest | null
+    return getQuestSync((adventEventQuests as RawQuests), questId, QuestCategory.ADVENT_EVENT_SINGLE) as StoryQuest | null
 }
 
 /**
@@ -233,33 +264,33 @@ export function getQuestFromCategorySync(
         case QuestCategory.ADVENT_EVENT_MULTI:
             return getAdventEventQuest(questId)
         case QuestCategory.STORY_EVENT_SINGLE:
-            return getQuestSync((storyEventSingleQuests as RawQuests), questId)
+            return getQuestSync((storyEventSingleQuests as RawQuests), questId, category)
         case QuestCategory.RANKING_EVENT_SINGLE:
-            return getQuestSync((rankingEventSingleQuests as RawQuests), questId)
+            return getQuestSync((rankingEventSingleQuests as RawQuests), questId, category)
         case QuestCategory.CHALLENGE_DUNGEON_EVENT:
-            return getQuestSync((challengeDungeonEventQuests as RawQuests), questId)
+            return getQuestSync((challengeDungeonEventQuests as RawQuests), questId, category)
         case QuestCategory.DAILY_EXP_MANA_EVENT:
-            return getQuestSync((dailyExpManaEventQuests as RawQuests), questId)
+            return getQuestSync((dailyExpManaEventQuests as RawQuests), questId, category)
         case QuestCategory.PRACTICE:
-            return getQuestSync((practiceQuests as RawQuests), questId)
+            return getQuestSync((practiceQuests as RawQuests), questId, category)
         case QuestCategory.DAILY_WEEK_EVENT:
-            return getQuestSync((dailyWeekEventQuests as RawQuests), questId)
+            return getQuestSync((dailyWeekEventQuests as RawQuests), questId, category)
         case QuestCategory.TOWER_DUNGEON_EVENT:
-            return getQuestSync((towerDungeonEventQuests as RawQuests), questId)
+            return getQuestSync((towerDungeonEventQuests as RawQuests), questId, category)
         case QuestCategory.EXPERT_SINGLE_EVENT:
-            return getQuestSync((expertSingleEventQuests as RawQuests), questId)
+            return getQuestSync((expertSingleEventQuests as RawQuests), questId, category)
         case QuestCategory.CARNIVAL_EVENT:
-            return getQuestSync((carnivalEventQuests as RawQuests), questId)
+            return getQuestSync((carnivalEventQuests as RawQuests), questId, category)
         case QuestCategory.RAID_EVENT:
-            return getQuestSync((raidEventQuests as RawQuests), questId)
+            return getQuestSync((raidEventQuests as RawQuests), questId, category)
         case QuestCategory.RUSH_EVENT:
-            return getQuestSync((rushEventQuests as RawQuests), questId)
+            return getQuestSync((rushEventQuests as RawQuests), questId, category)
         case QuestCategory.SOLO_TIME_ATTACK_EVENT:
-            return getQuestSync((soloTimeAttackEventQuests as RawQuests), questId)
+            return getQuestSync((soloTimeAttackEventQuests as RawQuests), questId, category)
         case QuestCategory.SCORE_ATTACK_EVENT:
-            return getQuestSync((scoreAttackEventQuests as RawQuests), questId)
+            return getQuestSync((scoreAttackEventQuests as RawQuests), questId, category)
         case QuestCategory.HARD_MULTI_EVENT:
-            return getQuestSync((hardMultiEventQuests as RawQuests), questId)
+            return getQuestSync((hardMultiEventQuests as RawQuests), questId, category)
         default:
             return null
     }
@@ -405,16 +436,20 @@ export function getGachaSync(
     return data ?? null
 }
 
-/**
- * Gets the ID of the gacha campaign assigned to a gacha.
- * 
- * @param gachaId The ID of the gacha.
- * @returns The ID of the assigned gacha campaign or null.
- */
-export function getGachaCampaignIdSync(
-    gachaId: string | number
-): number | null {
-    return (gachaCampaigns as Record<string, number>)[String(gachaId)] ?? null
+export interface GachaCampaign {
+    campaignId: number
+    name: string
+    kind: 1 | 2
+    startTime: number
+    endTime: number
+    gachaIds: number[]
+    temporaryCampaignIds: Record<string, number>
+}
+
+// //// 按活动顺序读取扭蛋活动目录 [@x380kkm 2026-09-28] ////
+export function getGachaCampaignListSync(): GachaCampaign[] {
+    return Object.entries(gachaCampaigns as Record<string, Omit<GachaCampaign, "campaignId">>)
+        .map(([campaignId, campaign]) => ({ campaignId: Number(campaignId), ...campaign }))
 }
 
 // shop functions

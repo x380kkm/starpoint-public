@@ -179,7 +179,10 @@ fn hides_disabled_event_shop_inventory() {
             number: 1,
         }),
     );
-    assert!(buy.ends_with("{\"error\":\"activity_disabled\"}"));
+    assert_eq!(
+        decode_response::<Value>(&buy).data_headers.result_code,
+        2053
+    );
 
     let temporary_open = request_with_headers(
         service.port(),
@@ -413,7 +416,10 @@ fn reopens_event_shop_on_weekly_activity_window() {
         1
     );
     set_virtual_time(&service, &authorization, "2023-03-22T18:00:00.000Z");
-    assert!(event_shop_sales(service.port(), &request).is_empty());
+    assert_eq!(
+        event_shop_sale(service.port(), &request, 1)["stock_quantity"],
+        1
+    );
     set_virtual_time(&service, &authorization, "2023-03-27T18:00:00.000Z");
     let next_week = event_shop_sale(service.port(), &request, 1);
     assert_eq!(next_week["stock_quantity"], 2);
@@ -431,6 +437,88 @@ fn reopens_event_shop_on_weekly_activity_window() {
     service.stop().expect("service stops cleanly");
 }
 // //// /验证每周活动规则按同一窗口重新开放商店 ////
+
+// //// 比赛结束后的兑换沿用库存并在兑换期限结束时关闭 [@x380kkm 2026-09-21] ////
+#[test]
+fn retains_stock_through_the_exchange_tail() {
+    let root = TempDir::new().unwrap();
+    let service = PersonalService::start(root.path(), 0).unwrap();
+    let viewer_id = decode_response::<SignupData>(&cn_support::send_request(
+        service.port(),
+        "/api/index.php/tool/signup",
+        &encode_request(&SignupRequest { device_id: 224 }),
+    ))
+    .data_headers
+    .viewer_id;
+    let token = format!("Bearer {}", service.management_token());
+    let authorization = [("Authorization", token.as_str())];
+    let configured = request_with_headers(
+        service.port(),
+        "PUT",
+        "/v1/activities/calendar/carnival:1",
+        "application/json",
+        &authorization,
+        br#"{"enabled":true,"start_at_ms":1679313600000,"end_at_ms":1679400000000}"#,
+    );
+    assert!(configured.starts_with("HTTP/1.1 200 OK"), "{configured}");
+    update_player_snapshot(root.path(), |data| {
+        data["item_list"]["90030"] = Value::from(300)
+    });
+    let request = SalesListRequest {
+        viewer_id,
+        shop_types: vec![4],
+        boss_coin_shop_category_ids: Vec::new(),
+        equipment_enhancement_shop_category_ids: Vec::new(),
+        browse_treasure_flag: false,
+        event_list: vec![EventShopRequest {
+            event_type: 10,
+            event_ids: vec![1],
+        }],
+    };
+    let purchase = BuyRequest {
+        viewer_id,
+        shop_type: 4,
+        shop_item_id: 1,
+        number: 1,
+    };
+    set_virtual_time(&service, &authorization, "2023-03-20T18:00:00.000Z");
+    let first = decode_response::<Value>(&cn_support::send_request(
+        service.port(),
+        "/api/index.php/shop/buy",
+        &encode_request(&purchase),
+    ));
+    assert_eq!(first.data["item_list"]["90030"], 150);
+    set_virtual_time(&service, &authorization, "2023-03-22T18:00:00.000Z");
+    assert_eq!(
+        event_shop_sale(service.port(), &request, 1)["stock_quantity"],
+        1
+    );
+    let second = decode_response::<Value>(&cn_support::send_request(
+        service.port(),
+        "/api/index.php/shop/buy",
+        &encode_request(&purchase),
+    ));
+    assert_eq!(second.data["item_list"]["90030"], 0);
+    assert_eq!(
+        event_shop_sale(service.port(), &request, 1)["stock_quantity"],
+        0
+    );
+    set_virtual_time(&service, &authorization, "2023-04-01T18:00:00.000Z");
+    let before = read_player_snapshot(root.path());
+    assert!(event_shop_sales(service.port(), &request).is_empty());
+    let closed = cn_support::send_request(
+        service.port(),
+        "/api/index.php/shop/buy",
+        &encode_request(&purchase),
+    );
+    assert_eq!(
+        decode_response::<Value>(&closed).data_headers.result_code,
+        2053
+    );
+    assert_eq!(read_player_snapshot(root.path()), before);
+    service.stop().unwrap();
+}
+// //// /比赛结束后的兑换沿用库存并在兑换期限结束时关闭 ////
 
 // //// 验证静态活动商店跨虚拟日期沿用购买窗口 [@x380kkm 2026-08-30] ////
 #[test]

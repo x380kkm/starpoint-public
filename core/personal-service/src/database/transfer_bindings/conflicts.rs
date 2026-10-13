@@ -324,7 +324,7 @@ fn validate_enabled_transfer_binding_download(
     if find_open_transfer_conflict(transaction, binding_id)?.is_some() {
         return Err(TransferBindingStoreError::StaleBinding);
     }
-    ensure_local_save_is_idle(transaction, source_slot_id)
+    Ok(())
 }
 
 fn validate_transfer_conflict_download(
@@ -342,9 +342,10 @@ fn validate_transfer_conflict_download(
     if current_source_etag != expected_source_etag {
         return Err(TransferBindingStoreError::ConflictChanged);
     }
-    ensure_local_save_is_idle(transaction, source_slot_id)
+    Ok(())
 }
 
+// //// 按可移植存档计算冲突比较摘要 [@x380kkm 2026-09-26] ////
 fn calculate_local_save_etag(
     connection: &Connection,
     source_slot_id: i64,
@@ -367,8 +368,11 @@ fn calculate_local_save_etag(
             "failed to decode local save during conflict resolution: {error}"
         )))
     })?;
+    let data = portable_save::sanitize_game_data(data)
+        .ok_or_else(|| transfer_storage_message("local save game data is invalid"))?;
     portable_save::calculate_payload_sha256(&data).map_err(TransferBindingStoreError::Storage)
 }
+// //// /按可移植存档计算冲突比较摘要 ////
 
 struct TransferBindingReplaceState {
     source_slot_id: i64,
@@ -396,29 +400,6 @@ fn read_transfer_binding_replace_state(
         .optional()
         .map_err(transfer_storage_error)?
         .ok_or(TransferBindingStoreError::BindingNotFound)
-}
-
-fn ensure_local_save_is_idle(
-    connection: &Connection,
-    source_slot_id: i64,
-) -> Result<(), TransferBindingStoreError> {
-    let is_busy = connection
-        .query_row(
-            "SELECT EXISTS(
-                 SELECT 1 FROM active_single_quests
-                 JOIN local_save_slots
-                   ON local_save_slots.account_id = active_single_quests.account_id
-                 WHERE local_save_slots.id = ?1
-             )",
-            params![source_slot_id],
-            |row| row.get::<_, bool>(0),
-        )
-        .map_err(transfer_storage_error)?;
-    if is_busy {
-        Err(TransferBindingStoreError::LocalSaveBusy)
-    } else {
-        Ok(())
-    }
 }
 
 fn map_local_save_error(error: LocalSaveStoreError) -> TransferBindingStoreError {

@@ -345,15 +345,42 @@ pub(super) fn validate_ai_requests(
                     "failed to decode multiplayer AI lobby player: {error}"
                 ))
             })?;
-        if ["degreeId", "rank", "comId", "party"]
+        if ["degreeId", "rank", "comId"]
             .iter()
             .any(|key| request.get(*key) != lobby_player.get(*key))
+            || !matches_client_ai_party(request.get("party"), &lobby_player["party"])
         {
             return Ok(None);
         }
         names.push(name.to_owned());
     }
     Ok(Some(names))
+}
+
+// //// 校验 HTTP COM 节点列表转换后的客户端队伍 [@x380kkm 2026-09-26] ////
+fn matches_client_ai_party(request: Option<&Value>, stored: &Value) -> bool {
+    if request == Some(stored) {
+        return true;
+    }
+    let mut projected = stored.clone();
+    for key in ["characters", "unison_characters"] {
+        let Some(slots) = projected.get_mut(key).and_then(Value::as_array_mut) else {
+            return false;
+        };
+        for slot in slots {
+            if let Some(nodes) = slot
+                .get_mut(1)
+                .and_then(|character| character.get_mut("mana_node_ids"))
+                .and_then(Value::as_object_mut)
+            {
+                // HTTP COM 的节点 ID 数组在客户端转换为等级为 0 的映射.
+                for level in nodes.values_mut() {
+                    *level = Value::from(0);
+                }
+            }
+        }
+    }
+    request == Some(&projected)
 }
 
 pub(super) fn validate_ai_names(
@@ -417,4 +444,35 @@ fn lobby_main_character_id(party: &Map<String, Value>) -> Option<i64> {
         .then(|| first[1].get("id").and_then(Value::as_i64))
         .flatten()
         .filter(|character_id| *character_id > 0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // //// 验证 COM 回传兼容觉醒节点并校验其余队伍内容 [@x380kkm 2026-09-26] ////
+    #[test]
+    fn validates_zero_level_client_projection_without_changing_frozen_levels() {
+        let stored = json!({
+            "characters": [[0, {"id": 1, "level": 80, "mana_node_ids": {"2201": 0, "2202": 1}}], [1], [1]],
+            "unison_characters": [[0, {"id": 1, "level": 80, "mana_node_ids": {"2202": 1}}], [1], [1]],
+            "equipments": [[1], [1], [1]],
+            "abilitySoulIds": [[1], [1], [1]],
+            "options": null
+        });
+        let mut client = stored.clone();
+        client["characters"][0][1]["mana_node_ids"]["2202"] = json!(0);
+        client["unison_characters"][0][1]["mana_node_ids"]["2202"] = json!(0);
+        assert!(matches_client_ai_party(Some(&client), &stored));
+        assert_eq!(stored["characters"][0][1]["mana_node_ids"]["2202"], 1);
+        assert!(matches_client_ai_party(Some(&stored), &stored));
+        client["characters"][0][1]["mana_node_ids"]["2401"] = json!(0);
+        assert!(!matches_client_ai_party(Some(&client), &stored));
+        client["characters"][0][1]["mana_node_ids"]
+            .as_object_mut()
+            .unwrap()
+            .remove("2401");
+        client["characters"][0][1]["level"] = json!(100);
+        assert!(!matches_client_ai_party(Some(&client), &stored));
+    }
 }

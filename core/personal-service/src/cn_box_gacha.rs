@@ -2,11 +2,14 @@
 // # personal-service-cn-box-gacha
 //
 // 该模块实现 CN 箱池查询、抽取和关闭. 箱池状态与奖励记录保存在玩家快照.
+// 抽取收据按客户端请求计数和活动参与轮次保存, 费用, 奖励和响应共享同一快照.
 
 mod catalog;
 mod reward;
+mod rules;
 
 use crate::cn::{decode_request, msgpack_response_at, server_time};
+use crate::cn_request_receipt::RequestReceipt;
 use crate::cn_tutorial::{
     decode_player_data, encode_player_data, player_snapshot, require_object, require_root,
 };
@@ -22,6 +25,8 @@ use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
 use std::path::Path;
+
+const CLIENT_BOX_DRAW_LIMIT: i64 = 9_999;
 
 #[derive(Deserialize)]
 struct BoxListRequest {
@@ -43,6 +48,31 @@ struct BoxExecRequest {
     box_id: i64,
     number: i64,
     stop_on_featured_rewards: bool,
+    api_count: Option<i64>,
+}
+
+impl BoxExecRequest {
+    // //// 按请求计数和活动参与轮次标识箱池抽取 [@x380kkm 2026-09-26] ////
+    fn create_receipt(&self, root: &Map<String, Value>) -> Option<RequestReceipt> {
+        let api_count = self.api_count?;
+        let round = crate::activity_history::participation_round(
+            root,
+            &format!("box-gacha:{}", self.box_gacha_id),
+        );
+        Some(RequestReceipt::new(
+            "box_gacha",
+            &format!("exec:{}:{round}", self.box_gacha_id),
+            self.viewer_id,
+            api_count,
+            json!({
+                "box_gacha_id": self.box_gacha_id,
+                "box_id": self.box_id,
+                "number": self.number,
+                "stop_on_featured_rewards": self.stop_on_featured_rewards,
+            }),
+        ))
+    }
+    // //// /按请求计数和活动参与轮次标识箱池抽取 ////
 }
 
 // //// 分派 CN 箱池请求 [@x380kkm 2026-08-22] ////
@@ -116,6 +146,27 @@ fn get_box_list(
         json!({"all_box_info": all_box_info(root, body.box_gacha_id, &gacha, &rewards)?}),
     )
 }
+
+// //// 汇总开放箱池的实际抽取状态 [@x380kkm 2026-09-23] ////
+pub(crate) fn available_box_info(
+    root: &Map<String, Value>,
+    database: &ServiceDatabase,
+    asset_root: &Path,
+    ids: &[i64],
+) -> Result<Vec<Value>, PersonalServiceError> {
+    let mut result = Vec::new();
+    let ids = ids.iter().copied().collect::<std::collections::BTreeSet<_>>();
+    for id in ids {
+        let Some(gacha) = catalog::find_box_gacha(id)? else { continue; };
+        if !matches!(box_gacha_source_status(database, asset_root, id)?,
+            ActivityWindowStatus::Open | ActivityWindowStatus::Unscheduled) {
+            continue;
+        }
+        result.extend(all_box_info(root, id, &gacha, &box_rewards(id)?)?);
+    }
+    Ok(result)
+}
+// //// /汇总开放箱池的实际抽取状态 ////
 
 // //// 关闭指定 CN 箱池阶段 [@x380kkm 2026-08-22] ////
 fn close(
@@ -222,19 +273,31 @@ fn execute(
                 && body.box_gacha_id > 0
                 && body.box_id > 0
                 && body.number > 0
-                && body.number <= 100 =>
+                && body.number <= CLIENT_BOX_DRAW_LIMIT
+                && body.api_count.map_or(true, |count| count >= 0) =>
         {
             body
         }
         Ok(_) | Err(_) => return Ok(error_response("400 Bad Request", "invalid_request_body")),
     };
-    if let Some(response) = closed_activity_response(database, asset_root, body.box_gacha_id)? {
-        return Ok(response);
-    }
     let snapshot = match player_snapshot(database, body.viewer_id)? {
         Ok(snapshot) => snapshot,
         Err(response) => return Ok(response),
     };
+    let mut player_data = decode_player_data(&snapshot.data)?;
+    let root = require_root(&mut player_data)?;
+    let receipt = body.create_receipt(root);
+    if let Some(response) = receipt
+        .as_ref()
+        .map(|receipt| receipt.replay(root))
+        .transpose()?
+        .flatten()
+    {
+        return Ok(response);
+    }
+    if let Some(response) = closed_activity_response(database, asset_root, body.box_gacha_id)? {
+        return Ok(response);
+    }
     let gacha = box_gacha(body.box_gacha_id)?;
     let rewards_by_box = box_rewards(body.box_gacha_id)?;
     let Some(rewards) = rewards_by_box
@@ -251,21 +314,7 @@ fn execute(
         .get("count")
         .and_then(Value::as_i64)
         .ok_or_else(|| PersonalServiceError::new("CN box currency cost is missing"))?;
-    let total_cost = currency_per_draw
-        .checked_mul(body.number)
-        .ok_or_else(|| PersonalServiceError::new("CN box currency cost exceeds range"))?;
-    let mut player_data = decode_player_data(&snapshot.data)?;
-    let root = require_root(&mut player_data)?;
     let currency_key = currency_id.to_string();
-    let remaining_currency = match require_object(root, "item_list")?
-        .get(&currency_key)
-        .and_then(Value::as_i64)
-        .unwrap_or_default()
-        .checked_sub(total_cost)
-    {
-        Some(value) if value >= 0 => value,
-        _ => return Ok(error_response("400 Bad Request", "not_enough_box_currency")),
-    };
     if ensure_box_status(
         root,
         body.box_gacha_id,
@@ -279,6 +328,9 @@ fn execute(
         return Ok(error_response("400 Bad Request", "box_closed"));
     }
     let mut drawn = drawn_reward_counts(root, body.box_gacha_id, body.box_id)?;
+    let can_stop = body.stop_on_featured_rewards
+        && rules::can_stop_on_featured_rewards(body.box_gacha_id, body.box_id)?;
+    let mut featured_remaining = rules::remaining_featured_reward_count(rewards, &drawn)?;
     let mut current_draw = BTreeMap::<i64, i64>::new();
     for _ in 0..body.number {
         let Some(reward) = choose_reward(rewards, &drawn)? else {
@@ -288,14 +340,26 @@ fn execute(
         *current_draw.entry(reward).or_default() += 1;
         let featured = rewards
             .get(&reward.to_string())
-            .and_then(|reward| reward.get("tier"))
-            .and_then(Value::as_i64)
-            .unwrap_or_default()
-            >= 2;
-        if body.stop_on_featured_rewards && featured {
-            break;
+            .is_some_and(rules::is_featured_reward);
+        if can_stop && featured {
+            featured_remaining -= 1;
+            if featured_remaining == 0 {
+                break;
+            }
         }
     }
+    let total_cost = currency_per_draw
+        .checked_mul(current_draw.values().sum())
+        .ok_or_else(|| PersonalServiceError::new("CN box currency cost exceeds range"))?;
+    let remaining_currency = match require_object(root, "item_list")?
+        .get(&currency_key)
+        .and_then(Value::as_i64)
+        .unwrap_or_default()
+        .checked_sub(total_cost)
+    {
+        Some(value) if value >= 0 => value,
+        _ => return Ok(error_response("400 Bad Request", "not_enough_box_currency")),
+    };
     save_drawn_reward_counts(root, body.box_gacha_id, body.box_id, &drawn)?;
     let remaining_number = box_available_count(&gacha, body.box_id)
         .saturating_sub(drawn.values().sum::<i64>())
@@ -310,13 +374,23 @@ fn execute(
     status.insert("is_closed".to_owned(), Value::Bool(remaining_number == 0));
     require_object(root, "item_list")?
         .insert(currency_key.clone(), Value::from(remaining_currency));
+    let response_time = server_time(database)?;
+    let mana_before = crate::cn_mission::total_mana(root)?;
     let reward_result = apply_rewards(
         root,
         body.viewer_id,
         rewards,
         &current_draw,
-        server_time(database)?,
+        response_time,
     )?;
+    let acquired_mana = crate::cn_mission::total_mana(root)?.saturating_sub(mana_before);
+    let mut missions = crate::cn_mission::record_collected_item_rewards(
+        root,
+        &crate::cn_mission::plan_collect_item_missions(database)?,
+        &reward_result.acquired_items,
+        response_time,
+    )?;
+    missions.extend(crate::cn_mission::record_acquired_mana(root, database, snapshot.account_id, acquired_mana, response_time)?);
     let all_box_info = all_box_info_with_current_last(
         root,
         body.box_gacha_id,
@@ -324,14 +398,9 @@ fn execute(
         &gacha,
         &rewards_by_box,
     )?;
-    database.save_player_snapshot(snapshot.account_id, &encode_player_data(&player_data)?)?;
     let mut item_list = reward_result.item_list;
-    item_list.insert(currency_key, Value::from(remaining_currency));
-    msgpack_response_at(
-        body.viewer_id,
-        false,
-        server_time(database)?,
-        json!({
+    item_list.insert(currency_key.clone(), require_object(root, "item_list")?[&currency_key].clone());
+    let mut response = json!({
             "user_info": reward_result.user_info,
             "drawn_reward_list": current_draw.into_iter().map(|(reward_id, number)| json!({"reward_id": reward_id, "number": number})).collect::<Vec<_>>(),
             "all_box_info": all_box_info,
@@ -340,8 +409,14 @@ fn execute(
             "equipment_list": reward_result.equipment_list,
             "item_list": item_list,
             "mail_arrived": false,
-        }),
-    )
+        });
+    if !missions.is_empty() { response["mission_info"] = json!(missions); }
+    crate::cn_mission::apply_mission_reward_response(&mut response, root, &missions, body.viewer_id, response_time)?;
+    if let Some(receipt) = receipt {
+        receipt.record(root, &response, response_time)?;
+    }
+    database.save_player_snapshot(snapshot.account_id, &encode_player_data(&player_data)?)?;
+    msgpack_response_at(body.viewer_id, false, response_time, response)
 }
 // //// /抽取 CN 箱池并发放奖励 ////
 

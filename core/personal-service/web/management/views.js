@@ -3,6 +3,12 @@
 //
 // 此模块把个人服务状态转换为安全 DOM 节点. 所有远端文本只写入 textContent.
 
+import { confirmSaveDeletion } from "./save-deletion.js"
+import { requestBackupPassword } from "./password-backup.js"
+import { renderSlotAccess } from "./save-access.js"
+import { renderSaveRevisions } from "./save-revisions.js"
+import { renderTransferBindingCreate, renderTransferBindings } from "./save-transfers.js"
+
 // //// 呈现服务器, 存档和同步操作 [@x380kkm 2026-07-24] ////
 function createElement(tagName, className, text) {
     const node = document.createElement(tagName)
@@ -25,6 +31,31 @@ export function renderManagement(model, elements, actions) {
     renderDevicePicker(model, elements)
     renderSaves(model, elements, actions)
     renderHttpObservations(model, elements)
+    renderClientReports(model.clientReports ?? [])
+}
+
+// //// 展示客户端故障信息和服务端请求异常 [@x380kkm 2026-09-27] ////
+function renderClientReports(reports) {
+    const list = document.querySelector("#client-report-list")
+    if (!list) return
+    list.replaceChildren()
+    if (reports.length === 0) {
+        list.append(createElement("p", "empty-state", "尚未记录错误报告."))
+        return
+    }
+    for (const report of reports) {
+        const details = report.details ?? {}
+        const card = createElement("details", "item-card client-report")
+        const summary = createElement("summary")
+        const title = details.source === "server"
+            ? `服务端 ${details.code || "异常"} ${details.method || ""} ${details.path || ""}`
+            : details.code || details.error || "客户端错误"
+        summary.append(createElement("strong", "client-report-title", String(title).slice(0, 180)))
+        summary.append(createElement("span", "meta", formatTime(report.received_at)))
+        const body = createElement("pre", "client-report-body", JSON.stringify(details, null, 2))
+        card.append(summary, body)
+        list.append(card)
+    }
 }
 
 function httpObservationTime(observation) {
@@ -113,11 +144,11 @@ function renderHttpObservations(model, elements) {
     }
 }
 
-function renderRemotePanels(model, elements) {
+export function renderRemotePanels(model, elements) {
     const hasRemoteProfile = model.profiles.profiles.some((profile) => profile.mode === "remote")
     const hasRemoteStorage = model.targets.length > 0
-    elements.remoteSavePanel.hidden = !hasRemoteProfile && !hasRemoteStorage
-    elements.remoteSavePanel.parentElement.classList.toggle("single-column", elements.remoteSavePanel.hidden)
+    elements.remoteSavePanel.hidden = false
+    elements.remoteSavePanel.parentElement.classList.toggle("single-column", false)
     elements.remotePlayerAccessPanel.hidden = !hasRemoteProfile
     elements.remoteRestorePanel.hidden = !hasRemoteStorage
 }
@@ -197,13 +228,23 @@ function renderSyncTargets(model, elements, actions) {
     }
 }
 
-function renderDevicePicker(model, elements) {
-    const selected = Number(elements.deviceSelect.value)
+export function selectedDeviceSlotId(saves, selectedDevice) {
+    if (selectedDevice === "local" && saves.local_slot_id !== null && saves.local_slot_id !== undefined) return saves.local_slot_id
+    return saves.devices.find((device) => String(device.device_id) === selectedDevice)?.active_slot_id
+        ?? saves.devices[0]?.active_slot_id
+}
+
+export function renderDevicePicker(model, elements) {
+    const selected = elements.deviceSelect.value || "local"
     elements.deviceSelect.replaceChildren()
+    const local = createElement("option", "", "本机")
+    local.value = "local"
+    local.selected = selected === "local" || !model.saves.devices.some((device) => String(device.device_id) === selected)
+    elements.deviceSelect.append(local)
     for (const device of model.saves.devices) {
         const option = createElement("option", "", `设备 ${device.device_id}`)
         option.value = String(device.device_id)
-        option.selected = device.device_id === selected
+        option.selected = String(device.device_id) === selected
         elements.deviceSelect.append(option)
     }
 }
@@ -211,21 +252,23 @@ function renderDevicePicker(model, elements) {
 function renderSaves(model, elements, actions) {
     elements.saveList.replaceChildren()
     if (model.saves.slots.length === 0) {
-        elements.saveList.append(createElement("p", "empty-state", "客户端完成一次注册后会创建首个存档."))
+        elements.saveList.append(createElement("p", "empty-state", "可直接导入已有存档, 再选择使用此存档并进入游戏."))
         return
     }
     for (const slot of model.saves.slots) {
         const activeDevices = model.saves.devices
             .filter((device) => device.active_slot_id === slot.id)
             .map((device) => device.device_id)
-        const card = createElement("article", `save-card${activeDevices.length ? " active" : ""}`)
+        const isLocal = model.saves.local_slot_id === slot.id
+        const card = createElement("article", `save-card${activeDevices.length || isLocal ? " active" : ""}`)
         const head = createElement("div", "card-head")
         const title = createElement("div")
         title.append(createElement("h3", "card-title", slot.name))
         title.append(createElement("p", "meta", `槽位 ${slot.id}, 快照 ${slot.snapshot_count}`))
+        title.append(createElement("p", "meta", `最近保存 ${formatTime(slot.updated_at)}`))
         if (activeDevices.length) title.append(createElement("p", "meta", `当前设备 ${activeDevices.join(", ")}`))
         head.append(title)
-        if (activeDevices.length) head.append(createElement("span", "badge", "活动存档"))
+        if (activeDevices.length || isLocal) head.append(createElement("span", "badge", isLocal ? "本机使用中" : "使用中"))
         card.append(head)
         const controls = createElement("div", "save-actions")
         appendSaveActions(controls, slot, model, elements, actions)
@@ -234,12 +277,56 @@ function renderSaves(model, elements, actions) {
             await renderSnapshots(slot, history, actions)
             return undefined
         }, actions.runAction))
-        card.append(controls, history)
-        renderBindings(slot, model, card)
-        renderTransferBindings(slot, model, card, actions)
-        renderAutomation(slot, model, card, actions)
+        const revisions = createElement("div")
+        controls.append(createButton("查看版本历史", async () => {
+            await renderSaveRevisions(slot, revisions, actions)
+            return undefined
+        }, actions.runAction))
+        card.append(controls, history, revisions)
+        const details = createElement("details", "form-drawer save-options")
+        details.append(createElement("summary", "", "自动备份与同步"))
+        renderBindings(slot, model, details)
+        renderTransferBindings(slot, model, details, actions)
+        renderTransferBindingCreate(slot, model, details, actions)
+        renderSlotAccess(slot, details, actions)
+        renderAutomation(slot, model, details, actions)
+        details.append(createButton("导出旧加密备份的恢复包", async () => {
+            const password = await requestBackupPassword(details)
+            if (password === undefined) return undefined
+            const response = await actions.requestApi(`/v1/local-saves/${slot.id}/recovery-export`, { method: "POST", body: { password } })
+            const result = await shareOrDownloadJson("starpoint-recovery.starpoint-recovery", response.package)
+            return documentExportFeedback(result)
+        }, actions.runAction))
+        card.append(details)
+        appendSaveDeletion(card, slot, model, actions)
         elements.saveList.append(card)
     }
+}
+
+// //// 展示存档删除入口和设备占用提示 [@x380kkm 2026-09-20] ////
+function appendSaveDeletion(card, slot, model, actions) {
+    const active = model.saves.local_slot_id === slot.id || model.saves.devices.some((device) => device.active_slot_id === slot.id)
+    const lastSlot = model.saves.slots.length === 1
+    const reason = lastSlot
+        ? "保留至少一个存档. 导入另一份存档并启用后可删除此存档."
+        : active ? "此存档正在使用. 请先为使用它的设备切换存档." : "删除前可先导出存档文件."
+    const row = createElement("div", "save-delete-row")
+    const hint = createElement("p", "meta", reason)
+    hint.id = `save-delete-hint-${slot.id}`
+    const control = createButton("删除存档", async () => {
+        if (!await confirmSaveDeletion(slot, control)) return undefined
+        await actions.requestApi(`/v1/local-saves/${slot.id}`, {
+            method: "DELETE",
+            body: { confirm_name: slot.name },
+        })
+        await actions.refreshManagementState()
+        return `存档 "${slot.name}" 已删除. 已导出的文件和远程副本仍然保留.`
+    }, actions.runAction, "danger")
+    control.disabled = active || lastSlot
+    control.setAttribute("aria-describedby", hint.id)
+    control.setAttribute("aria-label", `删除存档 ${slot.name}`)
+    row.append(hint, control)
+    card.append(row)
 }
 
 function renderAutomation(slot, model, card, actions) {
@@ -345,7 +432,12 @@ function renderAutomation(slot, model, card, actions) {
 }
 
 function appendSaveActions(controls, slot, model, elements, actions) {
-    controls.append(createButton("设为活动", async () => {
+    controls.append(createButton("使用此存档", async () => {
+        if (elements.deviceSelect.value === "local") {
+            await actions.requestApi(`/v1/local-saves/${slot.id}/activate-local`, { method: "POST" })
+            await actions.refreshManagementState()
+            return "本机已选择此存档, 重新进入游戏后生效."
+        }
         const deviceId = Number(elements.deviceSelect.value)
         if (!Number.isInteger(deviceId) || deviceId <= 0) throw new Error("没有可操作的设备.")
         await actions.requestApi(`/v1/local-saves/${slot.id}/activate`, {
@@ -354,7 +446,7 @@ function appendSaveActions(controls, slot, model, elements, actions) {
         })
         await actions.refreshManagementState()
         return `设备 ${deviceId} 已切换存档.`
-    }, actions.runAction))
+    }, actions.runAction, "primary"))
     controls.append(createButton("复制", async () => {
         const name = prompt("新存档名称", `${slot.name} 副本`)?.trim()
         if (!name) return undefined
@@ -369,21 +461,20 @@ function appendSaveActions(controls, slot, model, elements, actions) {
         await actions.refreshManagementState()
         return "快照已创建."
     }, actions.runAction))
-    controls.append(createButton("导出存档", async () => {
+    controls.append(createButton("导出可编辑 JSON", async () => {
         const result = await shareOrDownloadJson(
             `starpoint-save-${slot.id}.json`,
             await actions.requestApi(`/v1/local-saves/${slot.id}/export`),
         )
-        if (result === "cancelled") return undefined
-        return result === "shared" ? "已打开系统分享." : "存档文件已下载."
+        return documentExportFeedback(result)
     }, actions.runAction))
     controls.append(createButton("导出加密备份", async () => {
-        const payload = await actions.requestApi(`/v1/local-saves/${slot.id}/encrypted-export`)
+        const password = await requestBackupPassword(controls)
+        if (password === undefined) return undefined
+        const payload = await actions.requestApi(`/v1/local-saves/${slot.id}/password-export`, { method: "POST", body: { password } })
         const result = await shareOrDownloadJson(`starpoint-save-${slot.id}.starpoint-save`, payload)
-        if (result === "cancelled") return undefined
-        return result === "shared" ? "已打开系统分享." : "加密备份已下载."
+        return documentExportFeedback(result)
     }, actions.runAction))
-    appendTransferBindingCreateAction(controls, slot, model, actions)
     if (model.targets.length === 0) return
     const targetSelect = createElement("select", "slot-target-select")
     targetSelect.setAttribute("aria-label", `${slot.name} 上传目标`)
@@ -401,41 +492,6 @@ function appendSaveActions(controls, slot, model, elements, actions) {
     }, actions.runAction))
 }
 
-function appendTransferBindingCreateAction(controls, slot, model, actions) {
-    const profiles = model.profiles.profiles.filter((profile) => profile.mode === "remote")
-    if (profiles.length === 0) return
-    controls.append(createButton("创建槽位绑定", async () => {
-        const choices = profiles.map((profile) => `${profile.id}: ${profile.name}`).join("\n")
-        const profileId = Number(prompt(`目标服务器配置 ID:\n${choices}`, String(profiles[0].id)))
-        if (!profiles.some((profile) => profile.id === profileId)) throw new Error("服务器配置 ID 无效.")
-        const instanceKind = prompt("目标实例类型: remote 或 local", "remote")?.trim()
-        if (instanceKind !== "remote" && instanceKind !== "local") return undefined
-        const instanceId = prompt("目标实例 ID, 32 位小写十六进制")?.trim()
-        if (!instanceId) return undefined
-        const targetSlotId = Number(prompt("目标槽 ID")?.trim())
-        if (!Number.isInteger(targetSlotId) || targetSlotId <= 0) return undefined
-        const targetToken = prompt("目标槽授权码, 需要双向权限")?.trim()
-        if (!targetToken) return undefined
-        await actions.requestApi(`/v1/local-saves/${slot.id}/transfer-bindings`, {
-            method: "POST",
-            body: {
-                target_profile_id: profileId,
-                target_instance_kind: instanceKind,
-                target_instance_id: instanceId,
-                target_slot_id: targetSlotId,
-                target_token: targetToken,
-                upload_mode: "manual",
-                pull_mode: "manual",
-                conflict_policy: "ask",
-                interval_seconds: 900,
-                enabled: true,
-            },
-        })
-        await actions.refreshManagementState()
-        return "槽位绑定已创建, 首次同步需要手动确认."
-    }, actions.runAction))
-}
-
 function renderBindings(slot, model, card) {
     const bindings = model.bindings.get(slot.id) ?? []
     if (bindings.length === 0) return
@@ -450,94 +506,6 @@ function renderBindings(slot, model, card) {
         list.append(item)
     }
     card.append(list)
-}
-
-function renderTransferBindings(slot, model, card, actions) {
-    const bindings = model.transferBindings.get(slot.id) ?? []
-    if (bindings.length === 0) return
-    const section = createElement("section", "automation-card")
-    section.append(createElement("h4", "card-title", "跨实例槽位绑定"))
-    for (const binding of bindings) {
-        const profile = model.profiles.profiles.find((item) => item.id === binding.target.profile_id)
-        const conflicts = model.transferConflicts.get(binding.binding_id) ?? []
-        const openConflict = conflicts.find((conflict) => conflict.status === "open")
-        const item = createElement("article", "item-card")
-        const head = createElement("div", "card-head")
-        const title = createElement("div")
-        title.append(createElement("h5", "card-title", profile?.name ?? `服务器 ${binding.target.profile_id}`))
-        title.append(createElement(
-            "p",
-            "meta",
-            `${binding.target.instance_kind} ${binding.target.instance_id.slice(0, 8)}, 槽 ${binding.target.slot_id}`,
-        ))
-        const state = openConflict ? "有冲突" : binding.enabled ? "已启用" : "已关闭"
-        head.append(title, createElement("span", "badge", state))
-        item.append(head)
-        const status = createElement("div", "automation-status")
-        if (binding.last_synced_at) status.append(createElement("p", "meta", `最近同步 ${formatTime(binding.last_synced_at)}`))
-        if (binding.last_common_etag) status.append(createElement("p", "meta", `共同版本 ${binding.last_common_etag.slice(0, 8)}`))
-        if (binding.last_error) status.append(createElement("p", "automation-error", actions.describeError(binding.last_error)))
-        item.append(status)
-        const controls = createElement("div", "card-actions")
-        controls.append(createButton("立即同步", async () => {
-            try {
-                await actions.requestApi(`/v1/local-saves/${slot.id}/transfer-bindings/${binding.binding_id}/sync`, {
-                    method: "POST",
-                })
-            } finally {
-                await actions.refreshManagementState()
-            }
-            return "槽位同步完成."
-        }, actions.runAction))
-        controls.append(createButton(binding.enabled ? "关闭" : "启用", async () => {
-            await actions.requestApi(`/v1/local-saves/${slot.id}/transfer-bindings/${binding.binding_id}`, {
-                method: "PUT",
-                body: {
-                    upload_mode: binding.upload_mode,
-                    pull_mode: binding.pull_mode,
-                    conflict_policy: binding.conflict_policy,
-                    interval_seconds: binding.interval_seconds,
-                    enabled: !binding.enabled,
-                },
-            })
-            await actions.refreshManagementState()
-            return binding.enabled ? "自动传输已关闭." : "自动传输已启用."
-        }, actions.runAction))
-        controls.append(createButton("删除绑定", async () => {
-            if (!confirm("删除此传输绑定? 现有存档和 revision 不会删除.")) return undefined
-            await actions.requestApi(`/v1/local-saves/${slot.id}/transfer-bindings/${binding.binding_id}`, {
-                method: "DELETE",
-            })
-            await actions.refreshManagementState()
-            return "传输绑定已删除."
-        }, actions.runAction, "danger"))
-        item.append(controls)
-        if (openConflict) appendConflictActions(item, slot, binding, openConflict, actions)
-        section.append(item)
-    }
-    card.append(section)
-}
-
-function appendConflictActions(container, slot, binding, conflict, actions) {
-    const summary = createElement("p", "automation-error", `本地 ${conflict.source_etag.slice(0, 8)}, 远端 ${conflict.target_etag.slice(0, 8)}.`)
-    const controls = createElement("div", "card-actions")
-    const resolutions = [
-        ["本地覆盖远端", "local_wins"],
-        ["远端覆盖本地", "remote_wins"],
-        ["保留双方并关闭绑定", "keep_both"],
-    ]
-    for (const [label, resolution] of resolutions) {
-        controls.append(createButton(label, async () => {
-            if (!confirm(`${label}? 覆盖前会保留安全 revision.`)) return undefined
-            await actions.requestApi(
-                `/v1/local-saves/${slot.id}/transfer-bindings/${binding.binding_id}/conflicts/${conflict.conflict_id}/resolve`,
-                { method: "POST", body: { resolution } },
-            )
-            await actions.refreshManagementState()
-            return "传输冲突已处理."
-        }, actions.runAction, resolution === "keep_both" ? "ghost" : "danger"))
-    }
-    container.append(summary, controls)
 }
 
 async function renderSnapshots(slot, container, actions) {
@@ -590,11 +558,25 @@ function formatTime(value) {
     return Number.isNaN(time.valueOf()) ? value : time.toLocaleString()
 }
 
+// //// 按文件交付状态呈现操作反馈 [@x380kkm 2026-09-28] ////
+function documentExportFeedback(result) {
+    const messages = {
+        saved: "文件已保存.",
+        shared: "已打开系统分享.",
+        download_requested: "已发起下载, 请在系统完成保存.",
+    }
+    return messages[result]
+}
+
 async function shareOrDownloadJson(filename, payload) {
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" })
+    const contents = JSON.stringify(payload, null, 2)
+    if (typeof window.StarpointDocuments?.saveJson === "function") {
+        return window.StarpointDocuments.saveJson(filename, contents)
+    }
+    const blob = new Blob([contents], { type: "application/json" })
     if (typeof File === "function" && typeof navigator.share === "function") {
         const file = new File([blob], filename, { type: blob.type })
-        if (typeof navigator.canShare !== "function" || navigator.canShare({ files: [file] })) {
+        if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
             try {
                 await navigator.share({ files: [file], title: "导出 Starpoint 存档" })
                 return "shared"
@@ -610,6 +592,6 @@ async function shareOrDownloadJson(filename, payload) {
     link.click()
     link.remove()
     setTimeout(() => URL.revokeObjectURL(link.href), 0)
-    return "downloaded"
+    return "download_requested"
 }
 // //// /呈现服务器, 存档和同步操作 ////

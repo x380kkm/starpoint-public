@@ -2,14 +2,14 @@
 // # local-save-transfer-bindings
 //
 // 该模块同步一个本地槽和一个明确的远端实例槽.
-// 共同基线使用可移植存档摘要, 双方都偏离基线时停止传输并保存冲突.
+// 共同基线使用可移植存档摘要, 双方都偏离基线时按配置和调度方向处理冲突.
 // 下载覆盖和远端上传都使用现有 revision 与条件 ETag 保护当前版本.
 
 use super::transfer::{create_local_transfer_save, LocalTransferSave};
 use super::*;
 use crate::database::{
-    TransferBinding, TransferBindingStoreError, TransferConflict, TransferPullMode,
-    TransferUploadMode,
+    TransferBinding, TransferBindingStoreError, TransferConflict, TransferConflictPolicy,
+    TransferPullMode, TransferUploadMode,
 };
 
 mod client;
@@ -261,7 +261,7 @@ fn select_remote_transfer(
     let source_changed = prepared.source.etag != common_etag;
     let target_changed = target.etag != common_etag;
     match (source_changed, target_changed) {
-        (true, true) => Ok(RemoteTransferDecision::Conflict(target)),
+        (true, true) => select_conflict_transfer(prepared, endpoint, target),
         (true, false) if should_upload(prepared) => {
             upload_source(endpoint, &prepared.source, target)
         }
@@ -270,6 +270,25 @@ fn select_remote_transfer(
         _ => Ok(RemoteTransferDecision::Deferred(target)),
     }
 }
+
+// //// 按冲突策略和调度方向选择覆盖 [@x380kkm 2026-09-26] ////
+fn select_conflict_transfer(
+    prepared: &PreparedTransferBindingSync,
+    endpoint: &client::TransferEndpoint,
+    target: client::DownloadedTransferSave,
+) -> Result<RemoteTransferDecision, TransferOperationError> {
+    match prepared.binding.conflict_policy {
+        TransferConflictPolicy::Ask => Ok(RemoteTransferDecision::Conflict(target)),
+        TransferConflictPolicy::LocalWins if should_upload(prepared) => {
+            upload_source(endpoint, &prepared.source, target)
+        }
+        TransferConflictPolicy::RemoteWins if should_pull(prepared) => {
+            Ok(RemoteTransferDecision::Downloaded(target))
+        }
+        _ => Ok(RemoteTransferDecision::Deferred(target)),
+    }
+}
+// //// /按冲突策略和调度方向选择覆盖 ////
 
 fn select_initial_transfer(
     prepared: &PreparedTransferBindingSync,

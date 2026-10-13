@@ -3,13 +3,20 @@
 //
 // 该模块按 CN 奖励类型修改玩家物品, 角色, 装备, 货币和经验.
 
-use crate::cn_battle_assets::{BattleFixture, BattleQuest, Reward};
+use crate::cn_battle_assets::{BattleFixture, Reward};
 use crate::cn_character_reward::grant_character;
 use crate::cn_expod::{character_exp_cap, character_level_from_experience};
-use crate::cn_tutorial::format_client_time;
+use crate::cn_character::character_time;
 use crate::PersonalServiceError;
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
+
+mod score;
+mod additional;
+mod periodic;
+pub(crate) use additional::{additional_activity_ids, apply_additional_rewards, unlocked_additional_event_ids};
+pub(crate) use periodic::{apply_periodic_rewards, periodic_activity_ids, recover_periodic_reward_points, RECOVERY_STATE_FIELD as PERIODIC_RECOVERY_STATE_FIELD};
+pub(crate) use score::{apply_score_rewards, ScoreRewardContext};
 
 #[derive(Default)]
 pub(crate) struct RewardResult {
@@ -50,13 +57,6 @@ impl RewardResult {
 }
 
 // //// 发放普通奖励和分数掉落 [@x380kkm 2026-07-22] ////
-pub(crate) fn apply_reward(
-    root: &mut Map<String, Value>,
-    reward: &Reward,
-) -> Result<RewardResult, PersonalServiceError> {
-    apply_reward_at(root, reward, 0)
-}
-
 pub(crate) fn apply_reward_at(
     root: &mut Map<String, Value>,
     reward: &Reward,
@@ -71,57 +71,24 @@ pub(crate) fn apply_reward_at(
         }
         1 => {
             let equipment_id = require_reward_id(reward)?;
-            let equipment_list = require_object(root, "user_equipment_list")?;
-            let equipment_key = equipment_id.to_string();
-            let amount = require_reward_count(reward)?;
-            let was_owned = equipment_list.contains_key(&equipment_key);
-            if !was_owned {
-                equipment_list.insert(
-                    equipment_key.clone(),
-                    json!({
-                        "enhancement_level": 0,
-                        "level": 1,
-                        "protection": false,
-                        "stack": amount - 1,
-                    }),
-                );
-            }
-            let equipment = equipment_list
-                .get_mut(&equipment_key)
-                .and_then(Value::as_object_mut)
-                .ok_or_else(|| {
-                    PersonalServiceError::new("stored CN equipment data is not an object")
-                })?;
-            if was_owned {
-                let stack = equipment
-                    .get("stack")
-                    .and_then(Value::as_i64)
-                    .ok_or_else(|| {
-                        PersonalServiceError::new("stored CN equipment stack is missing")
-                    })?;
-                let updated_stack = stack.checked_add(amount).ok_or_else(|| {
-                    PersonalServiceError::new("CN equipment stack exceeds the supported range")
-                })?;
-                equipment.insert("stack".to_owned(), Value::from(updated_stack));
-            }
-            result.equipment_list.push(json!({
-                "equipment_id": equipment_id,
-                "protection": equipment.get("protection").and_then(Value::as_bool).unwrap_or(false),
-                "level": equipment.get("level").and_then(Value::as_i64).unwrap_or(1),
-                "enhancement_level": equipment.get("enhancement_level").and_then(Value::as_i64).unwrap_or(0),
-                "stack": equipment.get("stack").and_then(Value::as_i64).unwrap_or_default(),
-            }));
+            let count = require_reward_count(reward)?;
+            result.equipment_list.push(crate::cn_equipment::grant_equipment(root, equipment_id, count, server_time)?);
         }
         2 => {
             let character_id = require_reward_id(reward)?;
-            let reward = grant_character(root, 0, character_id, server_time)?;
-            if reward.joined {
-                result.joined_character_ids.push(character_id);
+            let count = reward.count.unwrap_or(1);
+            if count <= 0 { return Err(PersonalServiceError::new("CN character reward count is invalid")); }
+            for _ in 0..count {
+                let reward = grant_character(root, 0, character_id, server_time)?;
+                if reward.joined {
+                    result.joined_character_ids.push(character_id);
+                }
+                if let Some(item) = reward.duplicate_item {
+                    result.items.insert(item.id.to_string(), item.total);
+                }
+                result.character_list.clear();
+                result.character_list.push(reward.character);
             }
-            if let Some(item) = reward.duplicate_item {
-                result.items.insert(item.id.to_string(), item.total);
-            }
-            result.character_list.push(reward.character);
         }
         3 => {
             let count = require_reward_count(reward)?;
@@ -153,23 +120,6 @@ pub(crate) fn apply_reward_at(
     Ok(result)
 }
 
-pub(crate) fn apply_drop_reward_at(
-    root: &mut Map<String, Value>,
-    reward: &Reward,
-    drop_multiplier: i64,
-    server_time: i64,
-) -> Result<RewardResult, PersonalServiceError> {
-    if !is_item_drop_kind(reward.kind) {
-        return apply_reward_at(root, reward, server_time);
-    }
-    let mut scaled_reward = reward.clone();
-    scaled_reward.count = Some(scale_drop_count(
-        require_reward_count(reward)?,
-        drop_multiplier,
-    )?);
-    apply_reward_at(root, &scaled_reward, server_time)
-}
-
 fn scaled_item_drop_amount(
     reward_kind: i64,
     count: i64,
@@ -181,147 +131,6 @@ fn scaled_item_drop_amount(
     scale_drop_count(count, drop_multiplier)
 }
 
-pub(crate) fn apply_score_rewards(
-    root: &mut Map<String, Value>,
-    fixture: &BattleFixture,
-    quest: &BattleQuest,
-    boost_point_used: bool,
-    drop_multiplier: i64,
-    server_time: i64,
-) -> Result<ScoreRewardResult, PersonalServiceError> {
-    let mut rewards = RewardResult::default();
-    let mut drop_score_reward_ids = Vec::new();
-    let mut drop_rare_reward_ids = Vec::new();
-    let Some(group_id) = quest
-        .score_reward_group_id
-        .or(quest.score_attack_reward_group_id)
-    else {
-        return Ok(ScoreRewardResult {
-            rewards,
-            drop_score_reward_ids,
-            drop_rare_reward_ids,
-        });
-    };
-    for (reward_index, score_reward) in quest.score_rewards.iter().enumerate() {
-        match score_reward.kind {
-            0 => {
-                let reward_kind = score_reward
-                    .reward_type
-                    .ok_or_else(|| PersonalServiceError::new("CN score reward kind is missing"))?;
-                let boost_multiplier = if boost_point_used { 2 } else { 1 };
-                let base_amount = score_reward
-                    .count
-                    .unwrap_or_default()
-                    .checked_mul(boost_multiplier)
-                    .ok_or_else(|| {
-                        PersonalServiceError::new(
-                            "CN score reward amount exceeds the supported range",
-                        )
-                    })?;
-                let amount = scaled_item_drop_amount(reward_kind, base_amount, drop_multiplier)?;
-                let result = apply_reward_at(
-                    root,
-                    &Reward {
-                        kind: reward_kind,
-                        id: score_reward.id,
-                        count: Some(amount),
-                        rarity: None,
-                    },
-                    server_time,
-                )?;
-                rewards.merge(result);
-                drop_score_reward_ids.push(json!({
-                    "group_id": group_id,
-                    "index": score_reward.position.unwrap_or(reward_index as i64 + 1),
-                    "number": amount,
-                }));
-            }
-            1 => {
-                let rarity = score_reward.rarity.ok_or_else(|| {
-                    PersonalServiceError::new("CN rare score reward probability is missing")
-                })?;
-                let roll = random_below(100)? as f64 / 100.0;
-                if rarity < roll {
-                    continue;
-                }
-                let rare_group_id = score_reward.id.ok_or_else(|| {
-                    PersonalServiceError::new("CN rare score reward group ID is missing")
-                })?;
-                let rare_group = fixture
-                    .rare_reward_groups
-                    .get(&rare_group_id.to_string())
-                    .ok_or_else(|| {
-                        PersonalServiceError::new("CN rare score reward group is missing")
-                    })?;
-                if rare_group.is_empty() {
-                    return Err(PersonalServiceError::new(
-                        "CN rare score reward group is empty",
-                    ));
-                }
-                let rare_index = random_below(rare_group.len() as u32)? as usize;
-                let rare_reward = &rare_group[rare_index];
-                let result = apply_drop_reward_at(root, rare_reward, drop_multiplier, server_time)?;
-                rewards.merge(result);
-                drop_rare_reward_ids.push(json!({
-                    "group_id": rare_group_id,
-                    "index": rare_index + 1,
-                    "number": if rare_reward.kind == 2 {
-                        1
-                    } else {
-                        scaled_item_drop_amount(
-                            rare_reward.kind,
-                            require_reward_count(rare_reward)?,
-                            drop_multiplier,
-                        )?
-                    },
-                }));
-            }
-            kind => {
-                return Err(PersonalServiceError::new(format!(
-                    "unsupported CN score reward kind: {kind}"
-                )));
-            }
-        }
-    }
-    Ok(ScoreRewardResult {
-        rewards,
-        drop_score_reward_ids,
-        drop_rare_reward_ids,
-    })
-}
-
-pub(crate) fn apply_score_attack_border_reward(
-    root: &mut Map<String, Value>,
-    quest: &BattleQuest,
-    score: i64,
-    drop_multiplier: i64,
-    server_time: i64,
-) -> Result<RewardResult, PersonalServiceError> {
-    let Some(border) = quest
-        .score_attack_border_rewards
-        .iter()
-        .filter(|border| score >= border.score)
-        .max_by_key(|border| border.score)
-    else {
-        return Ok(RewardResult::default());
-    };
-    if border.coin_item_id <= 0 || border.coin_count <= 0 {
-        return Err(PersonalServiceError::new(
-            "CN score attack border reward is invalid",
-        ));
-    }
-    apply_drop_reward_at(
-        root,
-        &Reward {
-            kind: 0,
-            id: Some(border.coin_item_id),
-            count: Some(border.coin_count),
-            rarity: None,
-        },
-        drop_multiplier,
-        server_time,
-    )
-}
 
 fn is_item_drop_kind(reward_kind: i64) -> bool {
     matches!(reward_kind, 0 | 6 | 7)
@@ -416,18 +225,8 @@ pub(crate) fn apply_character_exp(
         if server_time > 0 {
             character.insert("update_time".to_owned(), Value::from(server_time));
         }
-        let join_time = character
-            .get("join_time")
-            .and_then(Value::as_i64)
-            .ok_or_else(|| PersonalServiceError::new("stored CN character join time is missing"))?;
-        let update_time = character
-            .get("update_time")
-            .and_then(Value::as_i64)
-            .ok_or_else(|| {
-                PersonalServiceError::new("stored CN character update time is missing")
-            })?;
-        let join_time = format_client_time(join_time);
-        let update_time = format_client_time(update_time);
+        let join_time = character_time(character.get("join_time"), server_time);
+        let update_time = character_time(character.get("update_time"), server_time);
         add_exp_list.push(json!({
             "character_id": character_id,
             "add_exp": exp_amount - overflow_exp,
@@ -541,6 +340,7 @@ fn random_below(upper_bound: u32) -> Result<u32, PersonalServiceError> {
 
 #[cfg(test)]
 mod tests {
+    use crate::cn_tutorial::format_client_time;
     use super::*;
 
     fn reward(kind: i64, id: Option<i64>, count: i64) -> Reward {
@@ -586,8 +386,8 @@ mod tests {
         assert_eq!(equipment.equipment_list[0]["stack"], 1);
         assert_eq!(root["user_character_list"]["111001"]["entry_count"], 1);
         assert_eq!(root["user_character_list"]["111001"]["stack"], 1);
-        assert_eq!(root["item_list"]["14003"], 1);
-        assert_eq!(duplicate_character.items["14003"], 1);
+        assert_eq!(root["item_list"]["14003"], 3);
+        assert_eq!(duplicate_character.items["14003"], 3);
         assert_eq!(first_character.joined_character_ids, vec![111_001]);
         assert!(duplicate_character.joined_character_ids.is_empty());
         assert_eq!(root["user_info"]["free_vmoney"], 15);
@@ -596,23 +396,24 @@ mod tests {
     }
     // //// /验证全部战斗奖励类型和重复角色奖励 ////
 
-    // //// 验证角色奖励数量字段不会重复发放角色 [@x380kkm 2026-08-28] ////
+    // //// 按统一奖励数量发放角色并聚合最终状态 [@x380kkm 2026-09-26] ////
     #[test]
-    fn treats_character_reward_as_one_grant() {
+    fn grants_complete_character_reward_quantity() {
         let mut root = Map::from_iter([
             ("user_character_list".to_owned(), json!({})),
             ("item_list".to_owned(), json!({})),
         ]);
 
-        let result = apply_reward_at(&mut root, &reward(2, Some(111_001), 131_182), 100).unwrap();
+        let result = apply_reward_at(&mut root, &reward(2, Some(111_001), 3), 100).unwrap();
 
         assert_eq!(result.character_list.len(), 1);
         assert_eq!(result.joined_character_ids, vec![111_001]);
         assert_eq!(root["user_character_list"]["111001"]["entry_count"], 1);
-        assert_eq!(root["user_character_list"]["111001"]["stack"], 0);
-        assert_eq!(root["item_list"], json!({}));
+        assert_eq!(root["user_character_list"]["111001"]["stack"], 2);
+        assert_eq!(result.character_list[0]["stack"], 2);
+        assert_eq!(root["item_list"], json!({"14003":6}));
     }
-    // //// /验证角色奖励数量字段不会重复发放角色 ////
+    // //// /按统一奖励数量发放角色并聚合最终状态 ////
 
     // //// 验证合并战斗奖励时保留道具最终持有量 [@x380kkm 2026-08-28] ////
     #[test]
@@ -629,35 +430,13 @@ mod tests {
     // //// 验证掉落倍率只作用于战斗道具数量 [@x380kkm 2026-08-26] ////
     #[test]
     fn scales_item_drops_without_scaling_other_reward_types() {
-        let mut root = Map::from_iter([
-            (
-                "user_info".to_owned(),
-                json!({"free_vmoney": 10, "free_mana": 20, "exp_pool": 30}),
-            ),
-            ("item_list".to_owned(), json!({})),
-            ("user_equipment_list".to_owned(), json!({})),
-            ("user_character_list".to_owned(), json!({})),
-        ]);
-
-        let item = apply_drop_reward_at(&mut root, &reward(0, Some(10), 2), 3, 100).unwrap();
-        let element = apply_drop_reward_at(&mut root, &reward(6, Some(40), 2), 3, 100).unwrap();
-        let aether = apply_drop_reward_at(&mut root, &reward(7, Some(41), 2), 3, 100).unwrap();
-        let equipment = apply_drop_reward_at(&mut root, &reward(1, Some(20), 2), 3, 100).unwrap();
-        apply_drop_reward_at(&mut root, &reward(3, None, 5), 3, 100).unwrap();
-        apply_drop_reward_at(&mut root, &reward(4, None, 7), 3, 100).unwrap();
-        apply_drop_reward_at(&mut root, &reward(5, None, 9), 3, 100).unwrap();
-
-        assert_eq!(root["item_list"]["10"], 6);
-        assert_eq!(root["item_list"]["40"], 6);
-        assert_eq!(root["item_list"]["41"], 6);
-        assert_eq!(item.items["10"], 6);
-        assert_eq!(element.items["40"], 6);
-        assert_eq!(aether.items["41"], 6);
-        assert_eq!(root["user_equipment_list"]["20"]["stack"], 1);
-        assert_eq!(equipment.equipment_list[0]["stack"], 1);
-        assert_eq!(root["user_info"]["free_vmoney"], 15);
-        assert_eq!(root["user_info"]["free_mana"], 27);
-        assert_eq!(root["user_info"]["exp_pool"], 39);
+        for kind in [0, 6, 7] {
+            assert_eq!(scaled_item_drop_amount(kind, 2, 3).unwrap(), 6);
+        }
+        for kind in [1, 2, 3, 4, 5] {
+            assert_eq!(scaled_item_drop_amount(kind, 2, 3).unwrap(), 2);
+        }
+        assert!(scaled_item_drop_amount(0, i64::MAX, 2).is_err());
     }
     // //// /验证掉落倍率只作用于战斗道具数量 ////
 

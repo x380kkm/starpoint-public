@@ -11,16 +11,19 @@ export enum RewardType {
     CHARACTER,
     BEADS,
     MANA,
-    EXP
+    EXP,
+    ELEMENT,
+    AETHER
 }
 
+// //// 声明箱池奖励类型的客户端编号 [@x380kkm 2026-09-28] ////
 export enum BoxGachaRewardType {
-    ITEM,
-    EQUIPMENT,
-    EMPTY,
-    MANA,
-    EXP,
-    CHARACTER
+    ITEM = 0,
+    EQUIPMENT = 1,
+    EMPTY = 2,
+    MANA = 3,
+    EXP = 4,
+    CHARACTER = 6
 }
 
 export enum QuestCategory {
@@ -123,15 +126,18 @@ export interface CurrencyReward extends Reward {
 }
 
 export interface RareScoreReward extends Reward {
-    rarity: number
+    rarity: number,
+    position: number,
+    element_rarity?: number | null
 }
 
 export type ClearRewards = Record<string, Reward>
 
 // score rewards
 export interface ScoreReward {
-    name: string,
+    name?: string,
     type: ScoreRewardType,
+    position: number,
 }
 
 export interface CommonScoreReward extends ScoreReward {
@@ -206,6 +212,8 @@ export interface BattleQuest {
     sPlusReward?: Reward,
     scoreRewardGroupId?: number,
     scoreRewardGroup?: ScoreReward[],
+    scoreRewardCounts: number[],
+    element?: Element,
     bRankTime: number,
     aRankTime: number,
     sRankTime: number,

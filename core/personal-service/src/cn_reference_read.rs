@@ -7,18 +7,17 @@ use crate::cn::{decode_request, msgpack_response_at, server_time};
 use crate::cn_tutorial::{
     decode_player_data, encode_player_data, format_client_time, player_snapshot,
 };
-use crate::database::{ServiceDatabase, StoredReceiveHistory, ViewerSessionPlayer};
+use crate::database::{ServiceDatabase, ViewerSessionPlayer};
 use crate::http::{HttpRequest, HttpResponse};
 use crate::PersonalServiceError;
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
-use std::collections::BTreeMap;
 use std::path::Path;
 
+mod item_use;
+mod receive_history;
+
 const ENCYCLOPEDIA_DATA: &str = include_str!("../assets/cn-encyclopedia.json");
-const ITEM_EFFECT_DATA: &str = include_str!("../assets/cn-item-effects.json");
-const STAMINA_RECOVERY_SECONDS: i64 = 300;
-const MAX_STAMINA_OVERFLOW: i64 = 999;
 
 type Handler = fn(&HttpRequest, &mut ServiceDatabase) -> Result<HttpResponse, PersonalServiceError>;
 
@@ -35,14 +34,15 @@ const ROUTES: &[(&str, Handler)] = &[
         "/api/index.php/encyclopedia/unlock_keyword",
         encyclopedia_read_keyword,
     ),
-    ("/api/index.php/comic/get_list", comic_get_list),
-    ("/api/index.php/history/receive", history_receive),
-    ("/api/index.php/history/practice_battle", history_battle),
+    ("/api/index.php/history/receive", receive_history::get),
+    ("/api/index.php/player_history/index", crate::cn_player_history::index),
+    ("/api/index.php/player_history/edit", crate::cn_player_history::edit),
+    ("/api/index.php/history/practice_battle", crate::cn_battle_history::history),
     (
         "/api/index.php/history/score_attack_event_battle",
-        history_battle,
+        crate::cn_battle_history::history,
     ),
-    ("/api/index.php/contents_guide/start", empty_object),
+    ("/api/index.php/contents_guide/start", start_contents_guide),
     (
         "/api/index.php/profile/get_last_login_region",
         profile_last_login_region,
@@ -57,29 +57,17 @@ const ROUTES: &[(&str, Handler)] = &[
     ("/api/index.php/news/latest_forced", empty_object),
     ("/api/index.php/news/latest_forced_system", empty_object),
     ("/api/index.php/reproduce/post", reproduce_post),
-    ("/api/index.php/item/use_item", item_use),
-    ("/api/index.php/bonus/shown", supplemental_content_query),
-    (
-        "/api/index.php/assistant/get_assistant_list",
-        supplemental_content_query,
-    ),
+    ("/api/index.php/item/use_item", item_use::use_items),
+    ("/api/index.php/bonus/shown", crate::cn_login_bonus::shown),
     (
         "/api/index.php/character_election/get_vote_status",
-        supplemental_content_query,
+        crate::cn_character_election::get_vote_status,
     ),
     (
         "/api/index.php/character_election/vote",
-        supplemental_content_query,
+        crate::cn_character_election::vote,
     ),
     ("/api/index.php/follow/lists", supplemental_content_query),
-    (
-        "/api/index.php/gacha/crazy_gacha_save",
-        supplemental_content_query,
-    ),
-    (
-        "/api/index.php/gacha/crazy_gacha_select",
-        supplemental_content_query,
-    ),
     ("/api/index.php/gift/receive", supplemental_content_query),
     ("/api/index.php/lounge/get_list", supplemental_content_query),
     ("/api/index.php/sns/get", supplemental_content_query),
@@ -132,18 +120,6 @@ impl HasViewerId for EncyclopediaReadRequest {
 }
 
 #[derive(Deserialize)]
-struct ComicListRequest {
-    viewer_id: i64,
-    page_index: Option<i64>,
-}
-
-impl HasViewerId for ComicListRequest {
-    fn viewer_id(&self) -> i64 {
-        self.viewer_id
-    }
-}
-
-#[derive(Deserialize)]
 struct NewsIndexRequest {
     viewer_id: i64,
     page_index: Option<i64>,
@@ -151,18 +127,6 @@ struct NewsIndexRequest {
 }
 
 impl HasViewerId for NewsIndexRequest {
-    fn viewer_id(&self) -> i64 {
-        self.viewer_id
-    }
-}
-
-#[derive(Deserialize)]
-struct ItemUseRequest {
-    viewer_id: i64,
-    items: Vec<ItemUseEntry>,
-}
-
-impl HasViewerId for ItemUseRequest {
     fn viewer_id(&self) -> i64 {
         self.viewer_id
     }
@@ -182,20 +146,6 @@ macro_rules! authenticated {
         };
         (body, snapshot)
     }};
-}
-
-#[derive(Deserialize)]
-struct ItemUseEntry {
-    id: i64,
-    number: i64,
-}
-
-#[derive(Deserialize)]
-struct ItemEffect {
-    #[serde(rename = "effectKind")]
-    effect_kind: i64,
-    #[serde(rename = "effectValue")]
-    effect_value: i64,
 }
 
 // //// 分派 CN 查询请求 [@x380kkm 2026-08-22] ////
@@ -222,37 +172,7 @@ fn attention_check(
     request: &HttpRequest,
     database: &mut ServiceDatabase,
 ) -> Result<HttpResponse, PersonalServiceError> {
-    let (body, _) = authenticated!(request, database, ViewerRequest);
-    respond(
-        database,
-        body.viewer_id,
-        json!({
-            "config": {
-                "attention_recruitment_interval_seconds": 15,
-                "attention_recruitment_redeliver_limit": 20,
-                "attention_polling_interval_seconds_normal": 10,
-                "attention_polling_interval_seconds_battle": 15,
-                "multi_attention_lifetime_seconds": 30,
-                "contribution_score_rate_to_parasite": 0.25,
-                "attention_log_interval_seconds": 600,
-                "disable_finish_duration_seconds": 5,
-                "disable_decline_count_seconds": 60,
-                "disable_decline_count_limit": 14,
-                "disable_decline_duration_seconds": 30,
-                "disable_intent_disconnect_duration_seconds": 300,
-                "disable_unintent_disconnect_duration_seconds": 5,
-                "disable_remote_error_duration_seconds": 300,
-                "attention_animation_time_seconds": 6,
-                "disable_expire_count_limit": 4,
-                "disable_expire_duration_seconds": 180,
-                "polling_delay_normal_seconds_range_min": 1,
-                "polling_delay_normal_seconds_range_max": 10,
-                "polling_delay_battle_seconds_range_min": 1,
-                "polling_delay_battle_seconds_range_max": 15,
-                "return_attention_max_num": 3
-            }
-        }),
-    )
+    crate::cn_multi::attention_check(request, database)
 }
 // //// /返回多人邀请配置 ////
 
@@ -261,13 +181,10 @@ fn attention_action(
     request: &HttpRequest,
     database: &mut ServiceDatabase,
 ) -> Result<HttpResponse, PersonalServiceError> {
-    let viewer_id = match viewer_id_only(request) {
-        Ok(viewer_id) => viewer_id,
-        Err(response) => return Ok(response),
-    };
+    let (body, _) = authenticated!(request, database, ViewerRequest);
     respond(
         database,
-        viewer_id,
+        body.viewer_id,
         json!({"priority_action_score": 0, "priority_playing_score": 0}),
     )
 }
@@ -277,11 +194,8 @@ fn attention_logger(
     request: &HttpRequest,
     database: &mut ServiceDatabase,
 ) -> Result<HttpResponse, PersonalServiceError> {
-    let viewer_id = match viewer_id_only(request) {
-        Ok(viewer_id) => viewer_id,
-        Err(response) => return Ok(response),
-    };
-    respond(database, viewer_id, json!({}))
+    let (body, _) = authenticated!(request, database, ViewerRequest);
+    respond(database, body.viewer_id, json!({}))
 }
 
 // //// 返回百科目录并合并玩家已读状态 [@x380kkm 2026-08-22] ////
@@ -360,79 +274,6 @@ fn encyclopedia_read_keyword(
 }
 // //// /保存百科已读状态 ////
 
-// //// 返回空漫画分页 [@x380kkm 2026-08-22] ////
-fn comic_get_list(
-    request: &HttpRequest,
-    database: &mut ServiceDatabase,
-) -> Result<HttpResponse, PersonalServiceError> {
-    let (body, _) = authenticated!(request, database, ComicListRequest);
-    let page_index = body.page_index.unwrap_or_default().max(0);
-    respond(
-        database,
-        body.viewer_id,
-        json!({"comic_list": [], "current_page_index": page_index, "total_count": 0}),
-    )
-}
-// //// /返回空漫画分页 ////
-
-// //// 返回已领取邮件生成的领取记录 [@x380kkm 2026-08-22] ////
-fn history_receive(
-    request: &HttpRequest,
-    database: &mut ServiceDatabase,
-) -> Result<HttpResponse, PersonalServiceError> {
-    let body = match decode_request::<ViewerRequest>(request) {
-        Ok(body) if body.viewer_id > 0 => body,
-        Ok(_) | Err(_) => return Ok(error_response("400 Bad Request", "invalid_request_body")),
-    };
-    let account_id = match database.lookup_viewer_session_player(body.viewer_id)? {
-        ViewerSessionPlayer::Present(snapshot) => snapshot.account_id,
-        ViewerSessionPlayer::MissingPlayerData(account_id) => account_id,
-        ViewerSessionPlayer::InvalidSession => {
-            return Ok(error_response("400 Bad Request", "invalid_viewer_session"));
-        }
-        ViewerSessionPlayer::MissingPlayer => {
-            return Ok(error_response("400 Bad Request", "no_player"));
-        }
-    };
-    let history = database
-        .receive_history(account_id, 500)?
-        .iter()
-        .map(receive_history_entry)
-        .collect::<Vec<_>>();
-    let total_count = history.len();
-    respond(
-        database,
-        body.viewer_id,
-        json!({"history": history, "total_count": total_count}),
-    )
-}
-// //// /返回已领取邮件生成的领取记录 ////
-
-fn receive_history_entry(entry: &StoredReceiveHistory) -> Value {
-    json!({
-        "create_time": format_client_time(entry.create_time),
-        "description": entry.description,
-        "number": entry.number,
-        "reason_id": entry.reason_id,
-        "subject": entry.subject,
-        "type": entry.kind,
-        "type_id": entry.type_id,
-    })
-}
-
-// //// 返回战斗记录数组 [@x380kkm 2026-08-22] ////
-fn history_battle(
-    request: &HttpRequest,
-    database: &mut ServiceDatabase,
-) -> Result<HttpResponse, PersonalServiceError> {
-    let viewer_id = match viewer_id_only(request) {
-        Ok(viewer_id) => viewer_id,
-        Err(response) => return Ok(response),
-    };
-    respond(database, viewer_id, json!({"history": []}))
-}
-// //// /返回战斗记录数组 ////
-
 // //// 返回玩家最后登录区域 [@x380kkm 2026-08-22] ////
 fn profile_last_login_region(
     request: &HttpRequest,
@@ -455,22 +296,21 @@ fn profile_degree_list(
         Ok(body) if body.viewer_id > 0 => body,
         Ok(_) | Err(_) => return Ok(error_response("400 Bad Request", "invalid_request_body")),
     };
-    let degree_id = match database.lookup_viewer_session_player(body.viewer_id)? {
+    let mut degree_ids = std::collections::BTreeSet::from([1_i64]);
+    match database.lookup_viewer_session_player(body.viewer_id)? {
         ViewerSessionPlayer::InvalidSession => {
             return Ok(error_response("400 Bad Request", "invalid_viewer_session"));
         }
-        ViewerSessionPlayer::Present(snapshot) => decode_player_data(&snapshot.data)?
-            .get("user_info")
-            .and_then(Value::as_object)
-            .and_then(|user_info| user_info.get("degree_id"))
-            .and_then(Value::as_i64)
-            .unwrap_or(1),
-        ViewerSessionPlayer::MissingPlayer | ViewerSessionPlayer::MissingPlayerData(_) => 1,
-    };
+        ViewerSessionPlayer::Present(snapshot) => {
+            let player = decode_player_data(&snapshot.data)?;
+            degree_ids = crate::cn_profile::owned_degree_ids(&player);
+        }
+        ViewerSessionPlayer::MissingPlayer | ViewerSessionPlayer::MissingPlayerData(_) => {}
+    }
     respond(
         database,
         body.viewer_id,
-        json!({"degree_ids": [1, degree_id]}),
+        json!({"degree_ids": degree_ids}),
     )
 }
 // //// /返回玩家持有的称号编号 ////
@@ -527,118 +367,21 @@ fn news_system_index(
 }
 // //// /返回空系统公告分页 ////
 
-// //// 使用库存中的体力物品 [@x380kkm 2026-08-22] ////
-fn item_use(
+// //// 保存内容指南的开启进度并返回任务变化 [@x380kkm 2026-09-21] ////
+fn start_contents_guide(
     request: &HttpRequest,
     database: &mut ServiceDatabase,
 ) -> Result<HttpResponse, PersonalServiceError> {
-    let (body, snapshot) = authenticated!(request, database, ItemUseRequest);
-    if body.items.is_empty() {
-        return Ok(error_response("400 Bad Request", "invalid_request_body"));
-    }
-    let effects: BTreeMap<String, ItemEffect> =
-        serde_json::from_str(ITEM_EFFECT_DATA).map_err(|error| {
-            PersonalServiceError::new(format!("failed to decode CN item effects: {error}"))
-        })?;
-    let mut requested = BTreeMap::<i64, i64>::new();
-    for item in body.items {
-        if item.id <= 0 || item.number <= 0 {
-            continue;
-        }
-        if !effects
-            .get(&item.id.to_string())
-            .is_some_and(|effect| matches!(effect.effect_kind, 2 | 3))
-        {
-            continue;
-        }
-        let total = requested.entry(item.id).or_default();
-        *total = total.checked_add(item.number).ok_or_else(|| {
-            PersonalServiceError::new("CN item count exceeds the supported range")
-        })?;
-    }
-    if requested.is_empty() {
-        return Ok(error_response(
-            "400 Bad Request",
-            "invalid_stamina_recovery",
-        ));
-    }
-
+    let (body, snapshot) = authenticated!(request, database, ViewerRequest);
     let mut player_data = decode_player_data(&snapshot.data)?;
-    let root = player_data
-        .as_object_mut()
-        .ok_or_else(|| PersonalServiceError::new("stored CN player data is not an object"))?;
-    let user_info = root
-        .get("user_info")
-        .and_then(Value::as_object)
-        .ok_or_else(|| PersonalServiceError::new("stored CN user_info data is missing"))?;
-    let stamina = required_i64(user_info, "stamina")?;
-    let heal_time = required_i64(user_info, "stamina_heal_time")?;
-    let now = server_time(database)?;
-    let recovered = now.saturating_sub(heal_time) / STAMINA_RECOVERY_SECONDS;
-    let current_stamina = stamina.saturating_add(recovered).min(MAX_STAMINA_OVERFLOW);
-    if current_stamina >= MAX_STAMINA_OVERFLOW {
-        return Ok(error_response("400 Bad Request", "stamina_already_full"));
-    }
-
-    let item_list = root
-        .get_mut("item_list")
-        .and_then(Value::as_object_mut)
-        .ok_or_else(|| PersonalServiceError::new("stored CN item_list data is missing"))?;
-    let mut recovery = 0_i64;
-    let mut updates = Map::new();
-    for (item_id, count) in requested {
-        let effect = effects
-            .get(&item_id.to_string())
-            .ok_or_else(|| PersonalServiceError::new("CN item effect disappeared"))?;
-        let owned = item_list
-            .get(&item_id.to_string())
-            .and_then(Value::as_i64)
-            .unwrap_or_default();
-        if owned < count {
-            return Ok(error_response("400 Bad Request", "insufficient_items"));
-        }
-        let per_item = if effect.effect_kind == 2 {
-            effect.effect_value
-        } else {
-            MAX_STAMINA_OVERFLOW.saturating_mul(effect.effect_value.max(0)) / 100
-        };
-        recovery = recovery
-            .checked_add(per_item.saturating_mul(count))
-            .ok_or_else(|| {
-                PersonalServiceError::new("CN stamina recovery exceeds the supported range")
-            })?;
-        updates.insert(item_id.to_string(), Value::from(owned - count));
-    }
-    if recovery <= 0 {
-        return Ok(error_response(
-            "400 Bad Request",
-            "invalid_stamina_recovery",
-        ));
-    }
-    for (item_id, count) in &updates {
-        item_list.insert(item_id.clone(), count.clone());
-    }
-    let next_stamina = current_stamina
-        .saturating_add(recovery)
-        .min(MAX_STAMINA_OVERFLOW);
-    let user_info = root
-        .get_mut("user_info")
-        .and_then(Value::as_object_mut)
-        .ok_or_else(|| PersonalServiceError::new("stored CN user_info data is missing"))?;
-    user_info.insert("stamina".to_owned(), Value::from(next_stamina));
-    user_info.insert("stamina_heal_time".to_owned(), Value::from(now));
+    let root = crate::cn_tutorial::require_root(&mut player_data)?;
+    let active_mission_list = crate::cn_mission::record_active_counters(
+        root, database, &[("contents_guide_start", 1)],
+    )?;
     database.save_player_snapshot(snapshot.account_id, &encode_player_data(&player_data)?)?;
-    msgpack_response_at(
-        body.viewer_id,
-        false,
-        now,
-        json!({
-            "user_info": {"stamina": next_stamina, "stamina_heal_time": now},
-            "item_list": updates
-        }),
-    )
+    respond(database, body.viewer_id, json!({"active_mission_list": active_mission_list}))
 }
-// //// /使用库存中的体力物品 ////
+// //// /保存内容指南的开启进度并返回任务变化 ////
 
 fn empty_object(
     request: &HttpRequest,
@@ -661,21 +404,7 @@ fn supplemental_content_query(
         Err(response) => return Ok(response),
     };
     let data = match request.path() {
-        "/api/index.php/bonus/shown" | "/api/index.php/sns/get" => json!([]),
-        "/api/index.php/assistant/get_assistant_list" => json!({
-            "all_box_info": [],
-            "mission_progress_list": [],
-            "records": [],
-            "sales_list": [],
-            "user_notice_list": [],
-        }),
-        "/api/index.php/character_election/get_vote_status" => json!({"is_voted": false}),
-        "/api/index.php/character_election/vote" | "/api/index.php/gacha/crazy_gacha_select" => {
-            json!({})
-        }
-        "/api/index.php/gacha/crazy_gacha_save" => {
-            json!({"crazy_gacha_result_list": []})
-        }
+        "/api/index.php/sns/get" => json!([]),
         "/api/index.php/gift/receive" => json!({"all_gift_info": [], "result_code": 1}),
         "/api/index.php/follow/lists" => {
             json!({ "follow_info": [], "followed_count": 0 })
@@ -727,8 +456,8 @@ fn how_to_get(
         response_time,
         json!({
             "box_gacha_id_list": box_gacha_id_list,
-            "unselected_lineup_shop_sales_list": [],
-            "shop_sales_list": shop_sales_list,
+            "unselected_lineup_shop_sales_list": shop_sales_list.unselected,
+            "shop_sales_list": shop_sales_list.available,
         }),
     )
 }
@@ -794,13 +523,6 @@ fn decode_object(source: &str, label: &str) -> Result<Map<String, Value>, Person
         .as_object()
         .cloned()
         .ok_or_else(|| PersonalServiceError::new(format!("{label} is not an object")))
-}
-
-fn required_i64(object: &Map<String, Value>, key: &str) -> Result<i64, PersonalServiceError> {
-    object
-        .get(key)
-        .and_then(Value::as_i64)
-        .ok_or_else(|| PersonalServiceError::new(format!("stored CN {key} data is invalid")))
 }
 
 fn error_response(status: &'static str, code: &str) -> HttpResponse {

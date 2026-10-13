@@ -14,6 +14,7 @@ pub(crate) struct DataHeaders {
     pub(crate) asset_update: bool,
     pub(crate) short_udid: i64,
     pub(crate) viewer_id: i64,
+    #[serde(deserialize_with = "deserialize_integer_timestamp")]
     pub(crate) servertime: i64,
     pub(crate) result_code: i64,
 }
@@ -22,6 +23,28 @@ pub(crate) struct DataHeaders {
 pub(crate) struct Envelope<T> {
     pub(crate) data_headers: DataHeaders,
     pub(crate) data: T,
+}
+
+// //// 按客户端 Number 约定读取整数秒时间戳 [@x380kkm 2026-09-23] ////
+fn deserialize_integer_timestamp<'de, D: serde::Deserializer<'de>>(
+    decoder: D,
+) -> Result<i64, D::Error> {
+    let number = serde_json::Number::deserialize(decoder)?;
+    if let Some(seconds) = number.as_i64() {
+        return Ok(seconds);
+    }
+    let seconds = number
+        .as_f64()
+        .filter(|value| {
+            value.is_finite()
+                && value.fract() == 0.0
+                && *value >= i64::MIN as f64
+                && *value < -(i64::MIN as f64)
+        })
+        .ok_or_else(|| {
+            serde::de::Error::custom("server time is outside the integer timestamp range")
+        })?;
+    Ok(seconds as i64)
 }
 
 #[derive(Deserialize)]
@@ -55,7 +78,7 @@ pub(crate) struct LoadRequest {
 
 // //// 发送和解码 CN MessagePack 请求 [@x380kkm 2026-07-22] ////
 pub(crate) fn decode_response<T: serde::de::DeserializeOwned>(response: &str) -> Envelope<T> {
-    assert!(response.starts_with("HTTP/1.1 200 OK"));
+    assert!(response.starts_with("HTTP/1.1 200 OK"), "{response}");
     assert!(response.contains("Content-Type: application/x-msgpack"));
     let body = response
         .split_once("\r\n\r\n")

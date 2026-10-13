@@ -10,6 +10,7 @@ import { FEATURE_BANNER_RELATION_SCHEMAS } from "./cn-activity-master-schema.mjs
 import { decodeOrderedMap } from "./decode-cn-orderedmap.mjs"
 import { encodeOrderedMap } from "./encode-cn-orderedmap.mjs"
 import { readCnGachaRegionPolicy } from "./generate-cn-gacha-region-policy.mjs"
+import { projectGachaFeatures } from "./cn-gacha-feature-projection.mjs"
 
 const SCRIPT_DIRECTORY = path.dirname(fileURLToPath(import.meta.url))
 const DEFAULT_CAMPAIGN_MAP_PATH = path.resolve(SCRIPT_DIRECTORY, "..", "..", "assets", "gacha_campaign.json")
@@ -120,34 +121,40 @@ function requiredGachaCampaignRow(master, campaignId) {
     return row
 }
 
-function mappedCampaigns(master, campaignByGachaId) {
-    const campaigns = new Map()
-    for (const [gachaId, campaignIdValue] of Object.entries(campaignByGachaId)) {
-        const campaignId = String(campaignIdValue)
+function temporaryCampaigns(master, policy, catalog) {
+    const temporaryPools = new Map(Object.entries(policy.temporaryAliases)
+        .map(([alias, canonical]) => [Number(canonical), alias]))
+    const campaigns = []
+    for (const [campaignId, campaign] of Object.entries(catalog)) {
         const row = requiredGachaCampaignRow(master, campaignId)
-        if (!row[CAMPAIGN_GACHA_IDS_INDEX].split(",").includes(gachaId)) {
-            throw new Error(`gacha campaign mapping is inconsistent: gacha=${gachaId} campaign=${campaignId}`)
+        for (const gachaId of campaign.gachaIds) {
+            if (!row[CAMPAIGN_GACHA_IDS_INDEX].split(",").includes(String(gachaId))) {
+                throw new Error(`gacha campaign mapping is inconsistent: gacha=${gachaId} campaign=${campaignId}`)
+            }
+            const temporaryGachaId = temporaryPools.get(gachaId)
+            const temporaryCampaignId = campaign.temporaryCampaignIds[String(gachaId)]
+            if (!Number.isSafeInteger(temporaryCampaignId) || temporaryCampaignId <= 0) {
+                throw new Error(`temporary gacha campaign ID is invalid: ${campaignId}/${gachaId}`)
+            }
+            const gachaIds = temporaryGachaId ? `${gachaId},${temporaryGachaId}` : String(gachaId)
+            campaigns.push({ gachaId, row, gachaIds, temporaryCampaignId: String(temporaryCampaignId) })
         }
-        campaigns.set(gachaId, { campaignId, row })
     }
     return campaigns
 }
 
-export function applyCnGachaCampaignPolicy(master, policy, campaignByGachaId) {
+export function applyCnGachaCampaignPolicy(master, policy, catalog) {
     const patched = { ...master }
-    const canonicalCampaigns = mappedCampaigns(master, campaignByGachaId)
-    for (const [temporaryId, canonicalId] of Object.entries(policy.temporaryAliases)) {
-        const canonical = canonicalCampaigns.get(String(canonicalId))
-        if (!canonical) continue
-        if (Object.hasOwn(patched, temporaryId)) {
-            throw new Error(`temporary gacha campaign ID collides: ${temporaryId}`)
+    for (const campaign of temporaryCampaigns(master, policy, catalog)) {
+        if (Object.hasOwn(patched, campaign.temporaryCampaignId)) {
+            throw new Error(`temporary gacha campaign ID collides: ${campaign.temporaryCampaignId}`)
         }
-        const row = [...canonical.row]
-        row[STRING_ID_INDEX] = `${row[STRING_ID_INDEX]}_temporary_${canonicalId}`
+        const row = [...campaign.row]
+        row[STRING_ID_INDEX] = `${row[STRING_ID_INDEX]}_temporary_${campaign.gachaId}`
         row[CAMPAIGN_START_TIME_INDEX] = TEMPORARY_CAMPAIGN_START_TIME
         row[CAMPAIGN_END_TIME_INDEX] = TEMPORARY_CAMPAIGN_END_TIME
-        row[CAMPAIGN_GACHA_IDS_INDEX] = temporaryId
-        patched[temporaryId] = row
+        row[CAMPAIGN_GACHA_IDS_INDEX] = campaign.gachaIds
+        patched[campaign.temporaryCampaignId] = row
     }
     const stringIds = new Set()
     for (const campaignId of Object.keys(patched)) {
@@ -235,11 +242,24 @@ function patchFeatureBannerMasterFile(inputPath, outputPath, policyPath, tableNa
     }
 }
 
+// //// 输出与最终卡池一一关联的特辑 master [@x380kkm 2026-09-20] ////
+function patchFeatureContentMasterFile(inputPath, outputPath, gachaPath, policyPath) {
+    const source = decodeOrderedMap(fs.readFileSync(inputPath))
+    const gacha = decodeOrderedMap(fs.readFileSync(gachaPath))
+    const policy = readCnGachaRegionPolicy(policyPath)
+    const servicePools = JSON.parse(fs.readFileSync(path.resolve(SCRIPT_DIRECTORY, "../../assets/gacha.json"), "utf8"))
+    const projected = projectGachaFeatures(gacha, source, policy, servicePools)
+    fs.writeFileSync(outputPath, encodeOrderedMap(projected.master))
+    return { poolCount: Object.keys(projected.master).length, recovered: projected.recovered,
+        projectedAliases: projected.projectedAliases }
+}
+// //// /输出与最终卡池一一关联的特辑 master ////
+
 function patchGachaCampaignMasterFile(inputPath, outputPath, policyPath, campaignMapPath) {
     const master = decodeOrderedMap(fs.readFileSync(inputPath))
     const policy = readCnGachaRegionPolicy(policyPath)
-    const campaignByGachaId = JSON.parse(fs.readFileSync(campaignMapPath, "utf8"))
-    const patched = applyCnGachaCampaignPolicy(master, policy, campaignByGachaId)
+    const catalog = JSON.parse(fs.readFileSync(campaignMapPath, "utf8"))
+    const patched = applyCnGachaCampaignPolicy(master, policy, catalog)
     const encoded = encodeOrderedMap(patched)
     const decoded = decodeOrderedMap(encoded)
     for (const campaignId of Object.keys(master)) {
@@ -247,25 +267,21 @@ function patchGachaCampaignMasterFile(inputPath, outputPath, policyPath, campaig
             throw new Error(`patched gacha campaign master lost campaign ${campaignId}`)
         }
     }
-    const canonicalCampaigns = mappedCampaigns(master, campaignByGachaId)
-    let temporaryCampaignAliasCount = 0
-    for (const [temporaryId, canonicalId] of Object.entries(policy.temporaryAliases)) {
-        const canonical = canonicalCampaigns.get(String(canonicalId))
-        if (!canonical) continue
-        const row = requiredGachaCampaignRow(decoded, temporaryId)
-        if (row[STRING_ID_INDEX] !== `${canonical.row[STRING_ID_INDEX]}_temporary_${canonicalId}`
+    const aliases = temporaryCampaigns(master, policy, catalog)
+    for (const campaign of aliases) {
+        const row = requiredGachaCampaignRow(decoded, campaign.temporaryCampaignId)
+        if (row[STRING_ID_INDEX] !== `${campaign.row[STRING_ID_INDEX]}_temporary_${campaign.gachaId}`
             || row[CAMPAIGN_START_TIME_INDEX] !== TEMPORARY_CAMPAIGN_START_TIME
             || row[CAMPAIGN_END_TIME_INDEX] !== TEMPORARY_CAMPAIGN_END_TIME
-            || row[CAMPAIGN_GACHA_IDS_INDEX] !== temporaryId) {
-            throw new Error(`temporary gacha campaign cannot be decoded: ${temporaryId}`)
+            || row[CAMPAIGN_GACHA_IDS_INDEX] !== campaign.gachaIds) {
+            throw new Error(`temporary gacha campaign cannot be decoded: ${campaign.temporaryCampaignId}`)
         }
-        temporaryCampaignAliasCount += 1
     }
     fs.mkdirSync(path.dirname(outputPath), { recursive: true })
     fs.writeFileSync(outputPath, encoded)
     return {
         retainedOriginalCampaignCount: Object.keys(master).length,
-        temporaryCampaignAliasCount,
+        temporaryCampaignAliasCount: aliases.length,
         bytes: encoded.length,
     }
 }
@@ -306,6 +322,19 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
                 readRequiredOption(args, "--feature-banner-output"),
                 policyPath,
                 "feature_banner",
+            )
+        }
+        const featureContentInputIndex = args.indexOf("--feature-content-input")
+        const featureContentOutputIndex = args.indexOf("--feature-content-output")
+        if ((featureContentInputIndex < 0) !== (featureContentOutputIndex < 0)) {
+            throw new Error("feature content input and output must be provided together")
+        }
+        if (featureContentInputIndex >= 0) {
+            result.featureContent = patchFeatureContentMasterFile(
+                readRequiredOption(args, "--feature-content-input"),
+                readRequiredOption(args, "--feature-content-output"),
+                outputPath,
+                policyPath,
             )
         }
         process.stdout.write(`${JSON.stringify(result)}\n`)

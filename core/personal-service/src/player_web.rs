@@ -6,12 +6,14 @@ use crate::http::{HttpRequest, HttpResponse};
 
 const INDEX_HTML: &[u8] = include_bytes!("../web/player/index.html");
 const APP_JAVASCRIPT: &[u8] = include_bytes!("../web/player/app.js");
+const BROWSER_JAVASCRIPT: &[u8] = include_bytes!("../web/player/browser-app.js");
 
 //// 提供无凭据的普通玩家页面资源 [@x380kkm 2026-07-24] ////
 pub(crate) fn route(request: &HttpRequest) -> Option<HttpResponse> {
     let content = match request.path() {
         "/player" | "/player/" => Some(("text/html; charset=utf-8", INDEX_HTML)),
         "/player/app.js" => Some(("text/javascript; charset=utf-8", APP_JAVASCRIPT)),
+        "/player/browser-app.js" => Some(("text/javascript; charset=utf-8", BROWSER_JAVASCRIPT)),
         _ => None,
     }?;
     if request.method() != "GET" {

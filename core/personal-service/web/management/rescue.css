@@ -1,0 +1,107 @@
+/* audience: external */
+/* # personal-service-rescue-style */
+/* 救援设置使用可分页的关卡选择列表, 手机宽度按单列显示. */
+
+.rescue-panel > .stack-form {
+  margin-top: 1rem;
+}
+
+.rescue-controls {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.rescue-quest-controls {
+  margin-top: 1rem;
+}
+
+.rescue-numbers,
+.rescue-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.rescue-filters {
+  margin-bottom: 0.75rem;
+}
+
+.rescue-filters .check-row {
+  align-self: end;
+  min-height: 2.75rem;
+}
+
+.rescue-toolbar,
+.rescue-pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.rescue-toolbar {
+  margin: 0.75rem 0;
+}
+
+.rescue-pagination {
+  justify-content: space-between;
+  margin-top: 0.75rem;
+}
+
+.rescue-list {
+  display: grid;
+  gap: 0.55rem;
+  max-height: 32rem;
+  overflow-y: auto;
+}
+
+.rescue-quest {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.76);
+  cursor: pointer;
+}
+
+.rescue-quest.is-selected {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.rescue-quest input {
+  width: 1.15rem;
+  min-height: 1.15rem;
+  height: 1.15rem;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+.rescue-quest-description {
+  display: grid;
+  gap: 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+.rescue-quest-description strong {
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.rescue-closed {
+  color: var(--muted);
+  background: var(--paper);
+  white-space: nowrap;
+}
+
+@media (max-width: 680px) {
+  .rescue-numbers,
+  .rescue-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

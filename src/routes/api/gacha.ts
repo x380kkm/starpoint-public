@@ -3,10 +3,11 @@
 // 此模块执行扭蛋支付, 抽取, 发放和持久化, 并允许客户端版本注入扭蛋解析和抽取策略.
 
 import { FastifyInstance, FastifyPluginOptions, FastifyReply, FastifyRequest } from "fastify";
-import { getAccountPlayers, getPlayerGachaCampaignSync, getPlayerGachaInfoListSync, getPlayerGachaInfoSync, getPlayerItemSync, getPlayerSync, getSession, insertPlayerGachaCampaignSync, insertPlayerGachaInfoSync, runPlayerDataTransactionSync, updatePlayerGachaCampaignSync, updatePlayerGachaInfoSync, updatePlayerItemSync, updatePlayerSync } from "../../data/wdfpData";
-import { generateDataHeaders } from "../../utils";
+import { getAccountPlayers, getPlayerGachaCampaignListSync, getPlayerGachaCampaignSync, getPlayerGachaInfoListSync, getPlayerGachaInfoSync, getPlayerItemSync, getPlayerSync, getSession, insertPlayerGachaCampaignSync, insertPlayerGachaInfoSync, runPlayerDataTransactionSync, updatePlayerGachaCampaignSync, updatePlayerGachaInfoSync, updatePlayerItemSync, updatePlayerSync } from "../../data/wdfpData";
+import { generateDataHeaders, getServerTime } from "../../utils";
 import { drawGachaSync, isGachaPoolItem, rewardPlayerGachaDrawResultSync } from "../../lib/gacha";
-import { getGachaCampaignIdSync, getGachaSync } from "../../lib/assets";
+import { getGachaSync } from "../../lib/assets";
+import { findAvailableGachaCampaign, projectActiveGachaCampaigns } from "../../lib/gachaCampaign";
 import { Gacha, GachaDrawResult, GachaType } from "../../lib/types";
 import { serializeGachaCampaign } from "../../data/utils";
 import { UserGachaCampaign } from "../../data/types";
@@ -56,7 +57,7 @@ enum GachaExecType {
     CAMPAIGN_MULTI,
     MULTI_TICKET,
     SINGLE_TICKET,
-    UNKNOWN_4,
+    CN_CAMPAIGN_SINGLE,
     UNKNOWN_5,
     MULTI_WEAPON_TICKET
 }
@@ -80,7 +81,11 @@ function isValidGachaExecutionRequest(paymentType: number, type: number, numberO
                 || type === GachaExecType.MULTI_WEAPON_TICKET
             )
         case GachaPaymentType.CAMPAIGN:
-            return numberOfExec === 1 && (type === GachaExecType.CAMPAIGN_SINGLE || type === GachaExecType.CAMPAIGN_MULTI)
+            return numberOfExec === 1 && (
+                type === GachaExecType.CAMPAIGN_SINGLE
+                || type === GachaExecType.CN_CAMPAIGN_SINGLE
+                || type === GachaExecType.CAMPAIGN_MULTI
+            )
         default:
             return false
     }
@@ -362,8 +367,15 @@ const routes = async (fastify: FastifyInstance, options: GachaRouteOptions) => {
                         break
                     }
                     case GachaPaymentType.CAMPAIGN: {
-                        const gachaCampaignId = getGachaCampaignIdSync(gachaId)
-                        if (gachaCampaignId === null) throw new GachaRequestError("No gacha campaign assigned to gacha.")
+                        const activeCampaigns = projectActiveGachaCampaigns(
+                            getPlayerGachaCampaignListSync(playerId).map(serializeGachaCampaign),
+                            getServerTime(),
+                            gachaId => resolveGacha(gachaId) !== null,
+                        )
+                        const campaignKind = type === GachaExecType.CAMPAIGN_MULTI ? 2 : 1
+                        const campaign = findAvailableGachaCampaign(gachaId, campaignKind, activeCampaigns)
+                        if (campaign === null) throw new GachaRequestError("No active gacha campaign for this draw type.")
+                        const gachaCampaignId = campaign.campaignId
                         const existingPlayerCampaignData = getPlayerGachaCampaignSync(playerId, gachaId, gachaCampaignId)
                         const playerCampaignData = existingPlayerCampaignData ?? {
                             gachaId: gachaId,
@@ -375,7 +387,7 @@ const routes = async (fastify: FastifyInstance, options: GachaRouteOptions) => {
                         const campaignValue = { ...playerCampaignData, count: 0 }
                         campaignUpdate = { campaignId: gachaCampaignId, insert: insertCampaignData, value: campaignValue }
                         gachaCampaigns.push(serializeGachaCampaign(campaignValue))
-                        pullCount = type === GachaExecType.CAMPAIGN_MULTI ? 10 : 1
+                        pullCount = campaign.kind === 2 ? 10 : 1
                         break
                     }
                     default:

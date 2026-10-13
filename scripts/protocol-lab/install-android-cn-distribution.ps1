@@ -47,41 +47,13 @@ if ($null -eq $EmulatorProcess) {
     throw "模拟器状态对应的无头进程未运行: $($ProtocolLabPaths.EmulatorStatePath)"
 }
 
-# //// 调用当前分发进程的 ADB 服务 [@x380kkm 2026-08-31] ////
-function Invoke-DistributionAdbRaw {
-    [CmdletBinding()]
-    param([Parameter(Mandatory)][string[]]$ArgumentList)
-
-    $CommandArguments = @("-P", $script:AdbServerPort) + $ArgumentList
-    $Output = @(& $script:AdbPath @CommandArguments 2>&1 | ForEach-Object { $_.ToString() })
-    if ($LASTEXITCODE -ne 0) {
-        throw "ADB 执行失败: adb $($CommandArguments -join ' ')`n$($Output -join "`n")"
-    }
-    $Output
-}
-# //// /调用当前分发进程的 ADB 服务 ////
-
 # //// 核对独立 ADB 服务中的唯一 Emulator [@x380kkm 2026-08-31] ////
 function Assert-DistributionEmulator {
     [CmdletBinding()]
     param()
 
-    $VisibleDevices = @(Invoke-DistributionAdbRaw -ArgumentList @("devices", "-l"))
-    $DeviceRows = @($VisibleDevices | Where-Object { $_ -match '\s+device\s+' })
-    if ($DeviceRows.Count -ne 1 -or $DeviceRows[0] -notmatch "^$([regex]::Escape($Serial))\s") {
-        throw "独立 ADB 暴露了非目标设备: $($DeviceRows -join '; ')"
-    }
-    $QemuState = @(
-        Invoke-DistributionAdbRaw -ArgumentList @("-s", $Serial, "shell", "getprop", "ro.kernel.qemu")
-    ) | Select-Object -Last 1
-    if ($null -eq $QemuState -or $QemuState.Trim() -cne "1") {
-        throw "目标设备不是 Android Emulator: $Serial"
-    }
-    $AbiList = @(
-        Invoke-DistributionAdbRaw -ArgumentList @(
-            "-s", $Serial, "shell", "getprop", "ro.product.cpu.abilist"
-        )
-    ) | Select-Object -Last 1
+    $AbiResult = Invoke-ProtocolLabAdb -AdbPath $script:AdbPath -Serial $Serial -AdbServerPort $script:AdbServerPort -CommandArguments @("shell", "getprop", "ro.product.cpu.abilist")
+    $AbiList = ($AbiResult.Output -join "").Trim()
     $SupportedAbis = @($AbiList.Trim().Split(",", [StringSplitOptions]::RemoveEmptyEntries))
     if ($SupportedAbis -cnotcontains "arm64-v8a") {
         throw "Android Emulator 没有提供 arm64-v8a 运行环境: $Serial"
@@ -94,8 +66,8 @@ function Invoke-DistributionEmulatorAdb {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string[]]$ArgumentList)
 
-    Assert-DistributionEmulator
-    Invoke-DistributionAdbRaw -ArgumentList (@("-s", $Serial) + $ArgumentList)
+    $Result = Invoke-ProtocolLabAdb -AdbPath $script:AdbPath -Serial $Serial -AdbServerPort $script:AdbServerPort -CommandArguments $ArgumentList
+    $Result.Output
 }
 # //// /向已核对的 Emulator 发送一条命令 ////
 
@@ -104,17 +76,11 @@ function Start-DistributionAdbServer {
     [CmdletBinding()]
     param()
 
-    $StartOutput = @(
-        & $script:AdbPath -P $script:AdbServerPort --one-device $Serial start-server 2>&1 |
-            ForEach-Object { $_.ToString() }
-    )
-    if ($LASTEXITCODE -ne 0) {
-        throw "独立 ADB 启动失败: $($StartOutput -join "`n")"
-    }
+    Start-ProtocolLabAdbServer -AdbPath $script:AdbPath -Serial $Serial -AdbServerPort $script:AdbServerPort | Out-Null
 }
 # //// /启动只允许目标 Emulator 的 ADB server ////
 
-$script:AdbServerPort = [int]$EmulatorState.AdbServerPort
+$script:AdbServerPort = Resolve-ProtocolLabAdbServerPort -State $EmulatorState
 
 # //// 可续传地提交分发目录条目 [@x380kkm 2026-08-31] ////
 function Push-DistributionEntry {

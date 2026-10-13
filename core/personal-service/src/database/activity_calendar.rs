@@ -2,7 +2,7 @@
 // # personal-service-activity-calendar
 //
 // 该模块保存活动时间窗口. 窗口判断使用个人服务的虚拟游戏时间,
-// 临时开放租约使用真实墙钟并与窗口状态叠加.
+// 临时开放租约使用真实墙钟并与窗口状态叠加, 到期记录支持兑换和领奖期限.
 
 use super::ServiceDatabase;
 use crate::PersonalServiceError;
@@ -361,8 +361,6 @@ impl ServiceDatabase {
         let expires_at_ms = opened_at_ms
             .checked_add(TEMPORARY_OPEN_DURATION_MS)
             .ok_or(ActivityScheduleStoreError::Invalid)?;
-        self.delete_expired_activity_temporary_open_leases(opened_at_ms)
-            .map_err(ActivityScheduleStoreError::Storage)?;
         self.connection
             .execute(
                 "INSERT INTO activity_temporary_open_leases (
@@ -395,23 +393,56 @@ impl ServiceDatabase {
         activity_id: &str,
     ) -> Result<Option<(i64, i64)>, PersonalServiceError> {
         let wall_time_ms = self.current_wall_time_millis()?;
+        Ok(self.activity_temporary_open_record(activity_id)?
+            .filter(|(_, expires_at_ms)| *expires_at_ms > wall_time_ms))
+    }
+
+    pub(crate) fn activity_temporary_open_record(
+        &self,
+        activity_id: &str,
+    ) -> Result<Option<(i64, i64)>, PersonalServiceError> {
         self.connection
             .query_row(
                 "SELECT opened_at_ms, expires_at_ms
                  FROM activity_temporary_open_leases
-                 WHERE activity_id = ?1 AND expires_at_ms > ?2",
-                params![activity_id, wall_time_ms],
+                 WHERE activity_id = ?1",
+                params![activity_id],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()
             .map_err(activity_calendar_database_error)
     }
 
+    pub(crate) fn activity_temporary_reward_window(
+        &self,
+        activity_id: &str,
+        reward_delay_ms: i64,
+    ) -> Result<Option<(i64, i64)>, PersonalServiceError> {
+        let Some(window) = self.activity_temporary_open_record(activity_id)? else {
+            return Ok(None);
+        };
+        let now = self.current_wall_time_millis()?;
+        let elapsed = now.saturating_sub(window.1).max(0) as f64 * self.current_server_time_rate()?;
+        Ok((now < window.1 || elapsed < reward_delay_ms as f64).then_some(window))
+    }
+
+    pub(crate) fn list_activity_temporary_open_records(
+        &self,
+    ) -> Result<Vec<(String, i64, i64)>, PersonalServiceError> {
+        let mut statement = self.connection.prepare(
+            "SELECT activity_id, opened_at_ms, expires_at_ms
+             FROM activity_temporary_open_leases ORDER BY activity_id",
+        ).map_err(activity_calendar_database_error)?;
+        let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .map_err(activity_calendar_database_error)?
+            .collect::<Result<Vec<_>, _>>().map_err(activity_calendar_database_error)?;
+        Ok(rows)
+    }
+
     pub(crate) fn list_active_activity_temporary_open_leases(
         &self,
     ) -> Result<Vec<(String, i64)>, PersonalServiceError> {
         let wall_time_ms = self.current_wall_time_millis()?;
-        self.delete_expired_activity_temporary_open_leases(wall_time_ms)?;
         let mut statement = self
             .connection
             .prepare(
@@ -445,18 +476,6 @@ impl ServiceDatabase {
         Ok(deleted != 0)
     }
 
-    fn delete_expired_activity_temporary_open_leases(
-        &self,
-        wall_time_ms: i64,
-    ) -> Result<(), PersonalServiceError> {
-        self.connection
-            .execute(
-                "DELETE FROM activity_temporary_open_leases WHERE expires_at_ms <= ?1",
-                params![wall_time_ms],
-            )
-            .map_err(activity_calendar_database_error)?;
-        Ok(())
-    }
     // //// /结束临时开放租约 ////
 
     // //// 按虚拟时间判断活动窗口 [@x380kkm 2026-08-19] ////

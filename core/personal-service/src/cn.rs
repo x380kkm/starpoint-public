@@ -100,6 +100,13 @@ impl<'de> Visitor<'de> for OptionalFlexibleI64Visitor {
     }
 }
 
+pub(crate) fn deserialize_i64<'de, D>(deserializer: D) -> Result<i64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserializer.deserialize_any(FlexibleI64Visitor)
+}
+
 pub(crate) fn deserialize_optional_i64<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
 where
     D: Deserializer<'de>,
@@ -422,28 +429,6 @@ fn route_leiting(
 }
 // //// /处理雷霆账号兼容入口 ////
 
-// //// 处理雷霆支付查询兼容入口 [@x380kkm 2026-08-22] ////
-fn route_leiting_payment(
-    request: &HttpRequest,
-    database: &ServiceDatabase,
-) -> Option<Result<HttpResponse, PersonalServiceError>> {
-    let response = match request.path() {
-        "/api/index.php/channels/channel_leiting_pay/query_unfinish_order" => {
-            msgpack_response(database, 0, false, BTreeMap::from([("order_id", "")]))
-        }
-        "/api/index.php/channels/channel_leiting_pay/query_purcharge" => {
-            msgpack_response(database, 0, false, BTreeMap::from([("status", 3_i64)]))
-        }
-        "/api/index.php/channels/channel_leiting_pay/set_unfinish_order_status"
-        | "/api/index.php/channels/channel_leiting_pay/set_unfinish_order_error" => {
-            msgpack_response(database, 0, false, BTreeMap::<String, i64>::new())
-        }
-        _ => return None,
-    };
-    Some(response)
-}
-// //// /处理雷霆支付查询兼容入口 ////
-
 // //// 处理 CN 工具账号入口 [@x380kkm 2026-07-22] ////
 fn route_tool(
     request: &HttpRequest,
@@ -594,7 +579,7 @@ fn route_load(
         Err(error) => return Some(Err(error)),
     };
     let mut player_data = match cn_player::prepare_player_data(
-        &snapshot.data,
+        &snapshot,
         viewer_id,
         database,
         asset_root,
@@ -624,8 +609,6 @@ fn route_load(
     if let Err(error) = crate::cn_mission::inject_load_awake_summary(
         &mut player_data.response,
         &player_data.snapshot,
-        database,
-        snapshot.account_id,
     ) {
         return Some(Err(error));
     }
@@ -644,9 +627,22 @@ fn route_load(
             "cn_crash_url".to_owned(),
             Value::String(format!("http://{host}/crash")),
         );
-        root.insert("mail_arrived".to_owned(), Value::Bool(mail_arrived));
+        root.insert("mail_arrived".to_owned(), Value::Bool(mail_arrived || !player_data.subscription_rewards.mails.is_empty()));
     }
-    if let Err(error) = database.save_player_snapshot(snapshot.account_id, &player_data.snapshot) {
+    if !player_data.subscription_rewards.key.is_empty() {
+        use sha2::{Digest, Sha256};
+        let key = format!("{};{}", player_data.login_rewards.event_key, player_data.subscription_rewards.key);
+        player_data.login_rewards.event_key = format!("login-bonus:{:x}", Sha256::digest(key.as_bytes()));
+    }
+    player_data.login_rewards.entries.extend(player_data.subscription_rewards.entries);
+    if let Err(error) = database.with_player_settlement(|database| {
+        database.save_player_snapshot_with_receive_history(
+            snapshot.account_id, &player_data.snapshot, &player_data.login_rewards.event_key,
+            response_time, &player_data.login_rewards.entries,
+        )?;
+        crate::cn_payment::deliver_subscription_mails(database, snapshot.account_id, &player_data.snapshot, &player_data.subscription_rewards.mails)?;
+        Ok(Some(()))
+    }) {
         return Some(Err(error));
     }
     Some(msgpack_response_at(
@@ -673,9 +669,6 @@ pub(crate) fn route(
         return None;
     }
     if let Some(response) = route_leiting(request, database) {
-        return Some(response);
-    }
-    if let Some(response) = route_leiting_payment(request, database) {
         return Some(response);
     }
     if let Some(response) = route_tool(request, database) {
@@ -742,6 +735,12 @@ pub(crate) fn route(
         return Some(response);
     }
     if let Some(response) = crate::cn_news::route(request, database) {
+        return Some(response);
+    }
+    if let Some(response) = crate::cn_crazy_gacha::route(request, database) {
+        return Some(response);
+    }
+    if let Some(response) = crate::cn_helper::route(request, database, asset_root) {
         return Some(response);
     }
     if let Some(response) = crate::cn_reference_read::route(request, database, asset_root) {

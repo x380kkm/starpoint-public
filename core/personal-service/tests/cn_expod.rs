@@ -17,6 +17,9 @@ use starpoint_personal_service::PersonalService;
 use std::path::Path;
 use tempfile::TempDir;
 
+#[path = "cn_expod/regeneration.rs"]
+mod regeneration;
+
 #[derive(Serialize)]
 struct StackToExpRequest {
     character_id: i64,
@@ -90,7 +93,7 @@ fn converts_character_stack_and_injects_exp() {
         converted.data["character_list"][0]["stack"].as_i64(),
         Some(0)
     );
-    assert_eq!(converted.data["item_list"]["990008"].as_i64(), Some(10));
+    assert_eq!(converted.data["item_list"]["990008"].as_i64(), Some(0));
     assert_eq!(
         converted.data["converted_exp_info"]["add_exp"].as_i64(),
         Some(2_000)
@@ -123,7 +126,7 @@ fn converts_character_stack_and_injects_exp() {
             character_id: 1,
             viewer_id,
             exp: 2_000,
-            api_count: 1,
+            api_count: 2,
         }),
     );
     assert!(insufficient.starts_with("HTTP/1.1 400 Bad Request"));

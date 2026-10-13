@@ -3,32 +3,34 @@
 //
 // 该模块将 CN 单机战斗开始, 继续和结算转换为持久化玩家快照.
 
+mod challenge_points;
 mod events;
+mod phase_rewards;
+pub(crate) use events::{reset_event_reward_receipts, reward_receipt_activity_id};
 
 use self::events::apply_event_progress;
 use crate::cn_battle_assets::{rank_degree_and_stamina, BattleFixture, BattleQuest};
 use crate::cn_battle_rewards::{
-    apply_character_exp, apply_reward_at, apply_score_attack_border_reward, apply_score_rewards,
-    RewardResult,
+    apply_character_exp, apply_reward_at, apply_score_rewards, apply_additional_rewards, apply_periodic_rewards,
+    RewardResult, ScoreRewardContext,
 };
-use crate::cn_stamina::{battle_stamina_cost, current_stamina};
+use crate::cn_stamina::entry::{deduct_single_entry_resources, settle_boost_points, EntryFailure};
 use crate::database::ActiveSingleQuest;
 use crate::PersonalServiceError;
 use serde_json::{json, Map, Value};
-use std::collections::{BTreeMap, BTreeSet};
-use std::sync::OnceLock;
+use std::cmp::Ordering;
+use std::collections::BTreeSet;
 
 const EXPERT_SINGLE_EVENT_CATEGORY: i64 = 21;
 const SCORE_ATTACK_EVENT_CATEGORY: i64 = 27;
-const EVENT_CHALLENGE_POINT_MAP: &str =
-    include_str!("../../../assets/event_challenge_point_map.json");
-static EVENT_CHALLENGE_POINTS: OnceLock<Result<BTreeMap<String, i64>, String>> = OnceLock::new();
 
 pub(crate) struct FinishBattleInput<'a> {
+    pub(crate) party_id: i64,
     pub(crate) elapsed_time_ms: i64,
     pub(crate) score: i64,
     pub(crate) add_mana: i64,
     pub(crate) is_accomplished: bool,
+    pub(crate) is_lose: bool,
     pub(crate) character_ids: &'a [i64],
     pub(crate) main_character_ids: &'a [Option<i64>],
     pub(crate) unison_character_ids: &'a [Option<i64>],
@@ -53,6 +55,7 @@ pub(crate) struct StartBattleMutation {
     pub(crate) snapshot: String,
     pub(crate) stamina: i64,
     pub(crate) stamina_heal_time: i64,
+    pub(crate) items: Map<String, Value>,
 }
 
 pub(crate) enum StartBattleFailure {
@@ -62,7 +65,9 @@ pub(crate) enum StartBattleFailure {
 
 #[derive(Default)]
 struct PreviousProgress {
+    finished: bool,
     best_elapsed_time_ms: Option<i64>,
+    best_elapsed_score: Option<i64>,
     clear_rank: Option<i64>,
     high_score: Option<i64>,
 }
@@ -76,77 +81,26 @@ pub(crate) fn prepare_battle_start(
 ) -> Result<Result<StartBattleMutation, StartBattleFailure>, PersonalServiceError> {
     let mut player_data = decode_snapshot(serialized)?;
     let root = require_root(&mut player_data)?;
-    if !deduct_entry_item(root, quest)? {
-        return Ok(Err(StartBattleFailure::InsufficientEntryItem));
-    }
-    let stamina_cost = battle_stamina_cost(
-        quest.category,
-        quest.quest_id,
-        quest.stamina_cost,
-        response_time,
-    )?;
-    let Some(stamina) = deduct_stamina(root, stamina_cost, response_time)? else {
-        return Ok(Err(StartBattleFailure::InsufficientStamina));
+    let resources = match deduct_single_entry_resources(root, quest, response_time)? {
+        Ok(resources) => resources,
+        Err(EntryFailure::InsufficientItem) => return Ok(Err(StartBattleFailure::InsufficientEntryItem)),
+        Err(EntryFailure::InsufficientStamina) => return Ok(Err(StartBattleFailure::InsufficientStamina)),
     };
     if !quest.has_fixed_party {
         set_user_info_value(root, "party_slot", party_id)?;
     }
+    if quest.category == 22 {
+        let character_ids = crate::cn_party::party_character_ids(root, party_id)?;
+        events::prepare_event_battle(root, quest, &character_ids)?;
+    }
     Ok(Ok(StartBattleMutation {
         snapshot: encode_snapshot(&player_data)?,
-        stamina,
-        stamina_heal_time: response_time,
+        stamina: resources.stamina,
+        stamina_heal_time: resources.stamina_heal_time,
+        items: resources.items,
     }))
 }
 // //// /扣除单机战斗入场资源并更新队伍槽位 ////
-
-fn deduct_entry_item(
-    root: &mut Map<String, Value>,
-    quest: &BattleQuest,
-) -> Result<bool, PersonalServiceError> {
-    let Some(item_id) = quest.entry_item_id.filter(|item_id| *item_id > 0) else {
-        return Ok(true);
-    };
-    let count = quest.entry_item_count.max(0);
-    let items = require_object(root, "item_list")?;
-    let current = items
-        .get(&item_id.to_string())
-        .and_then(Value::as_i64)
-        .unwrap_or_default();
-    if current < count {
-        return Ok(false);
-    }
-    items.insert(item_id.to_string(), Value::from(current - count));
-    Ok(true)
-}
-
-fn deduct_stamina(
-    root: &mut Map<String, Value>,
-    stamina_cost: i64,
-    response_time: i64,
-) -> Result<Option<i64>, PersonalServiceError> {
-    let stamina = current_stamina(root, response_time)?;
-    let stamina_cost = stamina_cost.max(0);
-    if stamina < stamina_cost {
-        return Ok(None);
-    }
-    let remaining = stamina - stamina_cost;
-    if stamina_cost > 0 {
-        set_user_info_value(root, "stamina", remaining)?;
-        set_user_info_value(root, "stamina_heal_time", response_time)?;
-        let total_stamina_used = root
-            .get("user_info")
-            .and_then(Value::as_object)
-            .and_then(|user_info| user_info.get("total_stamina_used"))
-            .and_then(Value::as_i64)
-            .unwrap_or_default()
-            .checked_add(stamina_cost)
-            .ok_or_else(|| {
-                PersonalServiceError::new("CN total stamina use exceeds the supported range")
-            })?;
-        set_user_info_value(root, "total_stamina_used", total_stamina_used)?;
-    }
-    Ok(Some(remaining))
-}
 
 // //// 扣除单机战斗继续费用 [@x380kkm 2026-07-22] ////
 pub(crate) fn continue_battle(
@@ -156,30 +110,15 @@ pub(crate) fn continue_battle(
 
     let mut player_data = decode_snapshot(serialized)?;
     let root = require_root(&mut player_data)?;
-    let free_vmoney = get_user_info_value(root, "free_vmoney")?;
-    let vmoney = get_user_info_value(root, "vmoney")?;
-    let new_free_vmoney = free_vmoney - CONTINUE_VMONEY_COST;
-    let new_vmoney = if new_free_vmoney < 0 {
-        vmoney - CONTINUE_VMONEY_COST
-    } else {
-        vmoney
-    };
-    if new_free_vmoney < 0 && new_vmoney < 0 {
+    let Some(remaining) = crate::cn_vmoney::spend(root, CONTINUE_VMONEY_COST)? else {
         return Ok(None);
-    }
-    let stored_free_vmoney = if new_free_vmoney < 0 {
-        free_vmoney
-    } else {
-        new_free_vmoney
     };
-    set_user_info_value(root, "free_vmoney", stored_free_vmoney)?;
-    set_user_info_value(root, "vmoney", new_vmoney)?;
     Ok(Some(BattleMutation {
         snapshot: encode_snapshot(&player_data)?,
         response: json!({
             "user_info": {
-                "free_vmoney": stored_free_vmoney,
-                "vmoney": new_vmoney,
+                "free_vmoney": remaining.free,
+                "vmoney": remaining.paid,
             },
             "mail_arrived": false,
         }),
@@ -191,6 +130,7 @@ pub(crate) fn continue_battle(
 pub(crate) fn finish_battle(
     database: &mut crate::database::ServiceDatabase,
     account_id: i64,
+    viewer_id: i64,
     serialized: &str,
     active_quest: &ActiveSingleQuest,
     quest: &BattleQuest,
@@ -198,14 +138,18 @@ pub(crate) fn finish_battle(
     input: &FinishBattleInput<'_>,
     drop_multiplier: i64,
     server_time: i64,
+    statistics: &Value,
 ) -> Result<BattleMutation, PersonalServiceError> {
     let mut player_data = decode_snapshot(serialized)?;
     let root = require_root(&mut player_data)?;
+    crate::cn_activity::activate_battle_period(root, database, active_quest, quest.activity_id.as_deref(), server_time)?;
+    let window = crate::cn_mission::battle_mission_window(root, database, account_id, server_time)?;
+    let previous_items = crate::cn_mission::capture_collect_item_counts(root)?;
+    let previous_mana = crate::cn_mission::total_mana(root)?;
     let previous_progress =
         read_previous_progress(root, active_quest.category, active_quest.quest_id)?;
-    let quest_previously_completed = previous_progress.is_some();
     let previous_progress = previous_progress.unwrap_or_default();
-    let clear_rank = calculate_clear_rank(quest, input.elapsed_time_ms);
+    let clear_rank = calculate_clear_rank(quest, input.elapsed_time_ms, input.score);
     let quest_accomplished = if active_quest.category == SCORE_ATTACK_EVENT_CATEGORY {
         quest
             .score_attack_border_rewards
@@ -213,29 +157,29 @@ pub(crate) fn finish_battle(
             .min_by_key(|border| border.score)
             .map_or(input.is_accomplished, |border| input.score >= border.score)
     } else {
-        input.is_accomplished
+        input.is_accomplished || (input.is_lose && phase_rewards::is_scripted_loss_quest(fixture, quest))
     };
+    let reward_selection = phase_rewards::select_battle_rewards(fixture, quest, input, statistics);
+    let reward_quest = reward_selection.quest.as_ref();
+    let ranking_event = crate::cn_activity::record_ranking_battle_result(root, quest, input, quest_accomplished)?;
 
+    crate::cn_exp_pool::settle(root, server_time)?;
     let initial_free_mana = get_user_info_value(root, "free_mana")?;
     let initial_exp_pool = get_user_info_value(root, "exp_pool")?;
     let initial_rank_point = get_user_info_value(root, "rank_point")?;
-    let initial_boost_point = get_user_info_value(root, "boost_point")?;
-    let initial_boss_boost_point = get_user_info_value(root, "boss_boost_point")?;
     let mut stamina = get_user_info_value(root, "stamina")?;
     let mut stamina_heal_time = get_user_info_value(root, "stamina_heal_time")?;
     let exp_pooled_time = get_user_info_value(root, "exp_pooled_time")?;
 
-    let new_mana = checked_sum(&[initial_free_mana, quest.mana_reward, input.add_mana])?;
-    let new_exp_pool = checked_sum(&[initial_exp_pool, quest.pool_exp_reward])?;
-    let new_rank_point = checked_sum(&[initial_rank_point, quest.rank_point_reward])?;
-    let new_boost_point = initial_boost_point - i64::from(active_quest.use_boost_point);
-    let new_boss_boost_point =
-        initial_boss_boost_point - i64::from(active_quest.use_boss_boost_point);
+    let new_mana = checked_sum(&[initial_free_mana, reward_quest.mana_reward, reward_selection.field_mana])?;
+    let new_exp_pool = checked_sum(&[initial_exp_pool, reward_quest.pool_exp_reward])?;
+    let new_rank_point = checked_sum(&[initial_rank_point, reward_quest.rank_point_reward])?;
+    let boost = settle_boost_points(root, active_quest.use_boost_point, active_quest.use_boss_boost_point)?;
+    let new_boost_point = boost.boost_point;
+    let new_boss_boost_point = boost.boss_boost_point;
     set_user_info_value(root, "free_mana", new_mana)?;
     set_user_info_value(root, "exp_pool", new_exp_pool)?;
     set_user_info_value(root, "rank_point", new_rank_point)?;
-    set_user_info_value(root, "boost_point", new_boost_point)?;
-    set_user_info_value(root, "boss_boost_point", new_boss_boost_point)?;
     // //// 段位提升时增加新段位体力上限 [@x380kkm 2026-08-23] ////
     let (previous_degree, _, _) = rank_degree_and_stamina(initial_rank_point)?;
     let (new_degree, new_max_stamina, _) = rank_degree_and_stamina(new_rank_point)?;
@@ -249,7 +193,7 @@ pub(crate) fn finish_battle(
     }
     // //// /段位提升时增加新段位体力上限 ////
 
-    let clear_reward = if !quest_previously_completed {
+    let clear_reward = if quest_accomplished && !previous_progress.finished {
         match &quest.clear_reward {
             Some(reward) => apply_reward_at(root, reward, server_time)?,
             None => RewardResult::default(),
@@ -257,7 +201,7 @@ pub(crate) fn finish_battle(
     } else {
         RewardResult::default()
     };
-    let s_plus_reward = if clear_rank == 5 && previous_progress.clear_rank != Some(5) {
+    let s_plus_reward = if quest_accomplished && clear_rank == 5 && previous_progress.clear_rank != Some(5) {
         match &quest.s_plus_reward {
             Some(reward) => apply_reward_at(root, reward, server_time)?,
             None => RewardResult::default(),
@@ -267,55 +211,53 @@ pub(crate) fn finish_battle(
     };
 
     if quest_accomplished {
-        update_quest_progress(
-            root,
-            active_quest.category,
-            active_quest.quest_id,
-            input,
+        update_quest_progress(root, quest, input, clear_rank, &previous_progress)?;
+        update_battle_progress(root, fixture, input)?;
+        update_action_totals(root, input)?;
+    }
+    let mut mission_info = crate::cn_mission::record_battle_phase_actions(
+        root, database, account_id, quest, input, statistics,
+    )?;
+    let mut active_mission_list = Vec::new();
+    if quest_accomplished {
+        mission_info.extend(crate::cn_mission::record_completed_battle_actions(
+            root, database, account_id, quest, input, statistics, clear_rank,
+        )?);
+        active_mission_list.extend(crate::cn_mission::record_active_battle(
+            root, database, account_id, quest, input, statistics, clear_rank,
+        )?);
+    }
+    let boost_point_used = boost.applied;
+    let score_rewards = apply_score_rewards(
+        root,
+        reward_selection.rare_reward_groups,
+        reward_quest,
+        &ScoreRewardContext {
             clear_rank,
-            &previous_progress,
-        )?;
-    }
-    update_battle_progress(root, fixture, input)?;
-    update_action_totals(root, input)?;
-    let mut mission_delta = crate::cn_mission::record_battle_action(
-        root,
-        database,
-        account_id,
-        active_quest.category,
-        input.is_multi,
-        quest_accomplished,
-        input.max_skill_chain_count,
-        input.max_combo_count,
-        input.is_host,
-        input.is_mvp,
+            common_reward_count_multiplier: if input.is_multi {
+                fixture.reward_rules.common_reward_multiplier_by_multi_play_mode
+            } else { 1.0 },
+            boost_point_used,
+            drop_multiplier,
+            server_time,
+            reward_elements: &fixture.reward_rules.reward_element_map,
+        },
     )?;
-    let boost_point_used = (active_quest.use_boost_point && new_boost_point >= 0)
-        || (active_quest.use_boss_boost_point && new_boss_boost_point >= 0);
-    let mut score_rewards = apply_score_rewards(
-        root,
-        fixture,
-        quest,
-        boost_point_used,
-        drop_multiplier,
-        server_time,
-    )?;
-    if active_quest.category == SCORE_ATTACK_EVENT_CATEGORY {
-        score_rewards
-            .rewards
-            .merge(apply_score_attack_border_reward(
-                root,
-                quest,
-                input.score,
-                drop_multiplier,
-                server_time,
-            )?);
-    }
+    let additional_rewards = if reward_selection.receives_rewards {
+        apply_additional_rewards(root, database, quest, &window, drop_multiplier, server_time, &fixture.reward_rules.reward_element_map)?
+    } else {
+        Default::default()
+    };
+    let periodic_rewards = if input.is_accomplished {
+        apply_periodic_rewards(root, database, quest, &window, server_time, &fixture.reward_rules.reward_element_map)?
+    } else {
+        Default::default()
+    };
     let character_exp = apply_character_exp(
         root,
         fixture,
         input.character_ids,
-        quest.character_exp_reward,
+        reward_quest.character_exp_reward,
         server_time,
         quest.has_fixed_party,
     )?;
@@ -326,29 +268,47 @@ pub(crate) fn finish_battle(
             account_id,
             character_exp.maximum_level,
         )?;
-        mission_delta
-            .mission_info
-            .extend(character_level_delta.mission_info);
-        mission_delta
-            .active_mission_list
-            .extend(character_level_delta.active_mission_list);
+        mission_info.extend(character_level_delta.mission_info);
+        active_mission_list.extend(character_level_delta.active_mission_list);
     }
+    let raid_boss = quest.raid_event_id.map(|id| {
+        let period_start = crate::cn_activity::event_period_start(root, "raid", id);
+        if quest_accomplished && !input.is_lose {
+            database.advance_raid_boss_for_period(id, period_start)
+        } else {
+            database.raid_boss_state_for_period(id, period_start)
+        }
+    }).transpose()?;
     let mut event_data = apply_event_progress(
         root,
         active_quest,
         fixture,
         quest,
         input,
+        &previous_progress,
         drop_multiplier,
         server_time,
+        raid_boss.as_ref(),
     )?;
-    consume_expert_challenge_point(root, active_quest.category, quest.event_id)?;
+    challenge_points::consume(root, active_quest, quest.event_id, server_time)?;
+    mission_info.extend(crate::cn_mission::record_battle_collected_items(
+        root,
+        database,
+        account_id,
+        &previous_items,
+    )?);
+    let acquired_mana = crate::cn_mission::total_mana(root)?.saturating_sub(previous_mana);
+    mission_info.extend(crate::cn_mission::record_acquired_mana(
+        root, database, account_id, acquired_mana, server_time,
+    )?);
 
     let final_free_mana = get_user_info_value(root, "free_mana")?;
     let final_exp_pool = get_user_info_value(root, "exp_pool")?;
     let final_free_vmoney = get_user_info_value(root, "free_vmoney")?;
     let degree_id = get_user_info_value(root, "degree_id")?;
-    let daily_challenge_points = if active_quest.category == EXPERT_SINGLE_EVENT_CATEGORY {
+    let daily_challenge_points = if active_quest.category == EXPERT_SINGLE_EVENT_CATEGORY
+        || challenge_points::point_id(active_quest, quest.event_id)?.is_some()
+    {
         root.get("user_daily_challenge_point_list")
             .cloned()
             .unwrap_or_else(|| Value::Array(Vec::new()))
@@ -361,6 +321,8 @@ pub(crate) fn finish_battle(
     let mut reward_result = clear_reward;
     reward_result.merge(s_plus_reward);
     reward_result.merge(score_rewards.rewards);
+    reward_result.merge(additional_rewards.rewards);
+    reward_result.merge(periodic_rewards.rewards);
     reward_result.merge(std::mem::take(&mut event_data.rewards));
     character_list.extend(reward_result.character_list);
     if let Some(entry_item_id) = quest.entry_item_id.filter(|item_id| *item_id > 0) {
@@ -375,8 +337,7 @@ pub(crate) fn finish_battle(
             .entry(entry_item_id.to_string())
             .or_insert(current);
     }
-    let snapshot = encode_snapshot(&player_data)?;
-    let response = json!({
+    let mut response = json!({
         "user_info": {
             "free_mana": final_free_mana,
             "exp_pool": final_exp_pool,
@@ -395,9 +356,9 @@ pub(crate) fn finish_battle(
         "rewards": {
             "overflow_pool_exp": 0,
             "converted_pool_exp": 0,
-            "reward_pool_exp": quest.pool_exp_reward,
-            "reward_mana": quest.mana_reward,
-            "field_mana": input.add_mana,
+            "reward_pool_exp": reward_quest.pool_exp_reward,
+            "reward_mana": reward_quest.mana_reward,
+            "field_mana": reward_selection.field_mana,
         },
         "old_high_score": previous_progress.high_score.unwrap_or_default(),
         "joined_character_id_list": reward_result.joined_character_ids,
@@ -405,70 +366,51 @@ pub(crate) fn finish_battle(
         "clear_rank": clear_rank,
         "drop_score_reward_ids": drop_score_reward_ids,
         "drop_rare_reward_ids": drop_rare_reward_ids,
-        "drop_additional_reward_ids": [],
-        "drop_periodic_reward_ids": [],
+        "drop_additional_reward_ids": additional_rewards.drop_ids,
+        "drop_periodic_reward_ids": periodic_rewards.drop_ids,
         "equipment_list": reward_result.equipment_list,
         "category_id": active_quest.category,
-        "start_time": server_time,
+        "start_time": window.started_at,
         "is_multi": "single",
         "quest_name": quest.name,
         "item_list": reward_result.items,
         "rush_event": event_data.rush_event,
+        "raid_event": event_data.raid_event,
+        "ranking_event": ranking_event,
         "carnival_event": event_data.carnival_event,
+        "solo_time_attack_event": event_data.solo_time_attack_event,
+        "score_attack_event": event_data.score_attack_event,
         "user_daily_challenge_point_list": daily_challenge_points,
         "presigned_quest_category": [],
-        "mission_info": mission_delta.mission_info,
-        "active_mission_list": mission_delta.active_mission_list,
+        "mission_info": mission_info,
+        "active_mission_list": active_mission_list,
         "mail_arrived": false,
     });
+    if let Some(points) = periodic_rewards.point_list {
+        response["user_periodic_reward_point_list"] = json!(points);
+    }
+    crate::cn_mission::apply_mission_reward_response(
+        &mut response,
+        root,
+        &mission_info,
+        viewer_id,
+        server_time,
+    )?;
+    crate::cn_mission::apply_reward_response(
+        &mut response,
+        root,
+        &event_data.granted_rewards,
+        viewer_id,
+        server_time,
+    )?;
+    crate::cn_battle_history::record_finish(
+        root, active_quest, input, quest_accomplished.then_some(clear_rank), statistics, server_time,
+    )?;
+    crate::activity_history::record_battle_statistics(root, active_quest, quest, input, quest_accomplished, server_time)?;
+    let snapshot = encode_snapshot(&player_data)?;
     Ok(BattleMutation { snapshot, response })
 }
 // //// /结算单机战斗并持久化奖励 ////
-
-fn consume_expert_challenge_point(
-    root: &mut Map<String, Value>,
-    category: i64,
-    event_id: Option<i64>,
-) -> Result<(), PersonalServiceError> {
-    if category != EXPERT_SINGLE_EVENT_CATEGORY {
-        return Ok(());
-    }
-    let Some(event_id) = event_id else {
-        return Ok(());
-    };
-    let challenge_points = EVENT_CHALLENGE_POINTS
-        .get_or_init(|| {
-            serde_json::from_str(EVENT_CHALLENGE_POINT_MAP)
-                .map_err(|error| format!("invalid CN challenge point map: {error}"))
-        })
-        .as_ref()
-        .map_err(|error| PersonalServiceError::new(error.clone()))?;
-    let Some(challenge_point_id) = challenge_points.get(&format!("expert_{event_id}")) else {
-        return Ok(());
-    };
-    let entries = root
-        .get_mut("user_daily_challenge_point_list")
-        .and_then(Value::as_array_mut)
-        .ok_or_else(|| PersonalServiceError::new("stored CN daily challenge points are missing"))?;
-    let Some(entry) = entries
-        .iter_mut()
-        .find(|entry| entry.get("id").and_then(Value::as_i64) == Some(*challenge_point_id))
-    else {
-        return Ok(());
-    };
-    let entry = entry
-        .as_object_mut()
-        .ok_or_else(|| PersonalServiceError::new("stored CN daily challenge point is invalid"))?;
-    let point = entry
-        .get("point")
-        .and_then(Value::as_i64)
-        .unwrap_or_default();
-    entry.insert(
-        "point".to_owned(),
-        Value::from(point.saturating_sub(1).max(0)),
-    );
-    Ok(())
-}
 
 fn update_battle_progress(
     root: &mut Map<String, Value>,
@@ -629,7 +571,9 @@ fn read_previous_progress(
         return Ok(None);
     };
     Ok(Some(PreviousProgress {
+        finished: progress.get("finished").and_then(Value::as_bool).unwrap_or(false),
         best_elapsed_time_ms: progress.get("best_elapsed_time_ms").and_then(Value::as_i64),
+        best_elapsed_score: progress.get("best_elapsed_score").or_else(|| progress.get("high_score")).and_then(Value::as_i64),
         clear_rank: progress.get("clear_rank").and_then(Value::as_i64),
         high_score: progress.get("high_score").and_then(Value::as_i64),
     }))
@@ -637,12 +581,24 @@ fn read_previous_progress(
 
 fn update_quest_progress(
     root: &mut Map<String, Value>,
-    category: i64,
-    quest_id: i64,
+    quest: &BattleQuest,
     input: &FinishBattleInput<'_>,
     clear_rank: i64,
     previous: &PreviousProgress,
 ) -> Result<(), PersonalServiceError> {
+    let record_round = events::compare_battle_record_round(root, quest)?;
+    let first_round_record = PreviousProgress {
+        finished: previous.finished,
+        clear_rank: previous.clear_rank,
+        ..Default::default()
+    };
+    let previous = if record_round == Ordering::Greater {
+        &first_round_record
+    } else {
+        previous
+    };
+    let category = quest.category;
+    let quest_id = quest.quest_id;
     let quest_progress = require_object(root, "quest_progress")?;
     let progress_list = quest_progress
         .entry(category.to_string())
@@ -663,6 +619,17 @@ fn update_quest_progress(
         })?;
         progress.insert("finished".to_owned(), Value::Bool(true));
         progress.insert(
+            "clear_rank".to_owned(),
+            Value::from(previous.clear_rank.map_or(clear_rank, |rank| rank.max(clear_rank))),
+        );
+        if record_round == Ordering::Less {
+            return Ok(());
+        }
+        if previous.best_elapsed_time_ms.map_or(true, |time| input.elapsed_time_ms < time) {
+            progress.insert("best_elapsed_score".to_owned(), Value::from(input.score));
+            progress.insert("best_leader_character_id".to_owned(), leader_character_id.map_or(Value::Null, Value::from));
+        }
+        progress.insert(
             "best_elapsed_time_ms".to_owned(),
             Value::from(
                 previous
@@ -670,14 +637,6 @@ fn update_quest_progress(
                     .map_or(input.elapsed_time_ms, |time| {
                         time.min(input.elapsed_time_ms)
                     }),
-            ),
-        );
-        progress.insert(
-            "clear_rank".to_owned(),
-            Value::from(
-                previous
-                    .clear_rank
-                    .map_or(clear_rank, |rank| rank.max(clear_rank)),
             ),
         );
         progress.insert(
@@ -692,11 +651,13 @@ fn update_quest_progress(
             "leader_character_id".to_owned(),
             leader_character_id.map_or(Value::Null, Value::from),
         );
-    } else {
+    } else if record_round != Ordering::Less {
         progress_list.push(json!({
             "quest_id": quest_id,
             "finished": true,
             "best_elapsed_time_ms": input.elapsed_time_ms,
+            "best_elapsed_score": input.score,
+            "best_leader_character_id": leader_character_id,
             "clear_rank": clear_rank,
             "high_score": input.score,
             "leader_character_id": leader_character_id,
@@ -707,7 +668,13 @@ fn update_quest_progress(
 // //// /读取和更新玩家任务进度 ////
 
 // //// 校验并编码单机战斗快照 [@x380kkm 2026-07-22] ////
-fn calculate_clear_rank(quest: &BattleQuest, elapsed_time_ms: i64) -> i64 {
+fn calculate_clear_rank(quest: &BattleQuest, elapsed_time_ms: i64, score: i64) -> i64 {
+    if let Some(thresholds) = quest.score_rank_thresholds {
+        return thresholds
+            .iter()
+            .rposition(|threshold| score >= *threshold)
+            .map_or(1, |index| index as i64 + 2);
+    }
     if quest.b_rank_time <= 0 {
         5
     } else if quest.s_plus_rank_time >= elapsed_time_ms {
@@ -784,6 +751,7 @@ mod tests {
     fn prepares_entry_costs_atomically() {
         let quest = BattleQuest {
             category: 1,
+            activity_id: None,
             quest_id: 1,
             name: String::new(),
             clear_reward_id: None,
@@ -793,7 +761,9 @@ mod tests {
             score_reward_group_id: None,
             score_attack_reward_group_id: None,
             score_rewards: Vec::new(),
+            score_reward_counts: [0; 5],
             score_attack_border_rewards: Vec::new(),
+            score_rank_thresholds: None,
             b_rank_time: 0,
             a_rank_time: 0,
             s_rank_time: 0,
@@ -846,20 +816,4 @@ mod tests {
     }
     // //// /验证单机战斗开始同时扣除入场物品和体力 ////
 
-    // //// 验证专家活动结算扣除每日挑战点 [@x380kkm 2026-08-23] ////
-    #[test]
-    fn consumes_expert_daily_challenge_point() {
-        let mut root = Map::from_iter([(
-            "user_daily_challenge_point_list".to_owned(),
-            json!([
-                {"id": 1, "point": 2, "campaign_list": []},
-                {"id": 251, "point": 3, "campaign_list": []},
-            ]),
-        )]);
-        consume_expert_challenge_point(&mut root, 21, Some(1))
-            .expect("expert challenge point is consumed");
-        assert_eq!(root["user_daily_challenge_point_list"][0]["point"], 1);
-        assert_eq!(root["user_daily_challenge_point_list"][1]["point"], 3);
-    }
-    // //// /验证专家活动结算扣除每日挑战点 ////
 }

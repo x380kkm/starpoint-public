@@ -1,0 +1,1206 @@
+{
+  "elections": {
+    "1": {
+      "start_at": 1651464000,
+      "end_at": 1652457599,
+      "excluded": [
+        2000008,
+        1253013,
+        2000003,
+        2000004,
+        2000005,
+        2000014,
+        5000094,
+        2000067,
+        2000045
+      ]
+    }
+  },
+  "candidates": {
+    "2000001": {
+      "available_at": null
+    },
+    "2000002": {
+      "available_at": null
+    },
+    "2000003": {
+      "available_at": null
+    },
+    "2000004": {
+      "available_at": null
+    },
+    "2000005": {
+      "available_at": null
+    },
+    "2000008": {
+      "available_at": null
+    },
+    "2000010": {
+      "available_at": null
+    },
+    "2000011": {
+      "available_at": null
+    },
+    "2000012": {
+      "available_at": null
+    },
+    "2000013": {
+      "available_at": null
+    },
+    "2000014": {
+      "available_at": null
+    },
+    "2000015": {
+      "available_at": null
+    },
+    "2000017": {
+      "available_at": null
+    },
+    "2000018": {
+      "available_at": null
+    },
+    "2000019": {
+      "available_at": null
+    },
+    "2000020": {
+      "available_at": null
+    },
+    "2000021": {
+      "available_at": null
+    },
+    "2000023": {
+      "available_at": null
+    },
+    "2000024": {
+      "available_at": null
+    },
+    "2000026": {
+      "available_at": null
+    },
+    "2000028": {
+      "available_at": null
+    },
+    "2000030": {
+      "available_at": null
+    },
+    "2000031": {
+      "available_at": null
+    },
+    "2000032": {
+      "available_at": null
+    },
+    "2000033": {
+      "available_at": null
+    },
+    "2000035": {
+      "available_at": null
+    },
+    "2000036": {
+      "available_at": null
+    },
+    "2000037": {
+      "available_at": null
+    },
+    "2000038": {
+      "available_at": null
+    },
+    "2000042": {
+      "available_at": null
+    },
+    "2000043": {
+      "available_at": null
+    },
+    "2000049": {
+      "available_at": null
+    },
+    "2000050": {
+      "available_at": null
+    },
+    "2000053": {
+      "available_at": null
+    },
+    "2000054": {
+      "available_at": null
+    },
+    "2000055": {
+      "available_at": null
+    },
+    "2000056": {
+      "available_at": null
+    },
+    "2000057": {
+      "available_at": null
+    },
+    "2000060": {
+      "available_at": null
+    },
+    "2000062": {
+      "available_at": null
+    },
+    "2000065": {
+      "available_at": null
+    },
+    "2000067": {
+      "available_at": null
+    },
+    "2000068": {
+      "available_at": null
+    },
+    "2000070": {
+      "available_at": null
+    },
+    "2000071": {
+      "available_at": null
+    },
+    "2000072": {
+      "available_at": null
+    },
+    "2000077": {
+      "available_at": null
+    },
+    "2000078": {
+      "available_at": null
+    },
+    "2000079": {
+      "available_at": null
+    },
+    "2000080": {
+      "available_at": null
+    },
+    "2000081": {
+      "available_at": null
+    },
+    "2000082": {
+      "available_at": null
+    },
+    "2000083": {
+      "available_at": null
+    },
+    "2000084": {
+      "available_at": null
+    },
+    "2000085": {
+      "available_at": null
+    },
+    "2000086": {
+      "available_at": null
+    },
+    "2000087": {
+      "available_at": null
+    },
+    "2000088": {
+      "available_at": null
+    },
+    "5000094": {
+      "available_at": null
+    },
+    "5000283": {
+      "available_at": null
+    },
+    "5000285": {
+      "available_at": null
+    },
+    "5000339": {
+      "available_at": null
+    },
+    "5000713": {
+      "available_at": null
+    },
+    "2000073": {
+      "available_at": null
+    },
+    "2000075": {
+      "available_at": null
+    },
+    "1141111": {
+      "available_at": 1709784000
+    },
+    "1151105": {
+      "available_at": 1709784000
+    },
+    "1113001": {
+      "available_at": 1709784000
+    },
+    "1211050": {
+      "available_at": null
+    },
+    "1253013": {
+      "available_at": null
+    },
+    "1213013": {
+      "available_at": null
+    },
+    "1121070": {
+      "available_at": null
+    },
+    "1161082": {
+      "available_at": null
+    },
+    "1211044": {
+      "available_at": null
+    },
+    "1221054": {
+      "available_at": null
+    },
+    "2000044": {
+      "available_at": null
+    },
+    "2000045": {
+      "available_at": null
+    },
+    "1131080": {
+      "available_at": null
+    },
+    "1111081": {
+      "available_at": null
+    },
+    "1121075": {
+      "available_at": null
+    },
+    "1261065": {
+      "available_at": null
+    },
+    "1161141": {
+      "available_at": 2551665600
+    },
+    "1141129": {
+      "available_at": 2551665600
+    },
+    "1123001": {
+      "available_at": 2551665600
+    },
+    "1000001": {
+      "available_at": null
+    },
+    "1000010": {
+      "available_at": null
+    },
+    "1111001": {
+      "available_at": null
+    },
+    "1111002": {
+      "available_at": null
+    },
+    "1111003": {
+      "available_at": null
+    },
+    "1111005": {
+      "available_at": null
+    },
+    "1111006": {
+      "available_at": null
+    },
+    "1111007": {
+      "available_at": null
+    },
+    "1111027": {
+      "available_at": null
+    },
+    "1111033": {
+      "available_at": null
+    },
+    "1111045": {
+      "available_at": null
+    },
+    "1111051": {
+      "available_at": null
+    },
+    "1111057": {
+      "available_at": null
+    },
+    "1121001": {
+      "available_at": null
+    },
+    "1121002": {
+      "available_at": null
+    },
+    "1121004": {
+      "available_at": null
+    },
+    "1121005": {
+      "available_at": null
+    },
+    "1121006": {
+      "available_at": null
+    },
+    "1121007": {
+      "available_at": null
+    },
+    "1121015": {
+      "available_at": null
+    },
+    "1121033": {
+      "available_at": null
+    },
+    "1121039": {
+      "available_at": null
+    },
+    "1121051": {
+      "available_at": null
+    },
+    "1131001": {
+      "available_at": null
+    },
+    "1131002": {
+      "available_at": null
+    },
+    "1131004": {
+      "available_at": null
+    },
+    "1131005": {
+      "available_at": null
+    },
+    "1131011": {
+      "available_at": null
+    },
+    "1131012": {
+      "available_at": null
+    },
+    "1131026": {
+      "available_at": null
+    },
+    "1131032": {
+      "available_at": null
+    },
+    "1131038": {
+      "available_at": null
+    },
+    "1131044": {
+      "available_at": null
+    },
+    "1131050": {
+      "available_at": null
+    },
+    "1131062": {
+      "available_at": null
+    },
+    "1131068": {
+      "available_at": null
+    },
+    "1141001": {
+      "available_at": null
+    },
+    "1141002": {
+      "available_at": null
+    },
+    "1141003": {
+      "available_at": null
+    },
+    "1141004": {
+      "available_at": null
+    },
+    "1141005": {
+      "available_at": null
+    },
+    "1141006": {
+      "available_at": null
+    },
+    "1141007": {
+      "available_at": null
+    },
+    "1141008": {
+      "available_at": null
+    },
+    "1141015": {
+      "available_at": null
+    },
+    "1141033": {
+      "available_at": null
+    },
+    "1141045": {
+      "available_at": null
+    },
+    "1141057": {
+      "available_at": null
+    },
+    "1151001": {
+      "available_at": null
+    },
+    "1151002": {
+      "available_at": null
+    },
+    "1151003": {
+      "available_at": null
+    },
+    "1151005": {
+      "available_at": null
+    },
+    "1151006": {
+      "available_at": null
+    },
+    "1151007": {
+      "available_at": null
+    },
+    "1151011": {
+      "available_at": null
+    },
+    "1151012": {
+      "available_at": null
+    },
+    "1151013": {
+      "available_at": null
+    },
+    "1151014": {
+      "available_at": null
+    },
+    "1151033": {
+      "available_at": null
+    },
+    "1151039": {
+      "available_at": null
+    },
+    "1151069": {
+      "available_at": null
+    },
+    "1161001": {
+      "available_at": null
+    },
+    "1161002": {
+      "available_at": null
+    },
+    "1161004": {
+      "available_at": null
+    },
+    "1161005": {
+      "available_at": null
+    },
+    "1161006": {
+      "available_at": null
+    },
+    "1161007": {
+      "available_at": null
+    },
+    "1161021": {
+      "available_at": null
+    },
+    "1161027": {
+      "available_at": null
+    },
+    "1161039": {
+      "available_at": null
+    },
+    "1161045": {
+      "available_at": null
+    },
+    "1161057": {
+      "available_at": null
+    },
+    "1161069": {
+      "available_at": null
+    },
+    "1163001": {
+      "available_at": null
+    },
+    "1211001": {
+      "available_at": null
+    },
+    "1211002": {
+      "available_at": null
+    },
+    "1211003": {
+      "available_at": null
+    },
+    "1211004": {
+      "available_at": null
+    },
+    "1211005": {
+      "available_at": null
+    },
+    "1211006": {
+      "available_at": null
+    },
+    "1211008": {
+      "available_at": null
+    },
+    "1211009": {
+      "available_at": null
+    },
+    "1211010": {
+      "available_at": null
+    },
+    "1211011": {
+      "available_at": null
+    },
+    "1211012": {
+      "available_at": null
+    },
+    "1211013": {
+      "available_at": null
+    },
+    "1211020": {
+      "available_at": null
+    },
+    "1211032": {
+      "available_at": null
+    },
+    "1221001": {
+      "available_at": null
+    },
+    "1221002": {
+      "available_at": null
+    },
+    "1221003": {
+      "available_at": null
+    },
+    "1221004": {
+      "available_at": null
+    },
+    "1221006": {
+      "available_at": null
+    },
+    "1221007": {
+      "available_at": null
+    },
+    "1221008": {
+      "available_at": null
+    },
+    "1221009": {
+      "available_at": null
+    },
+    "1221010": {
+      "available_at": null
+    },
+    "1221017": {
+      "available_at": null
+    },
+    "1221028": {
+      "available_at": null
+    },
+    "1221034": {
+      "available_at": null
+    },
+    "1222001": {
+      "available_at": null
+    },
+    "1223007": {
+      "available_at": null
+    },
+    "1223013": {
+      "available_at": null
+    },
+    "1231001": {
+      "available_at": null
+    },
+    "1231002": {
+      "available_at": null
+    },
+    "1231003": {
+      "available_at": null
+    },
+    "1231004": {
+      "available_at": null
+    },
+    "1231005": {
+      "available_at": null
+    },
+    "1231006": {
+      "available_at": null
+    },
+    "1231008": {
+      "available_at": null
+    },
+    "1231009": {
+      "available_at": null
+    },
+    "1231013": {
+      "available_at": null
+    },
+    "1231038": {
+      "available_at": null
+    },
+    "1231044": {
+      "available_at": null
+    },
+    "1231050": {
+      "available_at": null
+    },
+    "1231056": {
+      "available_at": null
+    },
+    "1231063": {
+      "available_at": null
+    },
+    "1233001": {
+      "available_at": null
+    },
+    "1241001": {
+      "available_at": null
+    },
+    "1241002": {
+      "available_at": null
+    },
+    "1241003": {
+      "available_at": null
+    },
+    "1241004": {
+      "available_at": null
+    },
+    "1241005": {
+      "available_at": null
+    },
+    "1241007": {
+      "available_at": null
+    },
+    "1241008": {
+      "available_at": null
+    },
+    "1241009": {
+      "available_at": null
+    },
+    "1241015": {
+      "available_at": null
+    },
+    "1241027": {
+      "available_at": null
+    },
+    "1241033": {
+      "available_at": null
+    },
+    "1241039": {
+      "available_at": null
+    },
+    "1241045": {
+      "available_at": null
+    },
+    "1243001": {
+      "available_at": null
+    },
+    "1243007": {
+      "available_at": null
+    },
+    "1251001": {
+      "available_at": null
+    },
+    "1251002": {
+      "available_at": null
+    },
+    "1251003": {
+      "available_at": null
+    },
+    "1251004": {
+      "available_at": null
+    },
+    "1251005": {
+      "available_at": null
+    },
+    "1251006": {
+      "available_at": null
+    },
+    "1251007": {
+      "available_at": null
+    },
+    "1251008": {
+      "available_at": null
+    },
+    "1251009": {
+      "available_at": null
+    },
+    "1251011": {
+      "available_at": null
+    },
+    "1251017": {
+      "available_at": null
+    },
+    "1251023": {
+      "available_at": null
+    },
+    "1251035": {
+      "available_at": null
+    },
+    "1251047": {
+      "available_at": null
+    },
+    "1251053": {
+      "available_at": null
+    },
+    "1253001": {
+      "available_at": null
+    },
+    "1261001": {
+      "available_at": null
+    },
+    "1261003": {
+      "available_at": null
+    },
+    "1261004": {
+      "available_at": null
+    },
+    "1261005": {
+      "available_at": null
+    },
+    "1261007": {
+      "available_at": null
+    },
+    "1261008": {
+      "available_at": null
+    },
+    "1261010": {
+      "available_at": null
+    },
+    "1261011": {
+      "available_at": null
+    },
+    "1261023": {
+      "available_at": null
+    },
+    "1261035": {
+      "available_at": null
+    },
+    "1261041": {
+      "available_at": null
+    },
+    "1261047": {
+      "available_at": null
+    },
+    "1261059": {
+      "available_at": null
+    },
+    "1263001": {
+      "available_at": null
+    },
+    "1263002": {
+      "available_at": null
+    },
+    "1311001": {
+      "available_at": null
+    },
+    "1311002": {
+      "available_at": null
+    },
+    "1311003": {
+      "available_at": null
+    },
+    "1311004": {
+      "available_at": null
+    },
+    "1311005": {
+      "available_at": null
+    },
+    "1311006": {
+      "available_at": null
+    },
+    "1311008": {
+      "available_at": null
+    },
+    "1311009": {
+      "available_at": null
+    },
+    "1311010": {
+      "available_at": null
+    },
+    "1311011": {
+      "available_at": null
+    },
+    "1311012": {
+      "available_at": null
+    },
+    "1311013": {
+      "available_at": null
+    },
+    "1311019": {
+      "available_at": null
+    },
+    "1321001": {
+      "available_at": null
+    },
+    "1321002": {
+      "available_at": null
+    },
+    "1321003": {
+      "available_at": null
+    },
+    "1321004": {
+      "available_at": null
+    },
+    "1321005": {
+      "available_at": null
+    },
+    "1321006": {
+      "available_at": null
+    },
+    "1321007": {
+      "available_at": null
+    },
+    "1321008": {
+      "available_at": null
+    },
+    "1321009": {
+      "available_at": null
+    },
+    "1321010": {
+      "available_at": null
+    },
+    "1321011": {
+      "available_at": null
+    },
+    "1321012": {
+      "available_at": null
+    },
+    "1321013": {
+      "available_at": null
+    },
+    "1331001": {
+      "available_at": null
+    },
+    "1331002": {
+      "available_at": null
+    },
+    "1331003": {
+      "available_at": null
+    },
+    "1331004": {
+      "available_at": null
+    },
+    "1331005": {
+      "available_at": null
+    },
+    "1331006": {
+      "available_at": null
+    },
+    "1331007": {
+      "available_at": null
+    },
+    "1331010": {
+      "available_at": null
+    },
+    "1331011": {
+      "available_at": null
+    },
+    "1331012": {
+      "available_at": null
+    },
+    "1331013": {
+      "available_at": null
+    },
+    "1331014": {
+      "available_at": null
+    },
+    "1331020": {
+      "available_at": null
+    },
+    "1341001": {
+      "available_at": null
+    },
+    "1341002": {
+      "available_at": null
+    },
+    "1341003": {
+      "available_at": null
+    },
+    "1341004": {
+      "available_at": null
+    },
+    "1341005": {
+      "available_at": null
+    },
+    "1341006": {
+      "available_at": null
+    },
+    "1341007": {
+      "available_at": null
+    },
+    "1341008": {
+      "available_at": null
+    },
+    "1341009": {
+      "available_at": null
+    },
+    "1341010": {
+      "available_at": null
+    },
+    "1341011": {
+      "available_at": null
+    },
+    "1341017": {
+      "available_at": null
+    },
+    "1351001": {
+      "available_at": null
+    },
+    "1351002": {
+      "available_at": null
+    },
+    "1351003": {
+      "available_at": null
+    },
+    "1351004": {
+      "available_at": null
+    },
+    "1351005": {
+      "available_at": null
+    },
+    "1351006": {
+      "available_at": null
+    },
+    "1351007": {
+      "available_at": null
+    },
+    "1351008": {
+      "available_at": null
+    },
+    "1351009": {
+      "available_at": null
+    },
+    "1351021": {
+      "available_at": null
+    },
+    "1351027": {
+      "available_at": null
+    },
+    "1351033": {
+      "available_at": null
+    },
+    "1361001": {
+      "available_at": null
+    },
+    "1361002": {
+      "available_at": null
+    },
+    "1361003": {
+      "available_at": null
+    },
+    "1361004": {
+      "available_at": null
+    },
+    "1361005": {
+      "available_at": null
+    },
+    "1361006": {
+      "available_at": null
+    },
+    "1361007": {
+      "available_at": null
+    },
+    "1361008": {
+      "available_at": null
+    },
+    "1361009": {
+      "available_at": null
+    },
+    "1361021": {
+      "available_at": null
+    },
+    "1361027": {
+      "available_at": null
+    },
+    "1361033": {
+      "available_at": null
+    },
+    "1512001": {
+      "available_at": null
+    },
+    "1233007": {
+      "available_at": null
+    },
+    "1241051": {
+      "available_at": null
+    },
+    "1121093": {
+      "available_at": null
+    },
+    "1121099": {
+      "available_at": null
+    },
+    "1111093": {
+      "available_at": null
+    },
+    "1141087": {
+      "available_at": null
+    },
+    "1231075": {
+      "available_at": null
+    },
+    "1243019": {
+      "available_at": null
+    },
+    "1121105": {
+      "available_at": null
+    },
+    "1131092": {
+      "available_at": null
+    },
+    "1141093": {
+      "available_at": null
+    },
+    "1251065": {
+      "available_at": null
+    },
+    "1121111": {
+      "available_at": null
+    },
+    "1151093": {
+      "available_at": null
+    },
+    "1251071": {
+      "available_at": null
+    },
+    "1161105": {
+      "available_at": null
+    },
+    "1111105": {
+      "available_at": null
+    },
+    "1231081": {
+      "available_at": null
+    },
+    "1151099": {
+      "available_at": null
+    },
+    "1161111": {
+      "available_at": null
+    },
+    "1231087": {
+      "available_at": null
+    },
+    "1131098": {
+      "available_at": null
+    },
+    "1141105": {
+      "available_at": null
+    },
+    "1221060": {
+      "available_at": null
+    },
+    "1223019": {
+      "available_at": null
+    },
+    "1233013": {
+      "available_at": null
+    },
+    "1121129": {
+      "available_at": null
+    },
+    "1131110": {
+      "available_at": null
+    },
+    "1221072": {
+      "available_at": null
+    },
+    "1111129": {
+      "available_at": null
+    },
+    "1161129": {
+      "available_at": null
+    },
+    "1241063": {
+      "available_at": null
+    },
+    "1151123": {
+      "available_at": null
+    },
+    "1131116": {
+      "available_at": null
+    },
+    "1231093": {
+      "available_at": null
+    },
+    "1111135": {
+      "available_at": null
+    },
+    "1141123": {
+      "available_at": null
+    },
+    "1121135": {
+      "available_at": null
+    },
+    "1141135": {
+      "available_at": null
+    },
+    "1161147": {
+      "available_at": null
+    },
+    "1241069": {
+      "available_at": null
+    },
+    "1121141": {
+      "available_at": null
+    },
+    "1161159": {
+      "available_at": null
+    },
+    "1253019": {
+      "available_at": null
+    },
+    "1141141": {
+      "available_at": null
+    },
+    "1131134": {
+      "available_at": 1724904000
+    },
+    "1161165": {
+      "available_at": 1724904000
+    },
+    "1211062": {
+      "available_at": 1724904000
+    },
+    "1151153": {
+      "available_at": 1726113600
+    },
+    "1111153": {
+      "available_at": 1728619200
+    },
+    "1141153": {
+      "available_at": 1728619200
+    },
+    "1161171": {
+      "available_at": 1728619200
+    },
+    "1231099": {
+      "available_at": 1729742400
+    },
+    "1131152": {
+      "available_at": 1730952000
+    },
+    "1151159": {
+      "available_at": 1732161600
+    },
+    "1261089": {
+      "available_at": 1732161600
+    },
+    "1141171": {
+      "available_at": 1733371200
+    },
+    "1131158": {
+      "available_at": 1733371200
+    },
+    "1111159": {
+      "available_at": 1733371200
+    },
+    "1121159": {
+      "available_at": 1734580800
+    },
+    "1161189": {
+      "available_at": 1737000000
+    },
+    "1161183": {
+      "available_at": 1737000000
+    },
+    "1121165": {
+      "available_at": 1738209600
+    },
+    "1151171": {
+      "available_at": 1738209600
+    },
+    "1161195": {
+      "available_at": 1741838400
+    },
+    "1121183": {
+      "available_at": 1744257600
+    },
+    "1111177": {
+      "available_at": 1745467200
+    },
+    "1131176": {
+      "available_at": 1745467200
+    },
+    "1141189": {
+      "available_at": 1746676800
+    },
+    "1151182": {
+      "available_at": 1750305600
+    },
+    "1161201": {
+      "available_at": 1750305600
+    }
+  }
+}

@@ -2,8 +2,11 @@
 // # personal-service-cn-asset
 //
 // 该模块实现 CN 客户端资产版本和路径接口. 响应只引用个人服务根目录下的本地 CDN.
-// 标题版本检查引用当前平台的实体清单, 归档内容由 get_path 按设备平台严格列举.
+// 标题和缺失资源检查引用当前平台的实体清单, 归档内容由 get_path 按设备平台严格列举.
 // 可写覆盖层中的语音和资源差分归档形成下一资源版本.
+// RES_VER 来自客户端 info.json 中的已安装版本, target_asset_version 表示期望下载的版本.
+// 平台筛选后的空归档组保留版本过渡, 客户端按完整差分链确定落盘版本.
+// 客户端以 full 字段选择全量安装, full 为 null 时从已安装版本接续差分.
 
 use crate::cn::{decode_request, deserialize_optional_i64, msgpack_response_at};
 use crate::database::ServiceDatabase;
@@ -13,7 +16,7 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -25,6 +28,11 @@ const PATH_MANIFEST_NAME: &str = "path";
 pub(crate) const EMPTY_ENTITY_LIST_NAME: &str = "empty.csv";
 const ANDROID_TITLE_ENTITY_LIST_NAME: &str = "10939-android_medium.csv";
 const IOS_TITLE_ENTITY_LIST_NAME: &str = "10939-ios_medium.csv";
+pub(crate) const ENTITY_MANIFESTS: [&str; 3] = [
+    "PathFile.csv",
+    IOS_TITLE_ENTITY_LIST_NAME,
+    ANDROID_TITLE_ENTITY_LIST_NAME,
+];
 const FULL_ASSET_VERSION: &str = "1.4.0";
 const DEFAULT_ASSET_VERSION: &str = "1.4.54";
 const MAX_ARCHIVE_DIGEST_CACHE_ENTRIES: usize = 2_048;
@@ -51,7 +59,7 @@ const IOS_DIFF_ARCHIVE_DIRECTORIES: [&str; 3] = [
     "archive-medium-diff",
     "archive-ios-diff",
 ];
-const ALL_ARCHIVE_DIRECTORIES: [&str; 8] = [
+pub(crate) const ALL_ARCHIVE_DIRECTORIES: [&str; 8] = [
     "archive-common-full",
     "archive-medium-full",
     "archive-android-full",
@@ -78,7 +86,7 @@ struct TitleVersionInfoData {
     delayed_assets_size: u64,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 struct AssetPathData {
     info: AssetPathInfo,
     full: AssetArchiveGroup,
@@ -86,7 +94,15 @@ struct AssetPathData {
     asset_version_hash: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Serialize)]
+struct AssetPathResponseData {
+    info: AssetPathInfo,
+    full: Option<AssetArchiveGroup>,
+    diff: Option<Vec<AssetDiffGroup>>,
+    asset_version_hash: String,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
 struct AssetPathInfo {
     client_asset_version: String,
     target_asset_version: String,
@@ -95,13 +111,13 @@ struct AssetPathInfo {
     latest_maj_first_version: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 struct AssetArchiveGroup {
     version: String,
     archive: Vec<AssetArchive>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 struct AssetDiffGroup {
     version: String,
     original_version: String,
@@ -131,11 +147,18 @@ pub(crate) enum ClientPlatform {
 #[derive(Default)]
 pub(crate) struct ArchiveDigestCache {
     entries: HashMap<PathBuf, ArchiveDigestCacheEntry>,
+    path_manifest: Option<PathManifestCacheEntry>,
 }
 
 struct ArchiveDigestCacheEntry {
     identity: ArchiveIdentity,
     sha256: String,
+}
+
+struct PathManifestCacheEntry {
+    asset_identity: Option<ArchiveIdentity>,
+    override_identity: Option<ArchiveIdentity>,
+    data: Option<AssetPathData>,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -249,12 +272,7 @@ fn version_info_in_title(
     base_url: &str,
 ) -> Result<HttpResponse, PersonalServiceError> {
     let platform = request_platform(request);
-    let mut data = version_info_data(asset_root, override_root, base_url, platform);
-    data.files_list = format!(
-        "{base_url}/{}/{}",
-        entity_lists_directory(asset_root),
-        title_entity_list_name(platform)
-    );
+    let data = version_info_data(asset_root, override_root, base_url, platform);
     msgpack_response(
         database,
         0,
@@ -278,7 +296,10 @@ fn version_info_data(
     let entity_directory = entity_lists_directory(asset_root);
     VersionInfoData {
         base_url: format!("{base_url}/{entity_directory}/"),
-        files_list: format!("{base_url}/{entity_directory}/{EMPTY_ENTITY_LIST_NAME}"),
+        files_list: format!(
+            "{base_url}/{entity_directory}/{}",
+            title_entity_list_name(platform)
+        ),
         total_size: downloadable_asset_size(asset_root, override_root, platform),
         delayed_assets_size: 0,
     }
@@ -313,18 +334,42 @@ fn get_path(
         }
     };
     let platform = request_platform(request);
-    let client_asset_version = request.header("res_ver").unwrap_or_default().to_owned();
+    let client_asset_version = request.header("res_ver").unwrap_or_default();
     let data = localized_path_data(
         asset_root,
         override_root,
         base_url,
-        &client_asset_version,
+        client_asset_version,
         platform,
         digest_cache,
     )?;
-    msgpack_response(database, request_data.viewer_id.unwrap_or(0), true, data)
+    let asset_update = asset_update_required(&data);
+    msgpack_response(
+        database,
+        request_data.viewer_id.unwrap_or(0),
+        asset_update,
+        response_path_data(data, asset_update),
+    )
 }
 // //// /返回 CN 资产下载路径 ////
+
+// //// 按安装起点组装客户端归档响应 [@x380kkm 2026-09-21] ////
+fn response_path_data(data: AssetPathData, asset_update: bool) -> AssetPathResponseData {
+    let initial_update = asset_update && data.info.is_initial;
+    let AssetPathData {
+        info,
+        full,
+        diff,
+        asset_version_hash,
+    } = data;
+    AssetPathResponseData {
+        info,
+        full: initial_update.then_some(full),
+        diff: asset_update.then_some(diff),
+        asset_version_hash,
+    }
+}
+// //// /按安装起点组装客户端归档响应 ////
 
 fn localized_path_data(
     asset_root: &Path,
@@ -334,7 +379,7 @@ fn localized_path_data(
     platform: ClientPlatform,
     digest_cache: &mut ArchiveDigestCache,
 ) -> Result<AssetPathData, PersonalServiceError> {
-    let mut data = match load_path_manifest(asset_root, override_root)? {
+    let mut data = match load_path_manifest(asset_root, override_root, digest_cache)? {
         Some(data) => data,
         None => build_path_data(
             asset_root,
@@ -345,6 +390,13 @@ fn localized_path_data(
     };
     retain_platform_archives(&mut data, platform);
     data.info.client_asset_version = client_asset_version.to_owned();
+    let override_archives =
+        list_override_diff_archives(override_root, base_url, platform, digest_cache);
+    merge_override_diff_archives(&mut data, override_archives);
+    retain_required_archives(&mut data);
+    if !asset_update_required(&data) {
+        return Ok(data);
+    }
     data.full.archive = localize_archives(
         asset_root,
         override_root,
@@ -361,12 +413,53 @@ fn localized_path_data(
             digest_cache,
         )?;
     }
-    let override_archives =
-        list_override_diff_archives(override_root, base_url, platform, digest_cache);
-    merge_override_diff_archives(&mut data, override_archives);
-    data.diff.retain(|diff| !diff.archive.is_empty());
     Ok(data)
 }
+
+// //// 判断客户端是否需要下载资源归档 [@x380kkm 2026-09-03] ////
+fn asset_update_required(data: &AssetPathData) -> bool {
+    data.info.client_asset_version != data.info.eventual_target_asset_version
+}
+
+fn retain_required_archives(data: &mut AssetPathData) {
+    if !asset_update_required(data) {
+        data.info.is_initial = false;
+        data.full.archive.clear();
+        data.diff.clear();
+    } else if let Some(diff) = required_diff_chain(data) {
+        data.info.is_initial = false;
+        data.full.archive.clear();
+        data.diff = diff;
+    } else {
+        data.info.is_initial = true;
+    }
+}
+// //// /判断客户端是否需要下载资源归档 ////
+
+// //// 从已安装版本沿客户端差分映射读取完整更新链 [@x380kkm 2026-09-21] ////
+fn required_diff_chain(data: &AssetPathData) -> Option<Vec<AssetDiffGroup>> {
+    let mut version = data.info.client_asset_version.as_str();
+    if version.is_empty() {
+        return None;
+    }
+    let transitions = data
+        .diff
+        .iter()
+        .map(|group| (group.original_version.as_str(), group))
+        .collect::<BTreeMap<_, _>>();
+    let mut visited = BTreeSet::new();
+    let mut required = Vec::new();
+    while version != data.info.eventual_target_asset_version {
+        if !visited.insert(version) {
+            return None;
+        }
+        let group = *transitions.get(version)?;
+        required.push(group.clone());
+        version = &group.version;
+    }
+    Some(required)
+}
+// //// /从已安装版本沿客户端差分映射读取完整更新链 ////
 
 // //// 解析当前平台可用的 CN 资源版本 [@x380kkm 2026-08-29] ////
 pub(crate) fn available_asset_version(
@@ -382,7 +475,7 @@ pub(crate) fn available_asset_version(
         .map(str::to_owned)
         .or_else(|| std::env::var("CN_RES_VERSION").ok())
         .unwrap_or_else(|| DEFAULT_ASSET_VERSION.to_owned());
-    let manifest = load_path_manifest(asset_root, override_root)?;
+    let manifest = load_path_manifest(asset_root, override_root, digest_cache)?;
     let mut data = match manifest {
         Some(data) => data,
         None => {
@@ -438,15 +531,32 @@ fn build_path_data(
 fn load_path_manifest(
     asset_root: &Path,
     override_root: &Path,
+    digest_cache: &mut ArchiveDigestCache,
 ) -> Result<Option<AssetPathData>, PersonalServiceError> {
-    let path = if override_root.join(PATH_MANIFEST_NAME).is_file() {
-        override_root.join(PATH_MANIFEST_NAME)
+    let asset_path = asset_root.join(PATH_MANIFEST_NAME);
+    let override_path = override_root.join(PATH_MANIFEST_NAME);
+    let asset_identity = path_identity(&asset_path);
+    let override_identity = path_identity(&override_path);
+    if let Some(entry) = digest_cache.path_manifest.as_ref() {
+        if entry.asset_identity == asset_identity && entry.override_identity == override_identity {
+            return Ok(entry.data.clone());
+        }
+    }
+    let path = if override_identity.is_some() {
+        override_path
     } else {
-        asset_root.join(PATH_MANIFEST_NAME)
+        asset_path
     };
     let bytes = match fs::read(&path) {
         Ok(bytes) => bytes,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            digest_cache.path_manifest = Some(PathManifestCacheEntry {
+                asset_identity,
+                override_identity,
+                data: None,
+            });
+            return Ok(None);
+        }
         Err(error) => {
             return Err(PersonalServiceError::new(format!(
                 "failed to read CN asset path manifest: {error}"
@@ -456,7 +566,20 @@ fn load_path_manifest(
     let data = serde_json::from_slice::<AssetPathData>(&bytes).map_err(|error| {
         PersonalServiceError::new(format!("failed to decode CN asset path manifest: {error}"))
     })?;
+    digest_cache.path_manifest = Some(PathManifestCacheEntry {
+        asset_identity,
+        override_identity,
+        data: Some(data.clone()),
+    });
     Ok(Some(data))
+}
+
+fn path_identity(path: &Path) -> Option<ArchiveIdentity> {
+    let metadata = fs::metadata(path).ok()?;
+    metadata
+        .is_file()
+        .then(|| archive_identity(&metadata))
+        .flatten()
 }
 // //// /读取并本地化 CN 资产路径清单 ////
 
@@ -518,7 +641,7 @@ fn localize_archive(
         let metadata = fs::metadata(&local_path).map_err(|_| {
             PersonalServiceError::new("CN asset path manifest references a missing local archive")
         })?;
-        if !metadata.is_file() || metadata.len() != archive.size {
+        if !metadata.is_file() || metadata.len() == 0 || metadata.len() != archive.size {
             return Err(PersonalServiceError::new(
                 "CN asset path manifest contains invalid local archive metadata",
             ));
@@ -532,7 +655,8 @@ fn localize_archive(
 fn existing_archive_path(root: &Path, directory: &str, file_name: &str) -> Option<PathBuf> {
     let canonical_root = root.canonicalize().ok()?;
     let canonical_path = root.join(directory).join(file_name).canonicalize().ok()?;
-    (canonical_path.starts_with(canonical_root) && canonical_path.is_file())
+    let metadata = fs::metadata(&canonical_path).ok()?;
+    (canonical_path.starts_with(canonical_root) && metadata.is_file() && metadata.len() > 0)
         .then_some(canonical_path)
 }
 // //// /解析覆盖根内可下载的归档路径 ////
@@ -641,7 +765,10 @@ fn list_archives(asset_root: &Path, directory: &str, base_url: &str) -> Vec<Asse
     let mut archives = read_archive_entries(asset_root, directory)
         .filter_map(|entry| {
             let metadata = entry.metadata().ok()?;
-            if !metadata.is_file() || entry.path().extension()?.to_str()? != "zip" {
+            if !metadata.is_file()
+                || metadata.len() == 0
+                || entry.path().extension()?.to_str()? != "zip"
+            {
                 return None;
             }
             let name = entry.file_name().to_str()?.to_owned();
@@ -691,7 +818,7 @@ fn list_diff_archives(
             let Some(metadata) = entry.metadata().ok() else {
                 continue;
             };
-            if !metadata.is_file() {
+            if !metadata.is_file() || metadata.len() == 0 {
                 continue;
             }
             let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
@@ -872,7 +999,7 @@ fn is_additive_override_archive_key(key: &str) -> bool {
 }
 
 // //// 识别受约束的可写覆盖归档名 [@x380kkm 2026-08-29] ////
-fn is_additive_override_archive_name(file_name: &str) -> bool {
+pub(crate) fn is_additive_override_archive_name(file_name: &str) -> bool {
     is_safe_archive_file_name(file_name)
         && (file_name.starts_with(OVERRIDE_ARCHIVE_PREFIX)
             || file_name.starts_with(IOS_VOICE_OVERRIDE_ARCHIVE_PREFIX))

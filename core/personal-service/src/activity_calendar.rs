@@ -509,6 +509,11 @@ fn configured_window(
             return Ok(Some((schedule.start_at_ms, schedule.end_at_ms)));
         }
     }
+    if let Some(window) = crate::activity_projection::regional_activity_window(
+        activity_id, database.current_server_time_millis()?,
+    )? {
+        return Ok(Some(window));
+    }
     Ok(crate::activity_catalog::default_activity_window(
         asset_root,
         activity_id,

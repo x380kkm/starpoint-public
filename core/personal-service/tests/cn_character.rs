@@ -1,13 +1,16 @@
 // audience: internal
 // # personal-service-cn-character-tests
 //
-// 该文件验证 CN 角色突破、外观设置及 Mana board 开启和觉醒的快照持久化.
+// 该文件验证 CN 角色养成, 城镇领取和快照持久化.
 
 #[path = "support/cn.rs"]
 #[allow(dead_code)]
 mod cn_support;
 #[allow(dead_code)]
 mod support;
+
+#[path = "cn_character/town.rs"]
+mod town;
 
 use cn_support::{decode_response, encode_request, LoadRequest, SignupData, SignupRequest};
 use rusqlite::{params, Connection};
@@ -51,12 +54,6 @@ struct OpenManaBoardRequest {
     viewer_id: i64,
     character_id: i64,
     mana_board_index: i64,
-}
-
-#[derive(Serialize)]
-struct AddCharacterFromTownRequest {
-    viewer_id: i64,
-    character_id: i64,
 }
 
 #[derive(Serialize)]
@@ -136,36 +133,6 @@ fn persists_character_protection() {
 }
 // //// /验证 CN 角色保护状态持久化 ////
 
-// //// 验证城镇角色响应包含客户端图鉴增量 [@x380kkm 2026-08-25] ////
-#[test]
-fn returns_town_character_encyclopedia_delta() {
-    let root = TempDir::new().expect("temporary service directory is created");
-    let service = PersonalService::start(root.path(), 0).expect("service starts");
-    let signup = decode_response::<SignupData>(&cn_support::send_request(
-        service.port(),
-        "/api/index.php/tool/signup",
-        &encode_request(&SignupRequest { device_id: 44 }),
-    ));
-    let viewer_id = signup.data_headers.viewer_id;
-
-    let response = decode_response::<Value>(&cn_support::send_request(
-        service.port(),
-        "/api/index.php/character/add_character_from_town",
-        &encode_request(&AddCharacterFromTownRequest {
-            viewer_id,
-            character_id: 512_001,
-        }),
-    ));
-
-    assert_eq!(response.data["character_list"][0]["character_id"], 512_001);
-    assert_eq!(
-        response.data["encyclopedia_info"],
-        serde_json::json!({"151200101": {"read": false}})
-    );
-    service.stop().expect("service stops cleanly");
-}
-// //// /验证城镇角色响应包含客户端图鉴增量 ////
-
 // //// 验证 CN 角色养成快照持久化 [@x380kkm 2026-07-24] ////
 #[test]
 fn persists_character_growth_operations() {
@@ -192,7 +159,7 @@ fn persists_character_growth_operations() {
     );
     assert!(created.starts_with("HTTP/1.1 201 Created"));
     let item_mail = format!(
-        "{{\"viewer_id\":{viewer_id},\"title\":\"Mana materials\",\"body\":\"Mana test\",\"sender\":\"Admin\",\"rewards\":{{\"itemList\":{{\"1\":3,\"99\":2,\"10001\":4,\"70047\":30}}}}}}"
+        "{{\"viewer_id\":{viewer_id},\"title\":\"Mana materials\",\"body\":\"Mana test\",\"sender\":\"Admin\",\"rewards\":{{\"itemList\":{{\"1\":3,\"99\":2,\"10002\":4,\"70047\":30}}}}}}"
     );
     let item_created = request_with_headers(
         service.port(),
@@ -218,7 +185,7 @@ fn persists_character_growth_operations() {
             character_id: 1,
             over_limit_count: 4,
             use_stack: false,
-            item_id: Some(10_001),
+            item_id: Some(10_002),
         }),
     ));
     assert_eq!(over_limit.data["character_list"][0]["over_limit_step"], 4);
@@ -293,6 +260,13 @@ fn persists_character_growth_operations() {
             serde_json::json!({"multiplied_id": 2201});
     });
 
+    let read_assets = || {
+        let connection = Connection::open(root.path().join("personal-service.sqlite3")).unwrap();
+        let serialized: String = connection.query_row("SELECT data_json FROM player_snapshots", [], |row| row.get(0)).unwrap();
+        let player = serde_json::from_str::<Value>(&serialized).unwrap();
+        serde_json::json!([player["user_info"], player["item_list"], player["user_character_mana_node_list"]])
+    };
+    let saved_assets = read_assets();
     let duplicate_node = cn_support::send_request(
         service.port(),
         "/api/index.php/character/learn_mana_node",
@@ -303,8 +277,19 @@ fn persists_character_growth_operations() {
             mana_node_multiplied_id_list: vec![2201],
         }),
     );
-    assert!(duplicate_node.starts_with("HTTP/1.1 400 Bad Request"));
+    let duplicate_node = decode_response::<Value>(&duplicate_node);
+    for balance in ["free_mana", "paid_mana"] {
+        assert_eq!(duplicate_node.data["user_info"][balance], learned.data["user_info"][balance]);
+    }
+    assert_eq!(
+        duplicate_node.data["user_character_mana_node_list"]["1"],
+        serde_json::json!([{"mana_node_multiplied_id": 2201, "awake_level": 0}])
+    );
+    assert_eq!(read_assets(), saved_assets);
 
+    update_player_snapshot(root.path(), |player_data| {
+        player_data["mission_window_progress"] = serde_json::json!({"9:11":3,"9:12":100,"9:13":97});
+    });
     let awakened_response = cn_support::send_request(
         service.port(),
         "/api/index.php/character/awake_mana_node",
@@ -333,8 +318,8 @@ fn persists_character_growth_operations() {
         serde_json::json!({"mana_node_multiplied_id": 2201, "awake_level": 1})
     );
     assert_eq!(
-        awakened.data["character_list"][0]["mana_board_awake"]["1"],
-        1
+        awakened.data["character_list"][0]["mana_board_awake"],
+        serde_json::json!({"1":1})
     );
     assert_eq!(
         awakened.data["character_list"][0]["bond_token_list"],
@@ -505,6 +490,7 @@ fn follows_character_master_for_mana_boards_and_bond_tokens() {
         player_data["user_info"]["bond_token"] = Value::from(5);
         player_data["user_character_list"]["1"]["bond_token_list"][0]["status"] = Value::from(1);
         player_data["all_active_mission_list"] = serde_json::json!({
+            "14010": {"progress": 1, "stages": {"1": true}},
             "14110": {"progress": 1, "stages": []}
         });
         player_data["user_character_list"]["1"]["exp"] = Value::from(76_271);
@@ -551,17 +537,19 @@ fn follows_character_master_for_mana_boards_and_bond_tokens() {
             "mission_reward_id": 39001,
         }])
     );
-    assert_eq!(
-        claimed.data["active_mission_list"],
-        serde_json::json!([
-            {
-                "mission_id": 14070,
-                "progress_value": 1,
-                "stages": [{"stage": 1, "received": false}],
-            },
-            {"mission_id": 14110, "progress_value": 2, "stages": []},
-        ])
-    );
+    for expected in [
+        serde_json::json!({
+            "mission_id": 14070,
+            "progress_value": 1,
+            "stages": [{"stage": 1, "received": false}],
+        }),
+        serde_json::json!({"mission_id": 14110, "progress_value": 2, "stages": []}),
+    ] {
+        assert!(claimed.data["active_mission_list"]
+            .as_array()
+            .unwrap()
+            .contains(&expected));
+    }
 
     let claimed_again = decode_response::<Value>(&cn_support::send_request(
         service.port(),

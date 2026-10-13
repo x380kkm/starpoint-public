@@ -1,14 +1,15 @@
 // audience: internal
 // # personal-service-cn-battle-assets
 //
-// 该模块读取 Node 行为基准生成的 CN 单机战斗, 奖励和体力等级数据.
+// 该模块读取 CN 单机战斗, 阶段奖励, 剧情败北战和体力等级数据.
 
 use crate::PersonalServiceError;
 use serde::Deserialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
 const SINGLE_BATTLE_DATA: &str = include_str!("../assets/cn-single-battle.json");
+const BATTLE_REWARD_RULES: &str = include_str!("../assets/cn-battle-reward-rules.json");
 const PLAYER_RANK_STAMINA_DATA: &str = include_str!("../assets/cn-player-rank-stamina.json");
 static PLAYER_RANK_STAMINA: OnceLock<Result<Vec<(i64, i64, f64)>, String>> = OnceLock::new();
 
@@ -17,7 +18,37 @@ pub(crate) struct BattleFixture {
     pub(crate) source: FixtureSource,
     pub(crate) characters: BTreeMap<String, CharacterAsset>,
     pub(crate) quests: BTreeMap<String, BattleQuest>,
-    pub(crate) rare_reward_groups: BTreeMap<String, Vec<Reward>>,
+    pub(crate) rare_reward_groups: BTreeMap<String, Vec<RareScoreReward>>,
+    #[serde(skip)]
+    pub(crate) reward_rules: BattleRewardRules,
+}
+
+#[derive(Default, Deserialize)]
+pub(crate) struct BattleRewardRules {
+    pub(crate) common_reward_multiplier_by_multi_play_mode: f64,
+    pub(crate) phase_quests: BTreeMap<String, PhaseQuestRewards>,
+    pub(crate) lose_quests: BTreeSet<String>,
+    pub(crate) reward_element_map: RewardElementMap,
+}
+
+pub(crate) type RewardElementMap = BTreeMap<i64, BTreeMap<i64, BTreeMap<i64, Vec<i64>>>>;
+
+#[derive(Deserialize)]
+pub(crate) struct PhaseQuestRewards {
+    pub(crate) phases: Vec<PhaseReward>,
+    pub(crate) rare_reward_groups: BTreeMap<String, Vec<RareScoreReward>>,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct PhaseReward {
+    pub(crate) phase: i64,
+    pub(crate) score_reward_group_id: Option<i64>,
+    pub(crate) score_reward_count: usize,
+    pub(crate) score_rewards: Vec<ScoreReward>,
+    pub(crate) rank_point_reward: i64,
+    pub(crate) character_exp_reward: i64,
+    pub(crate) mana_reward: i64,
+    pub(crate) pool_exp_reward: i64,
 }
 
 #[derive(Deserialize)]
@@ -47,9 +78,11 @@ pub(crate) struct CharacterAsset {
 }
 
 #[allow(dead_code)]
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub(crate) struct BattleQuest {
     pub(crate) category: i64,
+    #[serde(default)]
+    pub(crate) activity_id: Option<String>,
     pub(crate) quest_id: i64,
     pub(crate) name: String,
     pub(crate) clear_reward_id: Option<i64>,
@@ -60,8 +93,10 @@ pub(crate) struct BattleQuest {
     pub(crate) score_attack_reward_group_id: Option<i64>,
     #[serde(default)]
     pub(crate) score_rewards: Vec<ScoreReward>,
+    pub(crate) score_reward_counts: [usize; 5],
     #[serde(default)]
     pub(crate) score_attack_border_rewards: Vec<ScoreAttackBorderReward>,
+    pub(crate) score_rank_thresholds: Option<[i64; 4]>,
     pub(crate) b_rank_time: i64,
     pub(crate) a_rank_time: i64,
     pub(crate) s_rank_time: i64,
@@ -102,8 +137,16 @@ pub(crate) struct Reward {
     pub(crate) rarity: Option<f64>,
 }
 
+#[derive(Clone, Deserialize)]
+pub(crate) struct RareScoreReward {
+    #[serde(flatten)]
+    pub(crate) reward: Reward,
+    pub(crate) position: i64,
+    pub(crate) element_rarity: Option<i64>,
+}
+
 #[allow(dead_code)]
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub(crate) struct ScoreReward {
     #[serde(rename = "type")]
     pub(crate) kind: i64,
@@ -116,13 +159,11 @@ pub(crate) struct ScoreReward {
     pub(crate) field5: Option<i64>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub(crate) struct ScoreAttackBorderReward {
+    pub(crate) id: i64,
     pub(crate) score: i64,
-    #[serde(rename = "coinItemId")]
-    pub(crate) coin_item_id: i64,
-    #[serde(rename = "coinCount")]
-    pub(crate) coin_count: i64,
+    pub(crate) rewards: Vec<crate::cn_mission::MissionReward>,
 }
 
 // //// 校验单机战斗资产闭包 [@x380kkm 2026-08-22] ////
@@ -169,7 +210,7 @@ fn validate_battle_fixture(fixture: &BattleFixture) -> Result<(), PersonalServic
 
 // //// 解码并校验单机战斗数据 [@x380kkm 2026-07-22] ////
 pub(crate) fn load_battle_fixture() -> Result<BattleFixture, PersonalServiceError> {
-    let fixture = serde_json::from_str::<BattleFixture>(SINGLE_BATTLE_DATA).map_err(|error| {
+    let mut fixture = serde_json::from_str::<BattleFixture>(SINGLE_BATTLE_DATA).map_err(|error| {
         PersonalServiceError::new(format!("failed to decode CN single battle data: {error}"))
     })?;
     if fixture.quests.is_empty() {
@@ -178,6 +219,9 @@ pub(crate) fn load_battle_fixture() -> Result<BattleFixture, PersonalServiceErro
         ));
     }
     validate_battle_fixture(&fixture)?;
+    fixture.reward_rules = serde_json::from_str(BATTLE_REWARD_RULES).map_err(|error| {
+        PersonalServiceError::new(format!("failed to decode CN battle reward rules: {error}"))
+    })?;
     Ok(fixture)
 }
 // //// /解码并校验单机战斗数据 ////

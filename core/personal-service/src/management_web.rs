@@ -9,14 +9,25 @@ use std::path::Path;
 
 const INDEX_HTML: &[u8] = include_bytes!("../web/management/index.html");
 const APP_JAVASCRIPT: &[u8] = include_bytes!("../web/management/app.js");
+const BROWSER_JAVASCRIPT: &[u8] = include_bytes!("../web/management/browser-app.js");
 const AI_TEAM_CONTROLLER_JAVASCRIPT: &[u8] =
     include_bytes!("../web/management/ai-team-controller.js");
+const RESCUE_CONTROLLER_JAVASCRIPT: &[u8] = include_bytes!("../web/management/rescue-controller.js");
+const RESCUE_STYLESHEET: &[u8] = include_bytes!("../web/management/rescue.css");
 const ACTIVITY_CONTROLLER_JAVASCRIPT: &[u8] =
     include_bytes!("../web/management/activity-controller.js");
 const ACTIVITY_VIEWS_JAVASCRIPT: &[u8] = include_bytes!("../web/management/activity-views.js");
+const ACTIVITY_NAVIGATION_JAVASCRIPT: &[u8] = include_bytes!("../web/management/activity-navigation.js");
+const ACTIVITY_RESCUE_JAVASCRIPT: &[u8] = include_bytes!("../web/management/activity-rescue.js");
+const ACTIVITY_HISTORY_JAVASCRIPT: &[u8] = include_bytes!("../web/management/activity-history.js");
+const REWARD_HISTORY_JAVASCRIPT: &[u8] = include_bytes!("../web/management/reward-history.js");
+const COMPETITION_CONTROLLER_JAVASCRIPT: &[u8] = include_bytes!("../web/management/competition-controller.js");
+const COMPETITION_VIEWS_JAVASCRIPT: &[u8] = include_bytes!("../web/management/competition-views.js");
 const MAIL_REWARD_CONTROLLER_JAVASCRIPT: &[u8] =
     include_bytes!("../web/management/mail-reward-controller.js");
 const VIEWS_JAVASCRIPT: &[u8] = include_bytes!("../web/management/views.js");
+const SAVE_DELETION_JAVASCRIPT: &[u8] = include_bytes!("../web/management/save-deletion.js");
+const PASSWORD_BACKUP_JAVASCRIPT: &[u8] = include_bytes!("../web/management/password-backup.js");
 const STYLESHEET: &[u8] = include_bytes!("../web/management/style.css");
 const ITEM_PLACEHOLDER: &[u8] = include_bytes!("../web/management/assets/item-placeholder.svg");
 const ITEM_ICON_PREFIX: &str = "/manage/assets/item-icons/";
@@ -91,10 +102,17 @@ pub(crate) fn route(request: &HttpRequest, cn_asset_root: &Path) -> Option<HttpR
     let content = match request.path() {
         "/manage" | "/manage/" => Some(("text/html; charset=utf-8", INDEX_HTML)),
         "/manage/app.js" => Some(("text/javascript; charset=utf-8", APP_JAVASCRIPT)),
+        "/manage/browser-app.js" => Some(("text/javascript; charset=utf-8", BROWSER_JAVASCRIPT)),
+        "/manage/password-backup.js" => Some(("text/javascript; charset=utf-8", PASSWORD_BACKUP_JAVASCRIPT)),
         "/manage/ai-team-controller.js" => Some((
             "text/javascript; charset=utf-8",
             AI_TEAM_CONTROLLER_JAVASCRIPT,
         )),
+        "/manage/rescue-controller.js" => Some((
+            "text/javascript; charset=utf-8",
+            RESCUE_CONTROLLER_JAVASCRIPT,
+        )),
+        "/manage/rescue.css" => Some(("text/css; charset=utf-8", RESCUE_STYLESHEET)),
         "/manage/activity-controller.js" => Some((
             "text/javascript; charset=utf-8",
             ACTIVITY_CONTROLLER_JAVASCRIPT,
@@ -102,11 +120,18 @@ pub(crate) fn route(request: &HttpRequest, cn_asset_root: &Path) -> Option<HttpR
         "/manage/activity-views.js" => {
             Some(("text/javascript; charset=utf-8", ACTIVITY_VIEWS_JAVASCRIPT))
         }
+        "/manage/activity-navigation.js" => Some(("text/javascript; charset=utf-8", ACTIVITY_NAVIGATION_JAVASCRIPT)),
+        "/manage/activity-rescue.js" => Some(("text/javascript; charset=utf-8", ACTIVITY_RESCUE_JAVASCRIPT)),
+        "/manage/activity-history.js" => Some(("text/javascript; charset=utf-8", ACTIVITY_HISTORY_JAVASCRIPT)),
+        "/manage/reward-history.js" => Some(("text/javascript; charset=utf-8", REWARD_HISTORY_JAVASCRIPT)),
+        "/manage/competition-controller.js" => Some(("text/javascript; charset=utf-8", COMPETITION_CONTROLLER_JAVASCRIPT)),
+        "/manage/competition-views.js" => Some(("text/javascript; charset=utf-8", COMPETITION_VIEWS_JAVASCRIPT)),
         "/manage/mail-reward-controller.js" => Some((
             "text/javascript; charset=utf-8",
             MAIL_REWARD_CONTROLLER_JAVASCRIPT,
         )),
         "/manage/views.js" => Some(("text/javascript; charset=utf-8", VIEWS_JAVASCRIPT)),
+        "/manage/save-deletion.js" => Some(("text/javascript; charset=utf-8", SAVE_DELETION_JAVASCRIPT)),
         "/manage/style.css" => Some(("text/css; charset=utf-8", STYLESHEET)),
         "/manage/assets/item-placeholder.svg" => Some(("image/svg+xml", ITEM_PLACEHOLDER)),
         _ => None,

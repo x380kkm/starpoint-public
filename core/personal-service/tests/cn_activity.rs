@@ -55,6 +55,37 @@ fn set_virtual_time(service: &PersonalService, iso: &str) {
     assert!(response.starts_with("HTTP/1.1 200 OK"));
 }
 
+// //// 读取领奖相关的玩家快照和邮件数量 [@x380kkm 2026-09-23] ////
+fn reward_state(root: &Path) -> (String, i64) {
+    let database = rusqlite::Connection::open(root.join("personal-service.sqlite3"))
+        .expect("service database is opened");
+    let snapshot = database
+        .query_row("SELECT data_json FROM player_snapshots", [], |row| row.get(0))
+        .expect("player snapshot is read");
+    let mail_count = database
+        .query_row("SELECT COUNT(*) FROM player_mails", [], |row| row.get(0))
+        .expect("reward mails are counted");
+    (snapshot, mail_count)
+}
+// //// /读取领奖相关的玩家快照和邮件数量 ////
+
+// //// 把临时开放租约改为若干天前结束 [@x380kkm 2026-10-04] ////
+fn end_temporary_open(root: &Path, activity_id: &str, days_ago: i64) {
+    let day = 86_400_000;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system time is after the epoch")
+        .as_millis() as i64;
+    rusqlite::Connection::open(root.join("personal-service.sqlite3"))
+        .expect("service database is opened")
+        .execute(
+            "UPDATE activity_temporary_open_leases SET opened_at_ms=?1, expires_at_ms=?2 WHERE activity_id=?3",
+            rusqlite::params![now - (days_ago + 1) * day, now - days_ago * day, activity_id],
+        )
+        .expect("temporary open lease is moved");
+}
+// //// /把临时开放租约改为若干天前结束 ////
+
 fn write_default_activity_manifest(cdn_root: &Path) {
     fs::write(
         cdn_root.join("activity-catalog.json"),
@@ -142,19 +173,29 @@ fn manages_and_reads_raid_boss_state() {
     assert_eq!(raid.data["raid_boss"]["hp_percentage"], 42);
     assert_eq!(raid.data["raid_boss"]["total_kill_count"], 17);
 
+    let opened = request_with_headers(
+        service.port(),
+        "PUT",
+        "/v1/activities/ranking%3A1/mode",
+        "application/json",
+        &authorization,
+        br#"{"mode":"always"}"#,
+    );
+    assert_eq!(response_json(&opened)["status"], "open", "{opened}");
     let ranking = decode_response::<Value>(&cn_support::send_request(
         service.port(),
         "/api/index.php/ranking_event/get_summary",
         &encode_request(&RankingEventRequest {
             viewer_id,
             ranking_event_id: 1,
-            quest_kind: Some(14),
+            quest_kind: Some(1),
             api_count: Some(1),
         }),
     ));
-    assert_eq!(ranking.data["best_record"]["is_accomplished"], false);
-    assert_eq!(ranking.data["rank_border_top"]["elapsed_time_ms"], 54_410);
+    assert!(ranking.data["best_record"].is_null(), "{:?}", ranking.data);
+    assert!(ranking.data.get("leader_character_id").is_none());
 
+    let before_reward = reward_state(root.path());
     let reward = decode_response::<Value>(&cn_support::send_request(
         service.port(),
         "/api/index.php/ranking_event/receive_reward",
@@ -165,7 +206,8 @@ fn manages_and_reads_raid_boss_state() {
             api_count: Some(2),
         }),
     ));
-    assert_eq!(reward.data["status"], 1);
+    assert_eq!(reward.data["status"], 3);
+    assert_eq!(reward_state(root.path()), before_reward);
 
     let unknown_ranking = cn_support::send_request(
         service.port(),
@@ -368,12 +410,31 @@ fn applies_activity_calendar_to_ranking_rewards() {
         br#"{}"#,
     );
     assert_eq!(response_json(&opened)["status"], "open");
+    let before_reward = reward_state(root.path());
+    let reward_request_at = |api_count| {
+        encode_request(&RankingEventRequest {
+            viewer_id,
+            ranking_event_id: 1,
+            quest_kind: None,
+            api_count: Some(api_count),
+        })
+    };
+    let during_play = cn_support::send_request(
+        service.port(),
+        "/api/index.php/ranking_event/receive_reward",
+        &reward_request_at(2),
+    );
+    assert!(during_play.ends_with("{\"error\":\"ranking_reward_not_ready\"}"));
+    assert_eq!(reward_state(root.path()), before_reward);
+    // 租约结束 4 天后已过 3 天统计期, 仍在 10 天领奖期内.
+    end_temporary_open(root.path(), "ranking:1", 4);
     let reward = decode_response::<Value>(&cn_support::send_request(
         service.port(),
         "/api/index.php/ranking_event/receive_reward",
-        &reward_request,
+        &reward_request_at(3),
     ));
-    assert_eq!(reward.data["status"], 1);
+    assert_eq!(reward.data["status"], 3);
+    assert_eq!(reward_state(root.path()), before_reward);
     service.stop().expect("service stops cleanly");
 }
 // //// /验证排行活动奖励受同一时间窗口约束 ////
@@ -407,7 +468,7 @@ fn supports_revival_ranking_ids_with_virtual_time() {
             &encode_request(&RankingEventRequest {
                 viewer_id,
                 ranking_event_id,
-                quest_kind: Some(14),
+                quest_kind: Some(1),
                 api_count: Some(1),
             }),
         )
@@ -416,9 +477,12 @@ fn supports_revival_ranking_ids_with_virtual_time() {
     assert!(request(1_000).ends_with("{\"error\":\"activity_not_started\"}"));
     set_virtual_time(&service, "2030-01-03T12:00:00.000Z");
     let revival = decode_response::<Value>(&request(1_000));
-    assert_eq!(revival.data["rank_border_top"]["elapsed_time_ms"], 0);
+    assert!(revival.data["best_record"].is_null());
     let second_revival = decode_response::<Value>(&request(1_001));
-    assert_eq!(second_revival.data["best_record"]["is_accomplished"], false);
+    assert!(second_revival.data["best_record"].is_null());
+    set_virtual_time(&service, "2030-01-05T12:00:00.000Z");
+    let ended = decode_response::<Value>(&request(1_000));
+    assert_eq!(ended.data, revival.data);
     service.stop().expect("service stops cleanly");
 }
 // //// /验证复刻排行编号和虚拟时间窗口 ////

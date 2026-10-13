@@ -1,7 +1,7 @@
 # audience: internal
 # # package-android-cn-game
 #
-# 该脚本将 CN 客户端固定到回环个人服务, 跳过 delegated SDK 初始化, 保持单一主 DEX, 再对齐并签名输出.
+# 该脚本将 CN 客户端连接到回环个人服务, 合并宿主连接桥和 SDK 补丁, 保持单一主 DEX, 再对齐并签名输出.
 
 [CmdletBinding()]
 param(
@@ -11,7 +11,10 @@ param(
     [string]$StarviewToolsRoot,
     [string]$JavaHome,
     [string]$KeystorePath,
-    [string]$KeystorePasswordFile
+    [string]$KeystorePasswordFile,
+    [string]$CdnRoot,
+    [Parameter(Mandatory)][ValidateRange(1008001, [int]::MaxValue)][int]$GameVersionCode,
+    [Parameter(Mandatory)][ValidatePattern('^\d+\.\d+\.\d+$')][string]$ReleaseVersion
 )
 
 $ErrorActionPreference = "Stop"
@@ -63,6 +66,7 @@ $Zipalign = Join-Path $StarviewToolsRoot "build-tools/zipalign.exe"
 $ApkSignerJar = Join-Path $StarviewToolsRoot "build-tools/lib/apksigner.jar"
 $PatchClient = Join-Path $PSScriptRoot "patch-cn-client.ps1"
 $PatchSdkBootstrap = Join-Path $PSScriptRoot "patch-android-sdk-bootstrap.py"
+$PrepareGameHost = Join-Path $PSScriptRoot "prepare-android-game-host.ps1"
 $Uv = (Get-Command uv -ErrorAction Stop).Source
 foreach ($RequiredFile in @(
     $Java,
@@ -71,6 +75,7 @@ foreach ($RequiredFile in @(
     $ApkSignerJar,
     $PatchClient,
     $PatchSdkBootstrap
+    $PrepareGameHost
 )) {
     if (-not (Test-Path -LiteralPath $RequiredFile -PathType Leaf)) {
         throw "Android 游戏包依赖不存在: $RequiredFile"
@@ -137,6 +142,9 @@ function New-AndroidGameUnsignedApk {
     param(
         [Parameter(Mandatory)][string]$InputApkPath,
         [Parameter(Mandatory)][string]$PatchedDexPath,
+        [Parameter(Mandatory)][string]$PatchedManifestPath,
+        [string]$PatchedBundlePath,
+        [string]$PatchedBundleDigestPath,
         [Parameter(Mandatory)][string]$OutputApkPath
     )
 
@@ -146,6 +154,7 @@ function New-AndroidGameUnsignedApk {
         [IO.Compression.ZipArchiveMode]::Update
     )
     $ReplacedDexEntries = 0
+    $ReplacedManifestEntries = 0
     $RemovedSignatureEntries = 0
     try {
         foreach ($Entry in @($Archive.Entries)) {
@@ -158,6 +167,13 @@ function New-AndroidGameUnsignedApk {
                 $Entry.Delete()
                 $ReplacedDexEntries++
             }
+            if ($Entry.FullName -ceq "AndroidManifest.xml") {
+                $Entry.Delete()
+                $ReplacedManifestEntries++
+            }
+            if ($PatchedBundlePath -and $Entry.FullName -cin @("assets/bundle.zip", "assets/bundle.zip.sha1")) {
+                $Entry.Delete()
+            }
         }
         $PatchedDexEntry = [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
             $Archive,
@@ -166,6 +182,18 @@ function New-AndroidGameUnsignedApk {
             [IO.Compression.CompressionLevel]::NoCompression
         )
         $PatchedDexEntry.LastWriteTime = (Get-Item -LiteralPath $PatchedDexPath).LastWriteTime
+        [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+            $Archive, $PatchedManifestPath, "AndroidManifest.xml",
+            [IO.Compression.CompressionLevel]::Optimal
+        ) | Out-Null
+        if ($PatchedBundlePath) {
+            [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $Archive, $PatchedBundlePath, "assets/bundle.zip", [IO.Compression.CompressionLevel]::NoCompression
+            ) | Out-Null
+            [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $Archive, $PatchedBundleDigestPath, "assets/bundle.zip.sha1", [IO.Compression.CompressionLevel]::NoCompression
+            ) | Out-Null
+        }
     } finally {
         $Archive.Dispose()
     }
@@ -173,8 +201,12 @@ function New-AndroidGameUnsignedApk {
     if ($ReplacedDexEntries -ne 1) {
         throw "主 DEX 替换数量不正确: expected=1 actual=$ReplacedDexEntries"
     }
+    if ($ReplacedManifestEntries -ne 1) {
+        throw "AndroidManifest.xml 替换数量不正确: $ReplacedManifestEntries"
+    }
     [ordered]@{
         ReplacedDexEntries = $ReplacedDexEntries
+        ReplacedManifestEntries = $ReplacedManifestEntries
         RemovedSignatureEntries = $RemovedSignatureEntries
     }
 }
@@ -278,8 +310,23 @@ $EndpointPatchedApk = Join-Path $EndpointPatchDirectory "worldflipper-cn-loopbac
 $OriginalPrimaryDex = Join-Path $WorkingDirectory "classes-original.dex"
 $PatchedPrimaryDex = Join-Path $WorkingDirectory "classes-sdk-silent.dex"
 $SdkBootstrapEvidence = Join-Path $WorkingDirectory "sdk-bootstrap-evidence.json"
+$HostPrimaryDex = Join-Path $WorkingDirectory "classes-game-host.dex"
+$HostManifest = Join-Path $WorkingDirectory "AndroidManifest-game-host.xml"
 $UnsignedApk = Join-Path $WorkingDirectory "game-unsigned.apk"
 $AlignedApk = Join-Path $WorkingDirectory "game-aligned.apk"
+$PatchedBundle = $null
+$PatchedBundleDigest = $null
+$ResourceOverlay = $null
+if (-not [string]::IsNullOrWhiteSpace($CdnRoot)) {
+    $PatchedBundle = Join-Path $WorkingDirectory "bundle.zip"
+    $PatchedBundleDigest = Join-Path $WorkingDirectory "bundle.zip.sha1"
+    $ResourceOutput = @(Invoke-AndroidGameTool -FilePath $Uv -ArgumentList @(
+        "run", "--python", "3.12", (Join-Path $PSScriptRoot "prepare-android-game-resources.py"),
+        "--input-apk", $InputApkPath, "--cdn-root", $CdnRoot,
+        "--output-bundle", $PatchedBundle, "--output-digest", $PatchedBundleDigest
+    ) -LogPath (Join-Path $Logs "prepare-game-resources.log"))
+    $ResourceOverlay = ($ResourceOutput | Select-Object -Last 1) | ConvertFrom-Json
+}
 
 # //// 生成回环端点客户端并应用 delegated SDK 补丁 [@x380kkm 2026-08-31] ////
 & $PatchClient `
@@ -309,10 +356,25 @@ Invoke-AndroidGameTool -FilePath $Uv -ArgumentList @(
 ) -LogPath (Join-Path $Logs "patch-sdk-bootstrap.log") | Out-Null
 # //// /生成回环端点客户端并应用 delegated SDK 补丁 ////
 
+# //// 合并游戏连接桥和带版本号的启动入口 [@x380kkm 2026-09-10] ////
+$GameHost = & $PrepareGameHost `
+    -InputApkPath $EndpointPatchedApk `
+    -InputDexPath $PatchedPrimaryDex `
+    -OutputDexPath $HostPrimaryDex `
+    -OutputManifestPath $HostManifest `
+    -WorkingDirectory (Join-Path $WorkingDirectory "host-bridge") `
+    -GameVersionCode $GameVersionCode `
+    -ReleaseVersion $ReleaseVersion `
+    -JavaHome $JavaHome
+# //// /合并游戏连接桥和带版本号的启动入口 ////
+
 # //// 重建, 对齐并签名游戏 APK [@x380kkm 2026-08-31] ////
 $Repack = New-AndroidGameUnsignedApk `
     -InputApkPath $EndpointPatchedApk `
-    -PatchedDexPath $PatchedPrimaryDex `
+    -PatchedDexPath $HostPrimaryDex `
+    -PatchedManifestPath $HostManifest `
+    -PatchedBundlePath $PatchedBundle `
+    -PatchedBundleDigestPath $PatchedBundleDigest `
     -OutputApkPath $UnsignedApk
 Invoke-AndroidGameTool -FilePath $Zipalign -ArgumentList @(
     "-f", "-p", "4", $UnsignedApk, $AlignedApk
@@ -365,6 +427,10 @@ $PackageReport = [ordered]@{
     }
     Repack = $Repack
     SdkBootstrapEvidence = $SdkBootstrapEvidence
+    GameHost = $GameHost
+    ResourceOverlay = $ResourceOverlay
+    GameVersionCode = $GameVersionCode
+    ReleaseVersion = $ReleaseVersion
     AndroidManifest = [ordered]@{
         Input = $InputManifestContract
         Output = $OutputManifestContract

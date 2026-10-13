@@ -9,8 +9,8 @@ import { PlayerBoxGachaDrawnReward } from "../data/types";
 import { getCharacterDataSync } from "./assets";
 import { givePlayerCharacterSync } from "./character";
 import { givePlayerEquipmentSync } from "./equipment";
-import { givePlayerRewardsSync } from "./quest";
-import { BoxGachaBox, BoxGachaDrawResult, BoxGachaIdReward, BoxGachaRewardTier, BoxGachaRewardType, CharacterGacha, CharacterReward, CurrencyReward, EquipmentItemReward, Gacha, GachaCharacterDraw, GachaDrawResult, GachaDraws, GachaMovieSeeds, GachaMovieType, GachaType, PlayerRewardResult, Reward, RewardPlayerGachaDrawResult, RewardType } from "./types";
+import { BoxGachaBox, BoxGachaDrawResult, BoxGachaIdReward, BoxGachaRewardTier, BoxGachaRewardType, CharacterGacha, Gacha, GachaCharacterDraw, GachaDrawResult, GachaDraws, GachaMovieSeeds, GachaMovieType, GachaType, RewardPlayerGachaDrawResult } from "./types";
+export { rewardPlayerBoxGachaResultSync } from "../data/boxGachaRewards";
 
 // //// 按演出标识读取种子池 [@x380kkm 2026-08-22] ////
 const assetsDirectory = join(__dirname, "..", "..", "assets")
@@ -253,25 +253,22 @@ export function rewardPlayerGachaDrawResultSync(
     }
 }
 
-/**
- * Performs box gacha draws.
- * 
- * @param rewards A record, where the key is the reward id and the value is a BoxGachaReward
- * @param drawnRewards The current draws the player has made on the box gacha.
- * @param drawAmount The number of draws to perform.
- */
+// //// 按剩余库存抽取箱池奖励并处理全部特奖停止条件 [@x380kkm 2026-09-28] ////
 export function drawBoxGachaSync(
     rewards: BoxGachaBox,
     drawnRewards: PlayerBoxGachaDrawnReward[],
     drawAmount: number, // the number of times to draw
-    stopOnFeaturedReward: boolean = false
+    stopOnFeaturedRewards: boolean = false
 ): BoxGachaDrawResult {
     // build drawn reward map
     const drawnRewardsMap = new Map(drawnRewards.map(reward => [reward.id, reward.number]))
 
     const rewardsPool: string[] = []
+    let remainingFeaturedRewards = 0
     for (const [rewardId, reward] of Object.entries(rewards)) {
-        for (let i = 0; i < (reward.available - (drawnRewardsMap.get(Number(rewardId)) ?? 0)); i++) {
+        const remainingCount = Math.max(0, reward.available - (drawnRewardsMap.get(Number(rewardId)) ?? 0))
+        if (reward.tier === BoxGachaRewardTier.FEATURED) remainingFeaturedRewards += remainingCount
+        for (let i = 0; i < remainingCount; i++) {
             rewardsPool.push(rewardId)
         }
     }
@@ -282,8 +279,6 @@ export function drawBoxGachaSync(
     const drawnEquipment: Map<number, number> = new Map()
     const drawnItems: Map<number, number> = new Map()
     const sessionDrawnRewards: Map<string, number> = new Map()
-
-    let totalDraws = 0
 
     for (let n = 0; n < drawAmount && rewardsPool.length > 0; n++) {
         const rollIndex = randomInt(rewardsPool.length)
@@ -318,10 +313,10 @@ export function drawBoxGachaSync(
         
         sessionDrawnRewards.set(rewardId, (sessionDrawnRewards.get(rewardId) ?? 0) + 1)
         rewardsPool.splice(rollIndex, 1)
-        totalDraws += 1
-
-        // break if the reward was featured & stop of featured is enabled
-        if (reward.tier == BoxGachaRewardTier.FEATURED && stopOnFeaturedReward) break;
+        if (reward.tier === BoxGachaRewardTier.FEATURED && stopOnFeaturedRewards) {
+            remainingFeaturedRewards -= 1
+            if (remainingFeaturedRewards === 0) break
+        }
     }
 
     // return the draw result
@@ -342,65 +337,4 @@ export function drawBoxGachaSync(
         items: drawnItems,
         rewards: returnSessionDrawnRewards
     }
-}
-
-/**
- * Rewards a player with the results of a box gacha draw.
- * 
- * @param playerId The ID of the player.
- * @param drawResult The box gacha draw result.
- * @returns A PlayerRewardResult.
- */
-export function rewardPlayerBoxGachaResultSync(
-    playerId: number,
-    drawResult: BoxGachaDrawResult
-): PlayerRewardResult | null {
-    const rewards: Reward[] = []
-
-    // convert draw results into rewards
-
-    // items
-    for (const [itemId, number] of drawResult.items) {
-        rewards.push({
-            name: '',
-            type: RewardType.ITEM,
-            id: itemId,
-            count: number
-        } as EquipmentItemReward)
-    }
-
-    // equipment
-    for (const [equipmentId, number] of drawResult.equipment) {
-        rewards.push({
-            name: '',
-            type: RewardType.EQUIPMENT,
-            id: equipmentId,
-            count: number
-        } as EquipmentItemReward)
-    }
-
-    // characters
-    for (const [characterId, number] of drawResult.characters) {
-        for (let i = 0; i < number; i++) {
-            rewards.push({
-                name: '',
-                type: RewardType.CHARACTER,
-                id: characterId,
-            } as CharacterReward)
-        }
-    }
-
-    // mana & exp
-    rewards.push({
-        name: '',
-        type: RewardType.EXP,
-        count: drawResult.exp,
-    } as CurrencyReward)
-    rewards.push({
-        name: '',
-        type: RewardType.MANA,
-        count: drawResult.mana,
-    } as CurrencyReward)
-
-    return givePlayerRewardsSync(playerId, rewards)
 }

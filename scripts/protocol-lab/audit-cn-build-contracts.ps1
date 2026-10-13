@@ -13,6 +13,8 @@ param(
     [string]$CdnRoot,
     [string]$ReferenceCdnRoot,
     [string]$DecompiledRoot,
+    [string]$ClientSourceRoot,
+    [string]$RegionalCacheRoot,
     [string]$BannerBundleRoot,
     [string]$CnAssetsRoot,
     [string]$ServiceAssetsRoot,
@@ -118,6 +120,14 @@ function New-BuildContractContext {
     $resolvedDecompiledRoot = Resolve-PathInput -Label 'decompiled_root' -Explicit $DecompiledRoot -Candidates @(
         (Join-Path $resolvedWorkspaceRoot.path 'wf-2.1.125-cn-decompiled')
     )
+    $resolvedClientSourceRoot = Resolve-PathInput -Label 'client_source_root' -Explicit $ClientSourceRoot -Candidates @(
+        (Join-Path $resolvedDecompiledRoot.path 'scripts/scripts'),
+        (Join-Path $resolvedDecompiledRoot.path 'scripts'),
+        $resolvedDecompiledRoot.path
+    )
+    $resolvedRegionalCacheRoot = Resolve-PathInput -Label 'regional_cache_root' -Explicit $RegionalCacheRoot -Candidates @(
+        (Join-Path $resolvedWorkspaceRoot.path 'archive/regional-zip-cache')
+    )
     $resolvedBannerBundleRoot = Resolve-PathInput -Label 'banner_bundle_root' -Explicit $BannerBundleRoot -Candidates @(
         $resolvedCnCdnBundle.path,
         (Join-Path $resolvedWorkspaceRoot.path 'starpoint/.cdn/cn')
@@ -152,6 +162,8 @@ function New-BuildContractContext {
         cdn_root = $resolvedCdnRoot
         reference_cdn_root = $resolvedReferenceCdnRoot
         decompiled_root = $resolvedDecompiledRoot
+        client_source_root = $resolvedClientSourceRoot
+        regional_cache_root = $resolvedRegionalCacheRoot
         banner_bundle_root = $resolvedBannerBundleRoot
         cn_assets_root = $resolvedCnAssetsRoot
         service_assets_root = $resolvedServiceAssetsRoot
@@ -172,7 +184,7 @@ function New-AuditPlan {
     $personalServiceManifest = Join-Path $Context.repository_root.path 'core/personal-service/Cargo.toml'
     $personalServiceProbeName = if ($IsWindows) { 'personal-service-probe.exe' } else { 'personal-service-probe' }
     $personalServiceProbe = Join-Path $Context.repository_root.path "core/personal-service/target/debug/$personalServiceProbeName"
-    $singleBattleAssetRoot = Resolve-FullPath (Join-Path $Context.repository_root.path '../startpoint-cn/assets')
+    $singleBattleAssetRoot = Join-Path $Context.reference_source_root.path 'assets'
     @(
         [pscustomobject][ordered]@{
             id = 'response-contracts'
@@ -269,11 +281,61 @@ function New-AuditPlan {
             name = 'audit-cn-shop-reward-closure'
             runner = 'node'
             file = Join-Path $PSScriptRoot 'audit-cn-shop-reward-closure.mjs'
-            arguments = @((Join-Path $PSScriptRoot 'audit-cn-shop-reward-closure.mjs'))
+            arguments = @((Join-Path $PSScriptRoot 'audit-cn-shop-reward-closure.mjs'),
+                '--asset-root', $Context.service_assets_root.path, '--reference-asset-root', $Context.cn_assets_root.path)
             depends_on = @()
             expects_json = $true
             working_directory = $Context.repository_root.path
             report_path = $null
+        },
+        [pscustomobject][ordered]@{
+            id = 'shop-master-contract'
+            name = 'audit-cn-shop-master-contract'
+            runner = 'node'
+            file = Join-Path $PSScriptRoot 'audit-cn-shop-master-contract.mjs'
+            arguments = @((Join-Path $PSScriptRoot 'audit-cn-shop-master-contract.mjs'),
+                '--cdn-root', $Context.cdn_root.path, '--asset-root', $Context.service_assets_root.path)
+            depends_on = @()
+            expects_json = $true
+            working_directory = $Context.repository_root.path
+            report_path = $null
+        },
+        [pscustomobject][ordered]@{
+            id = 'box-gacha-contract'
+            name = 'audit-cn-box-gacha-contract'
+            runner = 'uv'
+            file = Join-Path $PSScriptRoot 'audit-cn-box-gacha-contract.py'
+            arguments = @('run', '--python', '3.12', (Join-Path $PSScriptRoot 'audit-cn-box-gacha-contract.py'),
+                '--repository-root', $Context.repository_root.path, '--cdn-root', $Context.cdn_root.path,
+                '--client-source-root', $Context.client_source_root.path)
+            depends_on = @()
+            expects_json = $true
+            working_directory = $Context.repository_root.path
+            report_path = $null
+        },
+        [pscustomobject][ordered]@{
+            id = 'activity-schedules'
+            name = 'audit-cn-activity-schedules'
+            runner = 'node'
+            file = Join-Path $PSScriptRoot 'audit-cn-activity-schedules.mjs'
+            arguments = @((Join-Path $PSScriptRoot 'audit-cn-activity-schedules.mjs'), '--root', $Context.repository_root.path)
+            depends_on = @()
+            expects_json = $true
+            working_directory = $Context.repository_root.path
+            report_path = $null
+        },
+        [pscustomobject][ordered]@{
+            id = 'regional-activity-periods'
+            name = 'regional-activity-periods'
+            runner = 'uv'
+            file = Join-Path $PSScriptRoot 'generate-cn-regional-activity-periods.py'
+            arguments = @('run', '--python', '3.12', (Join-Path $PSScriptRoot 'generate-cn-regional-activity-periods.py'),
+                '--cache-root', $Context.regional_cache_root.path, '--check',
+                '--audit-output', (Join-Path $reportRoot 'regional-activity-periods.json'))
+            depends_on = @()
+            expects_json = $true
+            working_directory = $Context.repository_root.path
+            report_path = Join-Path $reportRoot 'regional-activity-periods.json'
         },
         [pscustomobject][ordered]@{
             id = 'activity-catalog'
@@ -295,7 +357,7 @@ function New-AuditPlan {
             name = 'audit-cn-activity-master-projection'
             runner = 'node'
             file = Join-Path $PSScriptRoot 'audit-cn-activity-master-projection.mjs'
-            arguments = @((Join-Path $PSScriptRoot 'audit-cn-activity-master-projection.mjs'))
+            arguments = @((Join-Path $PSScriptRoot 'audit-cn-activity-master-projection.mjs'), '--cdn-root', $Context.cdn_root.path)
             depends_on = @()
             expects_json = $true
             working_directory = $Context.repository_root.path
@@ -351,7 +413,7 @@ function New-AuditPlan {
             name = 'test-cn-single-battle-fixture'
             runner = 'node'
             file = Join-Path $PSScriptRoot 'test-cn-single-battle-fixture.mjs'
-            arguments = @((Join-Path $PSScriptRoot 'test-cn-single-battle-fixture.mjs'))
+            arguments = @((Join-Path $PSScriptRoot 'test-cn-single-battle-fixture.mjs'), $singleBattleAssetRoot)
             depends_on = @()
             expects_json = $false
             working_directory = $Context.repository_root.path
@@ -1106,6 +1168,7 @@ $pathEntries = @(
     $context.cdn_root,
     $context.reference_cdn_root,
     $context.decompiled_root,
+    $context.client_source_root,
     $context.banner_bundle_root,
     $context.cn_assets_root,
     $context.service_assets_root,

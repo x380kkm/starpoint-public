@@ -71,10 +71,11 @@ pub(crate) fn route(
 
 // //// 返回最近的 HTTP 请求记录 [@x380kkm 2026-08-21] ////
 fn http_observations_response(
-    database: &ServiceDatabase,
+    database: &mut ServiceDatabase,
 ) -> Result<HttpResponse, crate::PersonalServiceError> {
     let body = serde_json::to_string(&serde_json::json!({
         "observations": database.http_observations()?,
+        "client_reports": database.client_reports()?,
     }))
     .map_err(|error| {
         crate::PersonalServiceError::new(format!("failed to encode HTTP observations: {error}"))

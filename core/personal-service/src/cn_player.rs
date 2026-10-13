@@ -5,6 +5,8 @@
 // 每个账号在 SQLite 中保存独立副本和状态时间字段.
 // load 响应的未完成战斗列表从数据库状态派生.
 
+mod challenge_points;
+
 use crate::cn_asset::{available_asset_version, ArchiveDigestCache, ClientPlatform};
 use crate::cn_tutorial::create_stored_character;
 use crate::database::UnfinishedQuest;
@@ -19,7 +21,6 @@ const DEFAULT_ASSOCIATE_TOKEN: &str = "associate_token";
 const DAILY_WEEK_QUEST_CATEGORY: i64 = 6;
 const DAILY_WEEK_DRAWN_QUEST_COUNT: usize = 114;
 const MAIN_QUEST_CATEGORY: i64 = 1;
-const EXP_POOL_INCREMENT_LIMIT: i64 = 100_000;
 const TRIGGERED_UI_TUTORIAL_ID: i64 = 12;
 const DEFAULT_TRIGGERED_TUTORIAL_IDS: [i64; 30] = [
     TRIGGERED_UI_TUTORIAL_ID,
@@ -63,7 +64,8 @@ const DEFAULT_PARTY_NAMES: [&str; PARTY_SLOTS_PER_GROUP as usize] = [
     "Party A", "Party B", "Party C", "Party D", "Party E", "Party F", "Party G", "Party H",
     "Party I", "Party J",
 ];
-const INTERNAL_PLAYER_STATE_FIELDS: [&str; 15] = [
+const INTERNAL_PLAYER_STATE_FIELDS: &[&str] = &[
+    crate::cn_battle_history::SNAPSHOT_FIELD,
     "cn_activity_state",
     "character_clear_counts",
     "character_leader_clear_counts",
@@ -75,17 +77,63 @@ const INTERNAL_PLAYER_STATE_FIELDS: [&str; 15] = [
     "encyclopedia_list",
     "profile_settings",
     "shop_campaign_lineup_id",
+    "shop_campaign_lineups",
     "shop_purchase_count_baselines",
     "shop_purchase_counts",
     "shop_purchase_windows",
     "pending_ex_boost",
+    "degree_ids",
+    "mission_stage_receipts",
+    "mission_action_receipts",
+    "active_mission_receipts",
+    "mission_window_progress",
+    "mission_login_days",
+    "mission_activity_login_days",
+    "ranking_reward_receipts",
+    "solo_time_attack_reward_receipts",
+    "score_attack_reward_receipts",
+    "activity_participation_rounds",
+    "activity_battle_statistics",
+    "active_mission_incentive_receipts",
+    "active_mission_login_days",
+    "carnival_reward_receipts",
+    "shop_request_receipts",
+    "gacha_request_receipts",
+    "equipment_request_receipts",
+    "item_request_receipts",
+    "exchange_request_receipts",
+    crate::cn_ex_boost::RECEIPTS_FIELD,
+    "crazy_gacha_state",
+    "optional_exchange_receipts",
+    "login_bonus_state",
+    "login_bonus_received_date",
+    crate::cn_battle_rewards::PERIODIC_RECOVERY_STATE_FIELD,
+    "player_history_cards",
+    "player_history_captures",
+    crate::cn_character_election::VOTES_FIELD,
+    crate::cn_character::RECEIPTS_FIELD,
+    crate::cn_expod::RECEIPTS_FIELD,
+    crate::cn_payment_rebate::RECEIPTS_FIELD,
+    "mission_economic_counters",
+    "payment_state",
+    "payment_subscription_state",
+    "competition_reward_modes",
+    "pass_card_state",
+    "pass_card_reward_receipts",
+    "growth_fund_reward_receipts",
 ];
-const INTERNAL_QUEST_PROGRESS_FIELDS: [&str; 1] = ["leader_character_id"];
+const INTERNAL_QUEST_PROGRESS_FIELDS: [&str; 3] = [
+    "leader_character_id",
+    "best_elapsed_score",
+    "best_leader_character_id",
+];
 static DEFAULT_DAILY_WEEK_DRAWN_QUESTS: OnceLock<Result<Vec<Value>, String>> = OnceLock::new();
 
 pub(crate) struct PreparedPlayerData {
     pub(crate) response: Value,
     pub(crate) snapshot: String,
+    pub(crate) login_rewards: crate::cn_login_bonus::LoginBonusDelivery,
+    pub(crate) subscription_rewards: crate::cn_payment::SubscriptionDelivery,
 }
 
 // //// 创建带账号初始时间的默认玩家数据 [@x380kkm 2026-07-22] ////
@@ -94,6 +142,10 @@ pub(crate) fn create_default_player_data(
     client_time: &str,
 ) -> Result<String, PersonalServiceError> {
     let mut player_data = decode_player_data(DEFAULT_PLAYER_DATA)?;
+    response_root(&mut player_data)?.insert("user_periodic_reward_point_list".to_owned(), json!([]));
+    challenge_points::normalize(response_root(&mut player_data)?)?;
+    crate::cn_quest_challenge_points::add_missing_points(response_root(&mut player_data)?)?;
+    normalize_renewal_gift_days(response_root(&mut player_data)?)?;
     set_initial_times(&mut player_data, server_time, client_time)?;
     if std::env::var_os("CN_REFERENCE_PLAYER_BASELINE").is_none() {
         set_completed_tutorial_state(&mut player_data, server_time)?;
@@ -108,7 +160,7 @@ pub(crate) fn create_default_player_data(
 
 // //// 更新持久化玩家状态并组装当前 viewer 响应 [@x380kkm 2026-08-23] ////
 pub(crate) fn prepare_player_data(
-    serialized: &str,
+    stored: &crate::database::PlayerSnapshot,
     viewer_id: i64,
     database: &crate::database::ServiceDatabase,
     asset_root: &Path,
@@ -120,17 +172,44 @@ pub(crate) fn prepare_player_data(
     client_time: &str,
     unfinished_quest: Option<&UnfinishedQuest>,
 ) -> Result<PreparedPlayerData, PersonalServiceError> {
-    let mut player_data = decode_player_data(serialized)?;
+    let mut player_data = decode_player_data(&stored.data)?;
+    challenge_points::normalize(response_root(&mut player_data)?)?;
+    crate::cn_quest_challenge_points::add_missing_points(response_root(&mut player_data)?)?;
+    crate::cn_payment::bind_payment_orders_to_viewer(response_root(&mut player_data)?, viewer_id)?;
+    crate::cn_ex_boost::normalize_saved_character_times(response_root(&mut player_data)?);
+    normalize_renewal_gift_days(response_root(&mut player_data)?)?;
     ensure_associate_token(response_root(&mut player_data)?);
+    let previous_mana = crate::cn_mission::total_mana(response_root(&mut player_data)?)?;
+    let login_rewards = crate::cn_login_bonus::prepare(response_root(&mut player_data)?, database, server_time)?;
+    let daily_resources = crate::cn_payment::capture_daily_resources(response_root(&mut player_data)?)?;
+    crate::cn_battle_rewards::recover_periodic_reward_points(response_root(&mut player_data)?, database, server_time)?;
     update_login_state(&mut player_data, server_time, client_time)?;
+    let previous_items = crate::cn_mission::capture_collect_item_counts(response_root(&mut player_data)?)?;
+    let subscription_rewards = crate::cn_payment::prepare_subscription_rewards(response_root(&mut player_data)?, &daily_resources, server_time)?;
+    crate::cn_mission::record_collected_items(response_root(&mut player_data)?, database, stored.account_id, &previous_items)?;
     prepare_quest_progress(&mut player_data)?;
     ensure_normal_party_groups(response_root(&mut player_data)?)?;
     ensure_party_battle_power_fields(&mut player_data)?;
     rebuild_favorite_party_group_list(response_root(&mut player_data)?)?;
     ensure_client_config_fields(&mut player_data)?;
+    crate::cn_mana::reconcile_player_evolution(response_root(&mut player_data)?)?;
+    crate::cn_mission::record_activity_login_days(response_root(&mut player_data)?, database, server_time)?;
+    crate::cn_mission::recover_recorded_mission_rewards(
+        response_root(&mut player_data)?,
+        server_time,
+    )?;
+    crate::cn_mission::record_collected_items(response_root(&mut player_data)?, database, stored.account_id, &previous_items)?;
+    crate::cn_multi_special_exchange::refresh_campaigns(response_root(&mut player_data)?, database)?;
+    crate::cn_optional_exchange::refresh_campaigns(response_root(&mut player_data)?, database)?;
+    crate::cn_crazy_gacha::prepare_load(response_root(&mut player_data)?)?;
+    crate::cn_mission::refresh_active_missions(response_root(&mut player_data)?, database)?;
+    let root = response_root(&mut player_data)?;
+    let acquired_mana = crate::cn_mission::total_mana(root)?.saturating_sub(previous_mana);
+    crate::cn_mission::record_acquired_mana(root, database, stored.account_id, acquired_mana, server_time)?;
     let snapshot = encode_player_data(&player_data)?;
 
     let mut response = player_data;
+    crate::cn_character::project_load_character_times(&mut response, server_time);
     let available_asset_version = available_asset_version(
         database,
         asset_root,
@@ -140,7 +219,9 @@ pub(crate) fn prepare_player_data(
         digest_cache,
     )?;
     let root = response_root(&mut response)?;
-    for field in INTERNAL_PLAYER_STATE_FIELDS {
+    crate::cn_optional_exchange::project_campaigns(root, database)?;
+    crate::cn_ex_boost::project_pending_draw(root)?;
+    for &field in INTERNAL_PLAYER_STATE_FIELDS {
         root.remove(field);
     }
     remove_internal_quest_progress_fields(root)?;
@@ -185,7 +266,7 @@ pub(crate) fn prepare_player_data(
         );
     }
     require_characters(root)?;
-    Ok(PreparedPlayerData { response, snapshot })
+    Ok(PreparedPlayerData { response, snapshot, login_rewards, subscription_rewards })
 }
 // //// /更新持久化玩家状态并组装当前 viewer 响应 ////
 
@@ -594,7 +675,7 @@ fn finish_quest_progress_entry(
 }
 // //// /维护教程与主线进度 ////
 
-// //// 补齐普通编队分组和槽位 [@x380kkm 2026-08-28] ////
+// //// 补齐普通编队分组和槽位 [@x380kkm 2026-09-23] ////
 pub(crate) fn ensure_normal_party_groups(
     root: &mut Map<String, Value>,
 ) -> Result<(), PersonalServiceError> {
@@ -636,7 +717,7 @@ pub(crate) fn ensure_normal_party_groups(
             });
         }
     }
-    Ok(())
+    crate::cn_party::normalize_normal_party_groups(root)
 }
 
 fn default_party_leader_id(root: &Map<String, Value>) -> Result<Option<i64>, PersonalServiceError> {
@@ -696,85 +777,18 @@ fn ensure_party_battle_power_fields(player_data: &mut Value) -> Result<(), Perso
 }
 // //// /写入编队战力字段 ////
 
-// //// 派生收藏编队列表 [@x380kkm 2026-08-23] ////
+// //// 派生首页喜爱角色编队列表 [@x380kkm 2026-09-30] ////
 pub(crate) fn rebuild_favorite_party_group_list(
     root: &mut Map<String, Value>,
 ) -> Result<(), PersonalServiceError> {
-    let party_groups = root
-        .get("user_party_group_list")
-        .and_then(Value::as_object)
-        .ok_or_else(|| PersonalServiceError::new("stored CN party groups are missing"))?;
-    let mut party_group_entries = party_groups
-        .iter()
-        .map(|(group_id, group)| {
-            group_id
-                .parse::<i64>()
-                .map(|group_id| (group_id, group))
-                .map_err(|_| PersonalServiceError::new("stored CN party group id is invalid"))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    party_group_entries.sort_by_key(|(group_id, _)| *group_id);
-
-    let mut favorite_groups = Vec::with_capacity(party_group_entries.len());
-    for (group_id, group) in party_group_entries {
-        let group = group
-            .as_object()
-            .ok_or_else(|| PersonalServiceError::new("stored CN party group is invalid"))?;
-        let color_id = group
-            .get("color_id")
-            .cloned()
-            .ok_or_else(|| PersonalServiceError::new("stored CN party group color is missing"))?;
-        let parties = group
-            .get("list")
-            .and_then(Value::as_object)
-            .ok_or_else(|| PersonalServiceError::new("stored CN party group list is invalid"))?;
-        let mut party_entries = parties
-            .iter()
-            .map(|(party_id, party)| {
-                party_id
-                    .parse::<i64>()
-                    .map(|party_id| (party_id, party))
-                    .map_err(|_| PersonalServiceError::new("stored CN party id is invalid"))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        party_entries.sort_by_key(|(party_id, _)| *party_id);
-
-        let mut favorite_parties = Vec::with_capacity(party_entries.len());
-        for (party_id, party) in party_entries {
-            let party = party
-                .as_object()
-                .ok_or_else(|| PersonalServiceError::new("stored CN party is invalid"))?;
-            let field = |key: &str| {
-                party.get(key).cloned().ok_or_else(|| {
-                    PersonalServiceError::new(format!("stored CN party {key} is missing"))
-                })
-            };
-            favorite_parties.push(json!({
-                "party_id": party_id,
-                "party_name": field("name")?,
-                "character_ids": field("character_ids")?,
-                "unison_character_ids": field("unison_character_ids")?,
-                "equipment_ids": field("equipment_ids")?,
-                "ability_soul_ids": field("ability_soul_ids")?,
-                "options": field("options")?,
-                "party_edited": field("edited")?,
-                "current_battle_power": field("current_battle_power")?,
-                "before_battle_power": field("before_battle_power")?,
-            }));
-        }
-        favorite_groups.push(json!({
-            "party_group_id": group_id,
-            "party_group_color_id": color_id,
-            "party_list": favorite_parties,
-        }));
-    }
+    let favorite_groups = crate::cn_profile::profile_party_groups(root)?;
     root.insert(
         "favorite_party_group_list".to_owned(),
         Value::Array(favorite_groups),
     );
     Ok(())
 }
-// //// /派生收藏编队列表 ////
+// //// /派生首页喜爱角色编队列表 ////
 
 // //// 写入客户端配置字段 [@x380kkm 2026-08-23] ////
 fn ensure_client_config_fields(player_data: &mut Value) -> Result<(), PersonalServiceError> {
@@ -789,9 +803,18 @@ fn ensure_client_config_fields(player_data: &mut Value) -> Result<(), PersonalSe
 }
 // //// /写入客户端配置字段 ////
 
+// //// 将续购礼包的空状态投影为客户端商品映射 [@x380kkm 2026-09-22] ////
+fn normalize_renewal_gift_days(root: &mut Map<String, Value>) -> Result<(), PersonalServiceError> {
+    let user = require_user_info(root)?;
+    let value = user.entry("renewal_gift_remain_days".to_owned()).or_insert(Value::Null);
+    if value.is_null() || value.as_i64() == Some(0) { *value = json!({}); }
+    Ok(())
+}
+
 // //// 重置每日玩家状态 [@x380kkm 2026-08-23] ////
 fn reset_daily_challenge_points(root: &mut Map<String, Value>) -> Result<(), PersonalServiceError> {
-    let defaults = decode_player_data(DEFAULT_PLAYER_DATA)?;
+    let mut defaults = decode_player_data(DEFAULT_PLAYER_DATA)?;
+    challenge_points::normalize(response_root(&mut defaults)?)?;
     let defaults = defaults
         .get("user_daily_challenge_point_list")
         .and_then(Value::as_array)
@@ -860,6 +883,7 @@ fn update_login_state(
     client_time: &str,
 ) -> Result<(), PersonalServiceError> {
     let root = response_root(player_data)?;
+    crate::cn_exp_pool::settle(root, server_time)?;
     let projected_stamina = crate::cn_stamina::current_stamina(root, server_time)?;
     let is_new_day = {
         let user_info = require_user_info(root)?;
@@ -867,7 +891,11 @@ fn update_login_state(
             .get("stamina")
             .and_then(Value::as_i64)
             .ok_or_else(|| PersonalServiceError::new("stored CN stamina is missing"))?;
-        if projected_stamina != stored_stamina {
+        let heal_time_is_future = user_info
+            .get("stamina_heal_time")
+            .and_then(Value::as_i64)
+            .is_some_and(|heal_time| heal_time > server_time);
+        if projected_stamina != stored_stamina || heal_time_is_future {
             user_info.insert(
                 "stamina".to_owned(),
                 Value::Number(Number::from(projected_stamina)),
@@ -890,29 +918,6 @@ fn update_login_state(
                 Value::Number(Number::from(3)),
             );
         }
-        let pooled_time = user_info
-            .get("exp_pooled_time")
-            .and_then(Value::as_i64)
-            .ok_or_else(|| PersonalServiceError::new("stored CN pooled EXP time is missing"))?;
-        let elapsed = server_time.saturating_sub(pooled_time).max(0);
-        if elapsed >= 60 {
-            let exp_pool = user_info
-                .get("exp_pool")
-                .and_then(Value::as_i64)
-                .ok_or_else(|| PersonalServiceError::new("stored CN pooled EXP is missing"))?;
-            let increment = (elapsed / 60).min(EXP_POOL_INCREMENT_LIMIT);
-            let updated_exp_pool = exp_pool.checked_add(increment).ok_or_else(|| {
-                PersonalServiceError::new("stored CN pooled EXP exceeds the supported range")
-            })?;
-            user_info.insert(
-                "exp_pool".to_owned(),
-                Value::Number(Number::from(updated_exp_pool)),
-            );
-            user_info.insert(
-                "exp_pooled_time".to_owned(),
-                Value::Number(Number::from(server_time)),
-            );
-        }
         user_info.insert(
             "last_login_time".to_owned(),
             Value::String(client_time.to_owned()),
@@ -921,6 +926,7 @@ fn update_login_state(
     };
     if is_new_day {
         reset_daily_challenge_points(root)?;
+        crate::cn_quest_challenge_points::restore_recovering_points(root)?;
         crate::cn_gacha::reset_daily_state(root)?;
     }
     require_characters(root)?;

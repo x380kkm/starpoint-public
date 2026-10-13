@@ -5,6 +5,7 @@
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "adb-emulator-isolation.ps1")
 
 # //// 定位 Git 共享工作区 [@x380kkm 2026-09-01] ////
 function Resolve-ProtocolLabWorkspaceRoot {
@@ -208,7 +209,8 @@ function Invoke-ProtocolLabProcessWithinTimeout {
         [string]$Description,
         [Parameter(Mandatory)]
         [ValidateRange(1, 300)]
-        [int]$TimeoutSeconds
+        [int]$TimeoutSeconds,
+        [Collections.IDictionary]$ChildEnvironment = @{}
     )
 
     $StartInfo = [Diagnostics.ProcessStartInfo]::new()
@@ -219,6 +221,9 @@ function Invoke-ProtocolLabProcessWithinTimeout {
     $StartInfo.RedirectStandardError = $true
     foreach ($Argument in $Arguments) {
         $StartInfo.ArgumentList.Add($Argument)
+    }
+    foreach ($Entry in $ChildEnvironment.GetEnumerator()) {
+        $StartInfo.Environment[[string]$Entry.Key] = [string]$Entry.Value
     }
 
     $Process = [Diagnostics.Process]::new()
@@ -309,7 +314,7 @@ function Invoke-ProtocolLabAdbWithinTimeout {
         [int]$TimeoutSeconds
     )
 
-    $Arguments = @("-P", $AdbServerPort.ToString([Globalization.CultureInfo]::InvariantCulture), "-s", $Serial) + $CommandArguments
+    $Arguments = @("-H", "127.0.0.1", "-P", $AdbServerPort.ToString([Globalization.CultureInfo]::InvariantCulture), "-s", $Serial) + $CommandArguments
     Invoke-ProtocolLabProcessWithinTimeout -FilePath $AdbPath -Arguments $Arguments -Description "ADB 命令" -TimeoutSeconds $TimeoutSeconds
 }
 # //// /在截止时间内执行指定模拟器的 ADB 进程 ////
@@ -397,9 +402,16 @@ function Invoke-ProtocolLabAdbServer {
         }
         throw "专用 ADB server 未在端口 $AdbServerPort 监听."
     }
-    $Result = Invoke-ProtocolLabProcessWithinTimeout -FilePath $AdbPath -Arguments (@("-P", $AdbServerPort.ToString([Globalization.CultureInfo]::InvariantCulture)) + $CommandArguments) -Description "ADB server 命令" -TimeoutSeconds $TimeoutSeconds
+    $ChildEnvironment = if ($IsStartServer) { Get-ProtocolLabAdbServerEnvironment } else { @{} }
+    $ConnectionArguments = if ($IsStartServer) {
+        @("-L", "tcp:localhost:$AdbServerPort")
+    } else {
+        @("-H", "127.0.0.1", "-P", $AdbServerPort.ToString([Globalization.CultureInfo]::InvariantCulture))
+    }
+    $Arguments = $ConnectionArguments + $CommandArguments
+    $Result = Invoke-ProtocolLabProcessWithinTimeout -FilePath $AdbPath -Arguments $Arguments -Description "ADB server 命令" -TimeoutSeconds $TimeoutSeconds -ChildEnvironment $ChildEnvironment
     if ($Result.ExitCode -ne 0 -and -not $AllowFailure) {
-        throw "ADB server 命令失败, exit=$($Result.ExitCode): adb -P $AdbServerPort $($CommandArguments -join ' ')`n$($Result.Output -join [Environment]::NewLine)"
+        throw "ADB server 命令失败, exit=$($Result.ExitCode): adb $($Arguments -join ' ')`n$($Result.Output -join [Environment]::NewLine)"
     }
 
     $Result
@@ -418,7 +430,13 @@ function Start-ProtocolLabAdbServer {
 
     Assert-ProtocolLabEmulatorSerial -Serial $Serial
     Assert-ProtocolLabAdbServerPort -AdbServerPort $AdbServerPort
-    Invoke-ProtocolLabAdbServer -AdbPath $AdbPath -AdbServerPort $AdbServerPort -CommandArguments @("--one-device", $Serial, "start-server") -TimeoutSeconds $TimeoutSeconds
+    $Result = Invoke-ProtocolLabAdbServer -AdbPath $AdbPath -AdbServerPort $AdbServerPort -CommandArguments @("--one-device", $Serial, "start-server") -TimeoutSeconds $TimeoutSeconds
+    $Paths = Get-ProtocolLabPaths
+    $State = Read-ProtocolLabState -Path $Paths.EmulatorStatePath -AllowMissing
+    if ($null -ne $State -and [string]$State.Serial -ceq $Serial) {
+        Register-ProtocolLabEmulatorTransport -State $State -AdbServerPort $AdbServerPort
+    }
+    $Result
 }
 # //// /启动仅允许指定 Emulator 的 ADB server ////
 
@@ -530,7 +548,7 @@ function Invoke-ProtocolLabAdb {
         $Output = $Result.Output
         $ExitCode = $Result.ExitCode
     } else {
-        $Output = @(& $AdbPath -P $AdbServerPort -s $Serial @CommandArguments 2>&1 | ForEach-Object { $_.ToString() })
+        $Output = @(& $AdbPath -H 127.0.0.1 -P $AdbServerPort -s $Serial @CommandArguments 2>&1 | ForEach-Object { $_.ToString() })
         $ExitCode = $LASTEXITCODE
     }
     if ($ExitCode -ne 0 -and -not $AllowFailure) {
@@ -1079,6 +1097,7 @@ Export-ModuleMember -Function @(
     "Get-ProtocolLabProxy",
     "Invoke-ProtocolLabAdb",
     "Read-ProtocolLabState",
+    "Register-ProtocolLabEmulatorTransport",
     "Repair-ProtocolLabCaptureRoute",
     "Resolve-ProtocolLabAdbServerPort",
     "Restore-ProtocolLabProxy",

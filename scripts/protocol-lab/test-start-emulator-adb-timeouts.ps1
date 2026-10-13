@@ -250,8 +250,8 @@ function Test-AdbServerPortContract {
 
     $ModuleAst = $Asts[$ModulePath]
     $ModuleContent = [IO.File]::ReadAllText($ModulePath)
-    Assert-TestCondition -Condition ($ModuleContent -match '@\("-P",\s*\$AdbServerPort') -Message "有超时 ADB 调用未使用 -P 端口"
-    Assert-TestCondition -Condition ($ModuleContent -match '&\s*\$AdbPath\s+-P\s+\$AdbServerPort\s+-s\s+\$Serial') -Message "普通 ADB 调用未使用 -P 端口"
+    Assert-TestCondition -Condition ($ModuleContent -match '@\("-H",\s*"127\.0\.0\.1",\s*"-P",\s*\$AdbServerPort') -Message "有超时 ADB 调用未绑定本地专用端口"
+    Assert-TestCondition -Condition ($ModuleContent -match '&\s*\$AdbPath\s+-H\s+127\.0\.0\.1\s+-P\s+\$AdbServerPort\s+-s\s+\$Serial') -Message "普通 ADB 调用未绑定本地专用端口"
     Assert-TestCondition -Condition ($ModuleContent -match 'CommandArguments\s+@\("--one-device",\s*\$Serial,\s*"start-server"\)') -Message "共享模块未使用 --one-device 启动专用 ADB server"
     foreach ($Call in @(Get-CommandAsts -Ast $ModuleAst -CommandName "Invoke-ProtocolLabAdb")) {
         Assert-TestCondition -Condition ($Call.Extent.Text -match '-AdbServerPort\s+\$AdbServerPort\b') -Message "共享模块存在未传递端口的 ADB 调用"

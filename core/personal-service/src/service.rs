@@ -1,8 +1,8 @@
 // audience: internal
 // # personal-service-lifecycle
 //
-// 该模块拥有个人服务线程和生命周期命令. 事件循环驱动 HTTP, 本地联机会话, 自动存档和传输
-// 绑定调度. 外部调用方串行使用同一句柄.
+// 该模块拥有个人服务线程和生命周期命令. 事件循环串行处理状态路由, HTTP 连接读写在线程中执行.
+// 事件循环还驱动本地联机会话, 救援房生命周期, 自动存档和传输绑定调度. 外部调用方串行使用同一句柄.
 
 use crate::cn_multiplayer::MultiplayerSessionListener;
 use crate::database::ServiceDatabase;
@@ -15,9 +15,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(5);
+const STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
 
 enum ServiceCommand {
     Flush(Sender<Result<(), String>>),
@@ -29,6 +30,52 @@ struct ReadyService {
     multiplayer_session_port: Option<u16>,
     management_token: String,
 }
+
+// //// 在期限内交付服务句柄或取消启动 [@x380kkm 2026-09-10] ////
+struct PendingService {
+    commands: Sender<ServiceCommand>,
+    ready: Receiver<Result<ReadyService, String>>,
+    is_running: Arc<AtomicBool>,
+    cancelled: Arc<AtomicBool>,
+    join_handle: JoinHandle<()>,
+}
+
+impl PendingService {
+    fn wait(self, timeout: Duration) -> Result<PersonalService, PersonalServiceError> {
+        let outcome = self.ready.recv_timeout(timeout);
+        let ready_service = match outcome {
+            Ok(Ok(service)) => service,
+            Ok(Err(error)) => {
+                self.cancel();
+                return Err(PersonalServiceError::new(error));
+            }
+            Err(error) => {
+                self.cancel();
+                return Err(PersonalServiceError::new(format!(
+                    "service startup did not complete: {error}"
+                )));
+            }
+        };
+        Ok(PersonalService {
+            commands: self.commands,
+            is_running: self.is_running,
+            join_handle: Mutex::new(Some(self.join_handle)),
+            port: ready_service.port,
+            multiplayer_session_port: ready_service.multiplayer_session_port,
+            management_token: ready_service.management_token,
+        })
+    }
+
+    fn cancel(self) {
+        self.cancelled.store(true, Ordering::Release);
+        drop(self.ready);
+        drop(self.commands);
+        if self.join_handle.is_finished() {
+            let _ = self.join_handle.join();
+        }
+    }
+}
+// //// /在期限内交付服务句柄或取消启动 ////
 
 // //// 维护个人服务线程运行状态 [@x380kkm 2026-08-24] ////
 struct ServiceRunningState<'a> {
@@ -145,6 +192,8 @@ impl PersonalService {
         }
         let (command_sender, command_receiver) = mpsc::channel();
         let (ready_sender, ready_receiver) = mpsc::sync_channel(1);
+        let startup_cancelled = Arc::new(AtomicBool::new(false));
+        let worker_startup_cancelled = Arc::clone(&startup_cancelled);
         let is_running = Arc::new(AtomicBool::new(false));
         let thread_running = Arc::clone(&is_running);
         let join_handle = thread::Builder::new()
@@ -161,37 +210,24 @@ impl PersonalService {
                     command_receiver,
                     &thread_running,
                     &ready_sender,
+                    &worker_startup_cancelled,
                 );
                 if let Err(error) = result {
-                    let _ = ready_sender.send(Err(error.to_string()));
+                    let _ = ready_sender.try_send(Err(error.to_string()));
                 }
             })
             .map_err(|error| {
                 PersonalServiceError::new(format!("failed to start service thread: {error}"))
             })?;
 
-        let ready_service = match ready_receiver.recv_timeout(COMMAND_TIMEOUT) {
-            Ok(Ok(service)) => service,
-            Ok(Err(error)) => {
-                let _ = join_handle.join();
-                return Err(PersonalServiceError::new(error));
-            }
-            Err(error) => {
-                let _ = join_handle.join();
-                return Err(PersonalServiceError::new(format!(
-                    "service startup timed out: {error}"
-                )));
-            }
-        };
-
-        Ok(Self {
+        PendingService {
             commands: command_sender,
+            ready: ready_receiver,
             is_running,
-            join_handle: Mutex::new(Some(join_handle)),
-            port: ready_service.port,
-            multiplayer_session_port: ready_service.multiplayer_session_port,
-            management_token: ready_service.management_token,
-        })
+            cancelled: startup_cancelled,
+            join_handle,
+        }
+        .wait(STARTUP_TIMEOUT)
     }
     // //// /使用完整配置启动 loopback 服务 ////
 
@@ -211,7 +247,7 @@ impl PersonalService {
         self.multiplayer_session_port
     }
 
-    // //// 在应用暂停前提交数据库状态 [@x380kkm 2026-07-22] ////
+    // //// 显式提交数据库状态 [@x380kkm 2026-09-04] ////
     pub fn flush(&self) -> Result<(), PersonalServiceError> {
         let (result_sender, result_receiver) = mpsc::channel();
         self.commands
@@ -226,7 +262,7 @@ impl PersonalService {
             })?
             .map_err(PersonalServiceError::new)
     }
-    // //// /在应用暂停前提交数据库状态 ////
+    // //// /显式提交数据库状态 ////
 
     // //// 停止服务并等待数据库关闭 [@x380kkm 2026-07-22] ////
     pub fn stop(mut self) -> Result<(), PersonalServiceError> {
@@ -234,7 +270,16 @@ impl PersonalService {
     }
 
     fn stop_in_place(&mut self) -> Result<(), PersonalServiceError> {
+        let Some(join_handle) = self
+            .join_handle
+            .lock()
+            .map_err(|_| PersonalServiceError::new("service thread lock is poisoned"))?
+            .take()
+        else {
+            return Ok(());
+        };
         let mut stop_error = None;
+        let mut stop_timed_out = false;
         if self.is_running() {
             let (result_sender, result_receiver) = mpsc::channel();
             if let Err(error) = self.commands.send(ServiceCommand::Stop(result_sender)) {
@@ -246,6 +291,7 @@ impl PersonalService {
                     Ok(Ok(())) => {}
                     Ok(Err(error)) => stop_error = Some(PersonalServiceError::new(error)),
                     Err(error) => {
+                        stop_timed_out = matches!(error, mpsc::RecvTimeoutError::Timeout);
                         stop_error = Some(PersonalServiceError::new(format!(
                             "service stop timed out: {error}"
                         )))
@@ -254,15 +300,10 @@ impl PersonalService {
             }
         }
 
-        if let Some(join_handle) = self
-            .join_handle
-            .lock()
-            .map_err(|_| PersonalServiceError::new("service thread lock is poisoned"))?
-            .take()
-        {
-            if join_handle.join().is_err() && stop_error.is_none() {
-                stop_error = Some(PersonalServiceError::new("service thread panicked"));
-            }
+        if stop_timed_out && !join_handle.is_finished() {
+            drop(join_handle);
+        } else if join_handle.join().is_err() && stop_error.is_none() {
+            stop_error = Some(PersonalServiceError::new("service thread panicked"));
         }
 
         match stop_error {
@@ -291,7 +332,11 @@ fn run_service(
     commands: Receiver<ServiceCommand>,
     is_running: &AtomicBool,
     ready: &mpsc::SyncSender<Result<ReadyService, String>>,
+    startup_cancelled: &AtomicBool,
 ) -> Result<(), PersonalServiceError> {
+    if startup_cancelled.load(Ordering::Acquire) {
+        return Ok(());
+    }
     let mut database = ServiceDatabase::open(&root_path)?;
     fs::create_dir_all(&cn_override_root).map_err(|error| {
         PersonalServiceError::new(format!("failed to create CDN override root: {error}"))
@@ -300,6 +345,9 @@ fn run_service(
         crate::activity_catalog::initial_activity_calendar_time(&cn_asset_root)
     {
         database.initialize_virtual_time_if_pristine(initial_time_ms)?;
+    }
+    if startup_cancelled.load(Ordering::Acquire) {
+        return Ok(());
     }
     let mut server = LoopbackServer::bind(
         requested_port,
@@ -319,8 +367,12 @@ fn run_service(
     if let Some(port) = active_multiplayer_session_port {
         database.set_multiplayer_session_port(port);
     }
+    if startup_cancelled.load(Ordering::Acquire) {
+        return Ok(());
+    }
     let mut save_automation = SaveAutomationRunner::new();
     let mut transfer_bindings = TransferBindingRunner::new();
+    let mut next_rescue_maintenance = Instant::now();
     let _running_state = ServiceRunningState::enter(is_running);
     ready
         .send(Ok(ReadyService {
@@ -333,6 +385,9 @@ fn run_service(
         })?;
 
     loop {
+        if startup_cancelled.load(Ordering::Acquire) {
+            return Ok(());
+        }
         match commands.try_recv() {
             Ok(ServiceCommand::Flush(result_sender)) => {
                 let result = database.checkpoint().map_err(|error| error.to_string());
@@ -356,14 +411,40 @@ fn run_service(
         if let Err(error) = transfer_bindings.poll(&mut database) {
             eprintln!("transfer binding task failed: {error}");
         }
+        if Instant::now() >= next_rescue_maintenance {
+            if let Err(error) = crate::cn_multi::maintain_attention_rooms(&mut database) {
+                eprintln!("rescue room maintenance failed: {error}");
+            }
+            next_rescue_maintenance = Instant::now() + Duration::from_secs(1);
+        }
 
-        let multiplayer_work = match &mut multiplayer_session {
-            Some(multiplayer_session) => multiplayer_session.poll(&mut database)?,
-            None => false,
-        };
-        if !multiplayer_work && !server.try_handle_next_request(&mut database)? {
+        if database.should_flush_http_observations() {
+            if let Err(error) = database.flush_http_observations() {
+                eprintln!("HTTP observation flush failed: {error}");
+            }
+        }
+
+        if !poll_network_requests(&mut database, &mut server, &mut multiplayer_session)? {
             thread::sleep(Duration::from_millis(5));
         }
     }
 }
 // //// /运行个人服务事件循环 ////
+
+// //// 在每次轮询中处理联机帧和 HTTP 请求 [@x380kkm 2026-10-02] ////
+fn poll_network_requests(
+    database: &mut ServiceDatabase,
+    server: &mut LoopbackServer,
+    multiplayer_session: &mut Option<MultiplayerSessionListener>,
+) -> Result<bool, PersonalServiceError> {
+    let multiplayer_work = match multiplayer_session {
+        Some(multiplayer_session) => multiplayer_session.poll(database)?,
+        None => false,
+    };
+    let http_work = server.try_handle_next_request(database)?;
+    Ok(multiplayer_work || http_work)
+}
+// //// /在每次轮询中处理联机帧和 HTTP 请求 ////
+
+#[cfg(test)]
+mod tests;

@@ -180,11 +180,15 @@ pub(super) fn box_available_count(gacha: &Map<String, Value>, box_id: i64) -> i6
 }
 
 pub(super) fn box_gacha(box_gacha_id: i64) -> Result<Map<String, Value>, PersonalServiceError> {
-    parsed_asset(&BOX_GACHA_DATA, BOX_GACHA_ASSET)?
+    find_box_gacha(box_gacha_id)?
+        .ok_or_else(|| PersonalServiceError::new("CN box gacha does not exist"))
+}
+
+pub(super) fn find_box_gacha(box_gacha_id: i64) -> Result<Option<Map<String, Value>>, PersonalServiceError> {
+    Ok(parsed_asset(&BOX_GACHA_DATA, BOX_GACHA_ASSET)?
         .get(box_gacha_id.to_string())
         .and_then(Value::as_object)
-        .cloned()
-        .ok_or_else(|| PersonalServiceError::new("CN box gacha does not exist"))
+        .cloned())
 }
 
 pub(super) fn box_rewards(box_gacha_id: i64) -> Result<Map<String, Value>, PersonalServiceError> {

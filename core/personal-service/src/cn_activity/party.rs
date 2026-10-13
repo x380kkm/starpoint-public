@@ -3,6 +3,9 @@
 //
 // 该模块将玩家快照中的队伍转换为 CN 活动接口使用的数组结构.
 
+mod raid;
+pub(crate) use raid::normalize_raid_party_groups;
+
 use super::state;
 use crate::PersonalServiceError;
 use serde_json::{json, Map, Value};
@@ -14,8 +17,8 @@ enum PartyLayout {
     Rush,
 }
 
-// //// 读取并保存活动队伍副本 [@x380kkm 2026-08-22] ////
-pub(super) fn carnival_party_groups(
+// //// 读取并保存活动队伍副本 [@x380kkm 2026-09-23] ////
+pub(crate) fn carnival_party_groups(
     root: &mut Map<String, Value>,
     family: &str,
     event_id: i64,
@@ -23,7 +26,7 @@ pub(super) fn carnival_party_groups(
     persisted_party_groups(root, family, event_id, PartyLayout::Carnival)
 }
 
-pub(super) fn raid_party_groups(
+pub(crate) fn raid_party_groups(
     root: &mut Map<String, Value>,
     family: &str,
     event_id: i64,
@@ -31,7 +34,7 @@ pub(super) fn raid_party_groups(
     persisted_party_groups(root, family, event_id, PartyLayout::Raid)
 }
 
-pub(super) fn rush_party_groups(
+pub(crate) fn rush_party_groups(
     root: &mut Map<String, Value>,
     family: &str,
     event_id: i64,
@@ -54,6 +57,29 @@ fn persisted_party_groups(
         project_party_groups(root, layout)?
     };
     normalize_party_ids(&mut groups, layout)?;
+    let inventory = crate::cn_party::PartyInventory::from_player(root)?;
+    for group in groups.as_array_mut().into_iter().flatten() {
+        let color = group
+            .get("party_group_color_id")
+            .and_then(Value::as_i64)
+            .unwrap_or_default();
+        group["party_group_color_id"] = Value::from(crate::cn_party::normalize_group_color(color)?);
+        for party in group
+            .get_mut("party_list")
+            .and_then(Value::as_array_mut)
+            .into_iter()
+            .flatten()
+        {
+            if let Some(party) = party.as_object_mut() {
+                inventory.normalize(party);
+            }
+        }
+    }
+    if matches!(layout, PartyLayout::Raid) {
+        if let Some(groups) = groups.as_array_mut() {
+            normalize_raid_party_groups(groups, &inventory, &Default::default());
+        }
+    }
     state::event_state_mut(root, family, event_id)?
         .insert("party_group_list".to_owned(), groups.clone());
     Ok(groups)
@@ -138,13 +164,13 @@ fn normalize_party_ids(
             let slot_id = i64::try_from(party_index + 1)
                 .map_err(|_| PersonalServiceError::new("CN activity party index exceeds range"))?;
             let party_id = match layout {
-                PartyLayout::Carnival => (group_id - 1)
+                PartyLayout::Carnival | PartyLayout::Rush => (group_id - 1)
                     .checked_mul(10)
                     .and_then(|offset| offset.checked_add(slot_id))
                     .ok_or_else(|| {
                         PersonalServiceError::new("CN activity party id exceeds range")
                     })?,
-                PartyLayout::Raid | PartyLayout::Rush => slot_id,
+                PartyLayout::Raid => slot_id,
             };
             party.insert("party_id".to_owned(), Value::from(party_id));
         }

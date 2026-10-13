@@ -42,7 +42,6 @@ from cn_gacha_banner_client_archive import (
     archive_relative_path,
     build_archive_location,
     current_target_version,
-    entity_manifest_paths,
     increment_version,
     read_json_object,
     standard_archive_digest,
@@ -83,6 +82,9 @@ BUNDLE_DIRECTORIES = (
     "ios_medium_bundle",
     "small_bundle",
     "ios_small_bundle",
+    "android_bundle",
+    "android_medium_bundle",
+    "android_small_bundle",
 )
 
 
@@ -137,6 +139,16 @@ def atomic_write(path: Path, data: bytes) -> None:
 def image_logical_path(value: str) -> str:
     normalized = normalize_logical_path(value)
     return normalized if normalized.lower().endswith(".png") else f"{normalized}.png"
+
+
+# //// 取得使用共同 medium 图片的各平台实体清单 [@x380kkm 2026-09-20] ////
+def entity_manifest_paths(cdn_root: Path) -> list[Path]:
+    root = cdn_root / "entities"
+    manifests = [root / "PathFile.csv", *sorted(root.glob("*-*_medium.csv"))]
+    if not manifests[0].is_file() or len(manifests) < 2:
+        raise FeatureImageError("CN CDN 缺少平台 EntityLists")
+    return manifests
+# //// /取得使用共同 medium 图片的各平台实体清单 ////
 
 
 def feature_entry_path(logical_path: str) -> str:

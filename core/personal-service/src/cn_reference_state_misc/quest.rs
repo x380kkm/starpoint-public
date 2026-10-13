@@ -1,7 +1,7 @@
 // audience: internal
 // # personal-service-cn-reference-quest
 //
-// 该模块解锁参考 CN 任务并保存材料余额和任务进度.
+// 该模块按关卡分类解析一次性解锁费用, 材料余额与解锁状态共同保存.
 
 use super::common::{error_response, json_document};
 use crate::cn::{decode_request, msgpack_response_at, server_time};
@@ -46,10 +46,24 @@ pub(super) fn unlock(
     };
     let mut player_data = decode_player_data(&snapshot.data)?;
     let root = require_root(&mut player_data)?;
+    let costs = quest_unlock_costs(body.category, body.quest_id)?;
     if is_quest_unlocked(root, body.category, body.quest_id)? {
-        return Ok(error_response("400 Bad Request", "quest_already_unlocked"));
+        let items = require_object(root, "item_list")?;
+        let balances: BTreeMap<_, _> = costs
+            .iter()
+            .map(|(item_id, _)| {
+                let key = item_id.to_string();
+                let balance = items.get(&key).and_then(Value::as_i64).unwrap_or_default();
+                (key, balance)
+            })
+            .collect();
+        return msgpack_response_at(
+            body.viewer_id,
+            false,
+            server_time(database)?,
+            json!({"item_list": balances, "mail_arrived": false}),
+        );
     }
-    let costs = quest_unlock_costs(body.quest_id)?;
     let items = require_object(root, "item_list")?;
     for (item_id, count) in &costs {
         let current = items
@@ -85,13 +99,16 @@ fn quest_exists(category: i64, quest_id: i64) -> Result<bool, PersonalServiceErr
         .contains_key(&format!("{category}:{quest_id}")))
 }
 
-fn quest_unlock_costs(quest_id: i64) -> Result<Vec<(i64, i64)>, PersonalServiceError> {
+fn quest_unlock_costs(
+    category: i64,
+    quest_id: i64,
+) -> Result<Vec<(i64, i64)>, PersonalServiceError> {
     let document = json_document(
         &QUEST_UNLOCK_DOCUMENT,
         QUEST_UNLOCK_COSTS,
         "quest unlock costs",
     )?;
-    let Some(cost) = document.get(quest_id.to_string()) else {
+    let Some(cost) = document.get(format!("{category}:{quest_id}")) else {
         return Ok(Vec::new());
     };
     let ids = cost

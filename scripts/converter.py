@@ -1,9 +1,13 @@
 # Converts the output/orderedmap files into a format readable by the server.
 import json
 import os
+import sys
 from math import floor
 
 ROOT = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, os.path.join(ROOT, "protocol-lab"))
+from generate_cn_gacha_campaigns import catalog as gacha_campaign_catalog
+
 FILE_INPUT = os.path.join(ROOT, 'in')
 FILE_OUTPUT = os.path.join(ROOT, "out")
 
@@ -676,13 +680,10 @@ def convert_gacha(obj):
     
     return converted
 
+# //// 保存免费活动的类型, 时间和完整卡池关系 [@x380kkm 2026-09-28] ////
 def convert_gacha_campaigns(obj):
-    campaign_map = {}
-    for campaign_id, data in obj.items():
-        campaign_id = int(campaign_id)
-        for gacha_id in data[5].split(","):
-            campaign_map[gacha_id] = campaign_id
-    return campaign_map
+    policy = parse_file(os.path.join(ROOT, "..", "assets", "gacha-region-policy.json"))
+    return gacha_campaign_catalog(obj, policy["temporaryAliases"])
 
 def convert_general_shop(obj):
     converted = {}

@@ -3,11 +3,12 @@
 //
 // 该模块实现最小 loopback HTTP 协议. 请求头和普通正文分别限制为 16 KiB,
 // SDK 诊断正文限制为 256 KiB, 本地存档导入和 transfer 上传正文限制为 8 MiB.
-// 每个连接处理一个请求.
+// 每个连接处理一个请求. 连接读写在线程中执行, 状态路由仍由服务事件循环串行处理.
 
 use crate::cn;
 use crate::cn_asset;
 use crate::cn_asset_files;
+use crate::cn_asset_recovery;
 use crate::database::ServiceDatabase;
 use crate::gameplay_settings;
 use crate::local_saves;
@@ -18,16 +19,23 @@ use crate::sdk_compat;
 use crate::server_profiles;
 use crate::PersonalServiceError;
 use std::collections::HashMap;
-use std::io::{ErrorKind, Read, Write};
+use std::fs::File;
+use std::io::{self, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::net::{Ipv4Addr, Shutdown, SocketAddrV4, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
+use std::sync::Arc;
+use std::thread;
 use std::time::{Duration, Instant};
 
 const REQUEST_HEADER_LIMIT: usize = 16 * 1024;
 const DEFAULT_REQUEST_BODY_LIMIT: usize = 256 * 1024;
 const SDK_REPORT_BODY_LIMIT: usize = 256 * 1024;
 const LOCAL_SAVE_IMPORT_BODY_LIMIT: usize = 8 * 1024 * 1024;
+const RESPONSE_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
 const SDK_RESPONSE_WRITE_TIMEOUT: Duration = Duration::from_secs(2);
+const MAX_ACTIVE_CONNECTIONS: usize = 32;
 const TRANSPORT_ERROR_STATUS: &str = "599 Transport Error";
 const LOCAL_SAVE_IMPORT_PATH: &str = "/v1/local-saves/import";
 const LOCAL_SAVE_ENCRYPTED_IMPORT_PATH: &str = "/v1/local-saves/import-encrypted";
@@ -41,7 +49,41 @@ pub(crate) struct LoopbackServer {
     cn_asset_root: PathBuf,
     cn_override_root: PathBuf,
     cn_asset_digest_cache: cn_asset::ArchiveDigestCache,
+    cn_asset_recovery_cache: cn_asset_recovery::RecoveryCache,
     log_http_access: bool,
+    ready_connections: Receiver<ReadyConnection>,
+    ready_connection_sender: Sender<ReadyConnection>,
+    completed_responses: Receiver<CompletedResponse>,
+    completed_response_sender: Sender<CompletedResponse>,
+    active_connections: Arc<AtomicUsize>,
+}
+
+struct ReadyConnection {
+    stream: TcpStream,
+    request: Result<HttpRequest, String>,
+    active_connection: ActiveConnection,
+}
+
+struct CompletedResponse {
+    request_metadata: Option<(String, String)>,
+    observed_status: String,
+    write_error: Option<String>,
+}
+
+struct ActiveConnection {
+    count: Arc<AtomicUsize>,
+}
+
+impl ActiveConnection {
+    fn new(count: Arc<AtomicUsize>) -> Self {
+        Self { count }
+    }
+}
+
+impl Drop for ActiveConnection {
+    fn drop(&mut self) {
+        self.count.fetch_sub(1, Ordering::AcqRel);
+    }
 }
 
 pub(crate) struct HttpRequest {
@@ -115,7 +157,14 @@ pub(crate) struct HttpResponse {
     status: String,
     headers: Vec<(String, String)>,
     body: Vec<u8>,
-    content_length: usize,
+    file_body: Option<HttpFileBody>,
+    content_length: u64,
+}
+
+struct HttpFileBody {
+    file: File,
+    offset: u64,
+    length: u64,
 }
 
 impl HttpResponse {
@@ -124,8 +173,9 @@ impl HttpResponse {
         Self {
             status: status.to_owned(),
             headers: vec![("Content-Type".to_owned(), "application/json".to_owned())],
-            content_length: body.len(),
+            content_length: body.len() as u64,
             body,
+            file_body: None,
         }
     }
 
@@ -137,8 +187,9 @@ impl HttpResponse {
                 "Content-Type".to_owned(),
                 "text/plain; charset=utf-8".to_owned(),
             )],
-            content_length: body.len(),
+            content_length: body.len() as u64,
             body,
+            file_body: None,
         }
     }
 
@@ -146,8 +197,9 @@ impl HttpResponse {
         Self {
             status: status.to_owned(),
             headers: vec![("Content-Type".to_owned(), content_type.to_owned())],
-            content_length: body.len(),
+            content_length: body.len() as u64,
             body,
+            file_body: None,
         }
     }
 
@@ -156,6 +208,7 @@ impl HttpResponse {
             status: status.to_owned(),
             headers: Vec::new(),
             body: Vec::new(),
+            file_body: None,
             content_length: 0,
         }
     }
@@ -164,16 +217,39 @@ impl HttpResponse {
     pub(crate) fn head(
         status: &'static str,
         content_type: &'static str,
-        content_length: usize,
+        content_length: u64,
     ) -> Self {
         Self {
             status: status.to_owned(),
             headers: vec![("Content-Type".to_owned(), content_type.to_owned())],
             body: Vec::new(),
+            file_body: None,
             content_length,
         }
     }
     // //// /构造保留资源长度的 HEAD 响应 ////
+
+    // //// 构造分块发送的文件响应 [@x380kkm 2026-09-04] ////
+    pub(crate) fn file(
+        status: &'static str,
+        content_type: &'static str,
+        path: &Path,
+        offset: u64,
+        length: u64,
+    ) -> io::Result<Self> {
+        Ok(Self {
+            status: status.to_owned(),
+            headers: vec![("Content-Type".to_owned(), content_type.to_owned())],
+            body: Vec::new(),
+            file_body: Some(HttpFileBody {
+                file: File::open(path)?,
+                offset,
+                length,
+            }),
+            content_length: length,
+        })
+    }
+    // //// /构造分块发送的文件响应 ////
 
     pub(crate) fn with_header(mut self, name: &'static str, value: &'static str) -> Self {
         self.headers.push((name.to_owned(), value.to_owned()));
@@ -189,8 +265,9 @@ impl HttpResponse {
         Self {
             status,
             headers,
-            content_length: body.len(),
+            content_length: body.len() as u64,
             body,
+            file_body: None,
         }
     }
 
@@ -207,6 +284,24 @@ impl HttpResponse {
 
     pub(crate) fn body(&self) -> &[u8] {
         &self.body
+    }
+
+    fn write_body(&mut self, stream: &mut TcpStream) -> io::Result<()> {
+        let Some(file_body) = &mut self.file_body else {
+            return stream.write_all(&self.body);
+        };
+        file_body.file.seek(SeekFrom::Start(file_body.offset))?;
+        let written = io::copy(
+            &mut Read::by_ref(&mut file_body.file).take(file_body.length),
+            stream,
+        )?;
+        if written != file_body.length {
+            return Err(io::Error::new(
+                ErrorKind::UnexpectedEof,
+                "HTTP response file ended before its declared length",
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -231,13 +326,21 @@ impl LoopbackServer {
                 PersonalServiceError::new(format!("failed to read listener address: {error}"))
             })?
             .port();
+        let (ready_connection_sender, ready_connections) = mpsc::channel();
+        let (completed_response_sender, completed_responses) = mpsc::channel();
         Ok(Self {
             listener,
             port,
             cn_asset_root,
             cn_override_root,
             cn_asset_digest_cache: cn_asset::ArchiveDigestCache::default(),
+            cn_asset_recovery_cache: cn_asset_recovery::RecoveryCache::default(),
             log_http_access,
+            ready_connections,
+            ready_connection_sender,
+            completed_responses,
+            completed_response_sender,
+            active_connections: Arc::new(AtomicUsize::new(0)),
         })
     }
     // //// /仅绑定 IPv4 loopback 监听端口 ////
@@ -250,25 +353,146 @@ impl LoopbackServer {
         &mut self,
         database: &mut ServiceDatabase,
     ) -> Result<bool, PersonalServiceError> {
-        match self.listener.accept() {
-            Ok((stream, _)) => {
-                if let Err(error) = handle_connection(
+        let mut handled_work = self.record_completed_responses(database);
+        loop {
+            match self.ready_connections.try_recv() {
+                Ok(connection) => {
+                    self.route_ready_connection(connection, database);
+                    handled_work = true;
+                }
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => {
+                    return Err(PersonalServiceError::new(
+                        "HTTP request reader channel is disconnected",
+                    ))
+                }
+            }
+        }
+
+        while self.active_connections.load(Ordering::Acquire) < MAX_ACTIVE_CONNECTIONS {
+            match self.listener.accept() {
+                Ok((stream, _)) => {
+                    self.spawn_request_reader(stream);
+                    handled_work = true;
+                }
+                Err(error) if error.kind() == ErrorKind::WouldBlock => break,
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        ErrorKind::Interrupted
+                            | ErrorKind::ConnectionAborted
+                            | ErrorKind::ConnectionReset
+                    ) =>
+                {
+                    continue;
+                }
+                Err(error) => {
+                    return Err(PersonalServiceError::new(format!(
+                        "failed to accept loopback request: {error}"
+                    )))
+                }
+            }
+        }
+        Ok(handled_work)
+    }
+
+    fn spawn_request_reader(&self, stream: TcpStream) {
+        self.active_connections.fetch_add(1, Ordering::AcqRel);
+        let active_connection = ActiveConnection::new(Arc::clone(&self.active_connections));
+        let sender = self.ready_connection_sender.clone();
+        let spawn_result = thread::Builder::new()
+            .name("starpoint-http-read".to_owned())
+            .spawn(move || {
+                let mut stream = stream;
+                let request = read_request(&mut stream).map_err(|error| error.to_string());
+                let _ = sender.send(ReadyConnection {
                     stream,
+                    request,
+                    active_connection,
+                });
+            });
+        if let Err(error) = spawn_result {
+            eprintln!("failed to start HTTP request reader: {error}");
+        }
+    }
+
+    fn route_ready_connection(
+        &mut self,
+        connection: ReadyConnection,
+        database: &mut ServiceDatabase,
+    ) {
+        let ReadyConnection {
+            stream,
+            request,
+            active_connection,
+        } = connection;
+        let mut request_metadata = None;
+        let response = match request {
+            Ok(request) => {
+                request_metadata = Some((request.method().to_owned(), request.path().to_owned()));
+                route_request(
+                    &request,
                     database,
                     self.port,
                     &self.cn_asset_root,
                     &self.cn_override_root,
                     &mut self.cn_asset_digest_cache,
-                    self.log_http_access,
-                ) {
-                    eprintln!("personal service connection ended with error: {error}");
-                }
-                Ok(true)
+                    &mut self.cn_asset_recovery_cache,
+                )
+                .unwrap_or_else(|error| {
+                    let message = error.to_string();
+                    eprintln!(
+                        "personal service request failed: method={} path={} error={}",
+                        escape_http_access_field(request.method()),
+                        escape_http_access_field(request.path()),
+                        escape_http_access_field(&message),
+                    );
+                    if let Err(report_error) =
+                        database.record_server_error(request.method(), request.path(), &message)
+                    {
+                        eprintln!("personal service failed to save request error: {report_error}");
+                    }
+                    HttpResponse::json(
+                        "500 Internal Server Error",
+                        "{\"error\":\"internal_error\"}".to_owned(),
+                    )
+                })
             }
-            Err(error) if error.kind() == ErrorKind::WouldBlock => Ok(false),
-            Err(error) => Err(PersonalServiceError::new(format!(
-                "failed to accept loopback request: {error}"
-            ))),
+            Err(_) => HttpResponse::json(
+                "400 Bad Request",
+                "{\"error\":\"invalid_http_request\"}".to_owned(),
+            ),
+        };
+        spawn_response_writer(
+            stream,
+            response,
+            request_metadata,
+            self.log_http_access,
+            self.completed_response_sender.clone(),
+            active_connection,
+        );
+    }
+
+    fn record_completed_responses(&self, database: &mut ServiceDatabase) -> bool {
+        let mut handled_work = false;
+        loop {
+            match self.completed_responses.try_recv() {
+                Ok(completed) => {
+                    if let Some((method, path)) = completed.request_metadata.as_ref() {
+                        let _ = database.record_http_observation(
+                            method,
+                            path,
+                            &completed.observed_status,
+                        );
+                    }
+                    if let Some(error) = completed.write_error {
+                        eprintln!("personal service connection ended with error: {error}");
+                    }
+                    handled_work = true;
+                }
+                Err(TryRecvError::Empty) => return handled_work,
+                Err(TryRecvError::Disconnected) => return handled_work,
+            }
         }
     }
 }
@@ -324,6 +548,7 @@ fn read_request(stream: &mut TcpStream) -> Result<HttpRequest, PersonalServiceEr
             Ok(length) => {
                 request.extend_from_slice(&chunk[..length]);
             }
+            Err(error) if error.kind() == ErrorKind::Interrupted => continue,
             Err(error)
                 if error.kind() == ErrorKind::WouldBlock || error.kind() == ErrorKind::TimedOut =>
             {
@@ -437,7 +662,16 @@ fn route_request(
     cn_asset_root: &Path,
     cn_override_root: &Path,
     cn_asset_digest_cache: &mut cn_asset::ArchiveDigestCache,
+    cn_asset_recovery_cache: &mut cn_asset_recovery::RecoveryCache,
 ) -> Result<HttpResponse, PersonalServiceError> {
+    if request.method() == "POST" && request.path() == "/crash" {
+        if let Err(error) = database.record_client_report(request.body()) {
+            eprintln!("failed to store client report: {error}");
+        }
+    }
+    if let Some(response) = crate::cn_comic::route(request, database, cn_asset_root) {
+        return response;
+    }
     if let Some(response) = cn_asset::route(
         request,
         database,
@@ -446,6 +680,16 @@ fn route_request(
         cn_asset_digest_cache,
     ) {
         return response;
+    }
+    if let Some(response) = cn_asset_recovery::route(
+        request,
+        cn_override_root,
+        cn_asset_root,
+        cn_asset_recovery_cache,
+    ) {
+        return response.map_err(|error| {
+            PersonalServiceError::new(format!("CN asset recovery failed: {error}"))
+        });
     }
     if let Some(response) = cn_asset_files::route(request, cn_override_root, cn_asset_root) {
         return Ok(response);
@@ -470,10 +714,22 @@ fn route_request(
     if let Some(response) = crate::cn_activity::management_route(request, database) {
         return response;
     }
+    if let Some(response) = crate::activity_history::route(request, database, cn_asset_root) {
+        return response;
+    }
+    if let Some(response) = crate::cn_activity::competition_management_route(request, database) {
+        return response;
+    }
     if let Some(response) = crate::cn_mail::management_route(request, database) {
         return response;
     }
+    if let Some(response) = crate::reward_history::route(request, database) {
+        return response;
+    }
     if let Some(response) = crate::management::route(request, database) {
+        return response;
+    }
+    if let Some(response) = crate::rescue_settings::route(request, database) {
         return response;
     }
     if let Some(response) = gameplay_settings::route(request, database) {
@@ -545,46 +801,48 @@ fn route_request(
     }
 }
 
-// //// 返回单个有界 HTTP 响应 [@x380kkm 2026-08-23] ////
-fn handle_connection(
-    mut stream: TcpStream,
-    database: &mut ServiceDatabase,
-    port: u16,
-    cn_asset_root: &Path,
-    cn_override_root: &Path,
-    cn_asset_digest_cache: &mut cn_asset::ArchiveDigestCache,
+// //// 在独立线程写回单个 HTTP 响应 [@x380kkm 2026-09-04] ////
+fn spawn_response_writer(
+    stream: TcpStream,
+    response: HttpResponse,
+    request_metadata: Option<(String, String)>,
     log_http_access: bool,
-) -> Result<(), PersonalServiceError> {
-    let mut request_metadata = None;
-    let response = match read_request(&mut stream) {
-        Ok(request) => {
-            request_metadata = Some((request.method().to_owned(), request.path().to_owned()));
-            route_request(
-                &request,
-                database,
-                port,
-                cn_asset_root,
-                cn_override_root,
-                cn_asset_digest_cache,
-            )
-            .unwrap_or_else(|error| {
-                eprintln!(
-                    "personal service request failed: method={} path={} error={}",
-                    escape_http_access_field(request.method()),
-                    escape_http_access_field(request.path()),
-                    escape_http_access_field(&error.to_string()),
-                );
-                HttpResponse::json(
-                    "500 Internal Server Error",
-                    "{\"error\":\"internal_error\"}".to_owned(),
-                )
-            })
-        }
-        Err(_) => HttpResponse::json(
-            "400 Bad Request",
-            "{\"error\":\"invalid_http_request\"}".to_owned(),
-        ),
-    };
+    completed_response_sender: Sender<CompletedResponse>,
+    active_connection: ActiveConnection,
+) {
+    let spawn_result = thread::Builder::new()
+        .name("starpoint-http-write".to_owned())
+        .spawn(move || {
+            let mut stream = stream;
+            let mut response = response;
+            let write_result =
+                write_response(&mut stream, &mut response, request_metadata.as_ref());
+            let observed_status = if write_result.is_ok() {
+                response.status.clone()
+            } else {
+                TRANSPORT_ERROR_STATUS.to_owned()
+            };
+            if log_http_access {
+                write_http_access_log(request_metadata.as_ref(), &response, &observed_status);
+            }
+            let completed = CompletedResponse {
+                request_metadata,
+                observed_status,
+                write_error: write_result.err().map(|error| error.to_string()),
+            };
+            let _ = completed_response_sender.send(completed);
+            drop(active_connection);
+        });
+    if let Err(error) = spawn_result {
+        eprintln!("failed to start HTTP response writer: {error}");
+    }
+}
+
+fn write_response(
+    stream: &mut TcpStream,
+    response: &mut HttpResponse,
+    request_metadata: Option<&(String, String)>,
+) -> std::io::Result<()> {
     let mut response_head = format!("HTTP/1.1 {}\r\n", response.status);
     for (name, value) in &response.headers {
         response_head.push_str(name);
@@ -599,31 +857,19 @@ fn handle_connection(
     let uses_short_write_timeout = request_metadata
         .as_ref()
         .is_some_and(|(_, path)| sdk_compat::is_sdk_diagnostic_path(path));
-    let write_result = (|| -> std::io::Result<()> {
-        if uses_short_write_timeout {
-            stream.set_write_timeout(Some(SDK_RESPONSE_WRITE_TIMEOUT))?;
-        }
-        stream
-            .write_all(response_head.as_bytes())
-            .and_then(|_| stream.write_all(&response.body))
-            .and_then(|_| stream.flush())
-            .and_then(|_| stream.shutdown(Shutdown::Write))
-    })();
-    let observed_status = if write_result.is_ok() {
-        response.status.as_str()
+    let write_timeout = if uses_short_write_timeout {
+        SDK_RESPONSE_WRITE_TIMEOUT
     } else {
-        TRANSPORT_ERROR_STATUS
+        RESPONSE_WRITE_TIMEOUT
     };
-    if let Some((method, path)) = request_metadata.as_ref() {
-        let _ = database.record_http_observation(method, path, observed_status);
-    }
-    if log_http_access {
-        write_http_access_log(request_metadata.as_ref(), &response, observed_status);
-    }
-    write_result
-        .map_err(|error| PersonalServiceError::new(format!("failed to write response: {error}")))
+    stream.set_write_timeout(Some(write_timeout))?;
+    stream
+        .write_all(response_head.as_bytes())
+        .and_then(|_| response.write_body(stream))
+        .and_then(|_| stream.flush())
+        .and_then(|_| stream.shutdown(Shutdown::Write))
 }
-// //// /返回单个有界 HTTP 响应 ////
+// //// /在独立线程写回单个 HTTP 响应 ////
 
 // //// 输出不含正文、查询参数和请求头的 HTTP 访问日志 [@x380kkm 2026-08-23] ////
 fn write_http_access_log(

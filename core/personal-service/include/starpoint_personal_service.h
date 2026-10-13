@@ -1,8 +1,9 @@
 // audience: external
 // # starpoint-personal-service
 //
-// 该接口控制同一应用进程内的个人服务并复制管理 token. 调用方持有返回句柄, 串行调用接口, 并在应用暂停前调用 flush.
-// token 复制函数返回包含结尾 NUL 的所需长度. buffer 为空或不足时不写入.
+// 该接口控制同一应用进程内的个人服务并复制管理 token. 调用方持有返回句柄, 串行调用接口, flush 提交持久化状态.
+// 字符串复制函数返回包含结尾 NUL 的所需长度. buffer 为空或不足时保持原内容.
+// 启动错误属于调用线程, 最近一次启动成功后复制错误返回 0.
 
 #ifndef STARPOINT_PERSONAL_SERVICE_H
 #define STARPOINT_PERSONAL_SERVICE_H
@@ -24,6 +25,8 @@ StarpointPersonalService *starpoint_personal_service_start_with_cdn_root(
     const char *cn_asset_root,
     uint16_t port
 );
+
+size_t starpoint_personal_service_copy_last_start_error(char *buffer, size_t buffer_length);
 
 uint16_t starpoint_personal_service_port(const StarpointPersonalService *service);
 

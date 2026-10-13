@@ -9,7 +9,7 @@
   <meta name="color-scheme" content="light">
   <title>星点玩家存档</title>
   <link rel="stylesheet" href="/manage/style.css">
-  <script src="/player/app.js" type="module"></script>
+  <script src="/player/browser-app.js" defer></script>
 </head>
 <body>
   <header class="hero">
@@ -52,6 +52,7 @@
             <input id="device-id" type="number" min="1" step="1" inputmode="numeric" placeholder="输入设备 ID" required>
           </label>
         </div>
+        <p class="muted">导出的 JSON 可在 Android 和 iOS 间通用, data 字段中的游戏内容可直接编辑.</p>
         <div id="device-list" class="binding-list"></div>
         <div id="player-save-list" class="save-list"></div>
       </section>

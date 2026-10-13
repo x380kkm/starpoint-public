@@ -4,6 +4,8 @@
 // 此模块把活动目录和图片候选元数据转换为安全 DOM 节点. 所有目录文本只写入 textContent.
 
 // //// 呈现活动目录和图片 [@x380kkm 2026-08-19] ////
+import { activitySection, renderActivityNavigation } from "/manage/activity-navigation.js"
+
 function createElement(tagName, className, text) {
     const node = document.createElement(tagName)
     if (className) node.className = className
@@ -19,10 +21,15 @@ function createButton(label, action, runAction, style = "ghost") {
 }
 
 export function renderActivityCatalog(activities, elements, actions) {
+    const state = activities
+    activities = { ...activities, items: activities.items.filter(item => !activities.section || activitySection(item) === activities.section) }
+    activities.knownKinds = [...new Set(activities.items.map(item => item.kind))]
     fillActivityKindFilter(activities, elements)
     const taggedActivities = filterActivitiesByTag(activities)
     renderActivityCalendar(activities, elements, actions, taggedActivities)
     const visibleActivities = filterActivitiesByDate(activities, taggedActivities)
+    renderActivityNavigation(state, elements, actions, visibleActivities)
+    activities.selectedId = state.selectedId
     renderActivityQuickFilters(activities, elements, actions, visibleActivities.length)
     renderActivityTagFilters(activities, elements, actions)
     elements.activityCatalogList.replaceChildren()
@@ -49,7 +56,7 @@ export function renderActivityCatalog(activities, elements, actions) {
     if (visibleActivities.length === 0) {
         elements.activityCatalogList.append(createElement("p", "empty-state", "没有符合当前筛选条件的活动."))
     }
-    for (const activity of visibleActivities) {
+    for (const activity of (activities.section === "boss" || activities.section === "daily" ? [] : visibleActivities)) {
         elements.activityCatalogList.append(createActivityCard(activity, actions))
     }
     renderActivityDetail(activities, elements, actions)
@@ -611,12 +618,17 @@ function activityKindLabel(kind) {
         daily: "每日轮换",
         event: "活动",
         "event-shop": "活动商店",
+        payment: "内购商品",
         expert: "高难关卡",
         gacha: "卡池",
         "gacha-campaign": "抽卡活动",
         multi: "高难共斗",
         other: "其他",
         "pass-card": "Pass Card",
+        "special-exchange": "普通自选",
+        "start-dash-exchange": "新手自选",
+        "treasure-vault-exchange": "宝库装备兑换",
+        "character-election": "角色投票",
         raid: "Raid",
         ranking: "排名战",
         rush: "Rush 活动",

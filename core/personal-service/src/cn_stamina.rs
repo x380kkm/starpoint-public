@@ -11,6 +11,8 @@ use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
+pub(crate) mod entry;
+
 const CAMPAIGN_DATA: &str = include_str!("../assets/stamina_campaign.json");
 const RECOVERY_SECONDS: f64 = 300.0;
 const STAMINA_OVERFLOW_LIMIT: i64 = 999;
@@ -19,9 +21,8 @@ static CAMPAIGNS: OnceLock<Result<Vec<StaminaCampaign>, String>> = OnceLock::new
 
 struct StaminaCampaign {
     rate: f64,
-    quest_type: i64,
-    quest_ids: Option<Vec<i64>>,
-    has_event_ids: bool,
+    categories: &'static [i64],
+    quest_keys: Vec<Option<Vec<i64>>>,
     start_time: i64,
     end_time: i64,
 }
@@ -36,7 +37,7 @@ pub(crate) fn current_stamina(
     let rank_point = user_info_value(root, "rank_point")?;
     let (rank_stamina, heal_rate) = stamina_profile(rank_point)?;
     let recovery_seconds = RECOVERY_SECONDS * (1.0 - heal_rate).max(f64::EPSILON);
-    let elapsed_seconds = server_time.saturating_sub(heal_time) as f64;
+    let elapsed_seconds = server_time.saturating_sub(heal_time).max(0) as f64;
     let recovered =
         stored_stamina.saturating_add((elapsed_seconds / recovery_seconds).floor() as i64);
     Ok(recovered
@@ -56,26 +57,23 @@ pub(crate) fn battle_stamina_cost(
     if base_cost == 0 {
         return Ok(0);
     }
-    let Some(quest_type) = campaign_quest_type(category) else {
-        return Ok(base_cost);
-    };
     let mut rate = 1.0_f64;
     for campaign in campaigns()? {
-        if campaign.quest_type != quest_type
+        if !campaign.categories.contains(&category)
             || server_time < campaign.start_time
             || server_time > campaign.end_time
         {
             continue;
         }
-        let matches_quest = campaign
-            .quest_ids
-            .as_ref()
-            .map_or(true, |quest_ids| quest_ids.contains(&quest_id));
-        if matches_quest || campaign.has_event_ids {
+        if matches_quest_keys(&campaign.quest_keys, quest_id) {
             rate = rate.min(campaign.rate);
         }
     }
-    Ok(((base_cost as f64 * rate).floor() as i64).max(1))
+    Ok(if rate == 0.0 {
+        0
+    } else {
+        ((base_cost as f64 * rate).floor() as i64).max(1)
+    })
 }
 // //// /计算活动折扣后的战斗体力 ////
 
@@ -109,11 +107,14 @@ fn load_campaigns() -> Result<Vec<StaminaCampaign>, String> {
         let quest_type = field(6)?
             .parse::<i64>()
             .map_err(|error| format!("invalid CN stamina campaign quest type: {error}"))?;
+        let (categories, columns) = campaign_quest_scope(quest_type)?;
         campaigns.push(StaminaCampaign {
             rate,
-            quest_type,
-            quest_ids: parse_id_filter(field(9)?)?,
-            has_event_ids: has_filter(field(7)?),
+            categories,
+            quest_keys: columns
+                .iter()
+                .map(|index| parse_id_filter(field(*index)?))
+                .collect::<Result<_, _>>()?,
             start_time: parse_campaign_time(field(1)?)?,
             end_time: parse_campaign_time(field(2)?)?,
         });
@@ -123,8 +124,11 @@ fn load_campaigns() -> Result<Vec<StaminaCampaign>, String> {
 // //// /读取体力活动资产 ////
 
 fn parse_id_filter(value: &str) -> Result<Option<Vec<i64>>, String> {
-    if !has_filter(value) {
+    if value == "(None)" {
         return Ok(None);
+    }
+    if value.is_empty() {
+        return Ok(Some(Vec::new()));
     }
     value
         .split(',')
@@ -136,10 +140,6 @@ fn parse_id_filter(value: &str) -> Result<Option<Vec<i64>>, String> {
         .map(Some)
 }
 
-fn has_filter(value: &str) -> bool {
-    !value.is_empty() && value != "(None)"
-}
-
 fn parse_campaign_time(value: &str) -> Result<i64, String> {
     let timestamp = format!("{}.000Z", value.replace(' ', "T"));
     parse_iso_timestamp(&timestamp)
@@ -148,27 +148,92 @@ fn parse_campaign_time(value: &str) -> Result<i64, String> {
         .ok_or_else(|| format!("invalid CN stamina campaign time: {value}"))
 }
 
-fn campaign_quest_type(category: i64) -> Option<i64> {
-    match category {
-        1 => Some(0),
-        4 => Some(1),
-        2 => Some(2),
-        6 => Some(3),
-        14 => Some(4),
-        7 | 8 => Some(5),
-        10 => Some(6),
-        13 => Some(7),
-        11 => Some(8),
-        18 => Some(9),
-        19 => Some(10),
-        15 => Some(11),
-        20 => Some(13),
-        21 => Some(14),
-        22 => Some(15),
-        23 => Some(16),
-        24 => Some(17),
-        25 => Some(18),
-        26 => Some(19),
-        _ => None,
+// //// 按主表范围逐级匹配关卡编号 [@x380kkm 2026-09-22] ////
+fn matches_quest_keys(keys: &[Option<Vec<i64>>], mut quest_id: i64) -> bool {
+    for (index, filter) in keys.iter().enumerate().rev() {
+        let key = if index == 0 {
+            quest_id
+        } else {
+            quest_id % 1000
+        };
+        if filter.as_ref().is_some_and(|values| !values.contains(&key)) {
+            return false;
+        }
+        quest_id /= 1000;
+    }
+    true
+}
+
+fn campaign_quest_scope(quest_type: i64) -> Result<(&'static [i64], &'static [usize]), String> {
+    Ok(match quest_type {
+        0 => (&[1], &[7, 8, 9]),
+        1 => (&[4], &[7, 8, 9]),
+        2 => (&[2], &[7, 8, 9]),
+        3 => (&[6], &[7, 9]),
+        4 => (&[14], &[7, 9]),
+        5 => (&[7], &[7, 9]),
+        6 => (&[10], &[7, 9]),
+        7 => (&[13], &[7, 9]),
+        8 => (&[11], &[7, 9]),
+        9 => (&[18], &[7, 9]),
+        10 => (&[19], &[7, 9]),
+        11 => (&[15], &[9]),
+        12 => (&[6, 14, 13, 20], &[]),
+        13 => (&[20], &[7, 9]),
+        14 => (&[21], &[7, 9]),
+        15 => (&[22], &[7, 9]),
+        16 => (&[23], &[7, 9]),
+        17 => (&[24], &[7, 9]),
+        18 => (&[25], &[7, 9]),
+        19 => (&[26], &[7, 9]),
+        20 => (&[27], &[7, 9]),
+        _ => {
+            return Err(format!(
+                "unsupported CN stamina campaign quest type: {quest_type}"
+            ))
+        }
+    })
+}
+// //// /按主表范围逐级匹配关卡编号 ////
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cn_battle_assets::load_battle_fixture;
+
+    // //// 定向折扣保留范围外关卡的实际消耗 [@x380kkm 2026-09-22] ////
+    #[test]
+    fn applies_campaigns_only_to_their_encoded_quest_ranges() {
+        let fixture = load_battle_fixture().unwrap();
+        for (time, key, expected) in [
+            ("2025-06-20 12:00:00", "13:1001", 5),
+            ("2025-06-20 12:00:00", "13:1030", 26),
+            ("2025-06-20 12:00:00", "13:2001", 10),
+            ("2025-03-28 12:00:00", "2:1002001", 6),
+            ("2025-03-28 12:00:00", "2:1028001", 13),
+        ] {
+            let quest = &fixture.quests[key];
+            assert_eq!(
+                battle_stamina_cost(
+                    quest.category,
+                    quest.quest_id,
+                    quest.stamina_cost,
+                    parse_campaign_time(time).unwrap()
+                )
+                .unwrap(),
+                expected,
+                "{key}"
+            );
+        }
+        assert_eq!(
+            entry::multiplayer_stamina_cost(
+                &fixture.quests["2:1002001"],
+                Some(0),
+                false,
+                parse_campaign_time("2025-03-28 12:00:00").unwrap()
+            )
+            .unwrap(),
+            3
+        );
     }
 }

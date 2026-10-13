@@ -8,6 +8,12 @@
 mod cn_support;
 #[allow(dead_code)]
 mod support;
+#[path = "cn_mail/rank.rs"]
+mod rank;
+#[path = "cn_mail/claim_results.rs"]
+mod claim_results;
+#[path = "cn_mail/exp_pool.rs"]
+mod exp_pool;
 
 use cn_support::{decode_response, encode_request, LoadRequest, SignupData, SignupRequest};
 use serde::Serialize;
@@ -121,8 +127,8 @@ fn creates_lists_and_claims_a_local_mail() {
         "/api/index.php/mail/receive",
         &encode_request(&MailReceiveRequest { viewer_id, mail_id }),
     );
-    assert!(repeated.starts_with("HTTP/1.1 400 Bad Request"));
-    assert!(repeated.ends_with("{\"error\":\"mail_not_found\"}"));
+    let repeated = decode_response::<Value>(&repeated);
+    assert_eq!(repeated.data_headers.result_code, 2002);
     service.stop().expect("service stops cleanly");
 }
 // //// /验证管理员邮件发放和 CN 单封领取 ////
@@ -390,7 +396,7 @@ fn does_not_reissue_an_expired_mail_after_virtual_date_rewind() {
         "/api/index.php/mail/receive",
         &encode_request(&MailReceiveRequest { viewer_id, mail_id }),
     ));
-    assert_eq!(expired.data["total_count"], 1);
+    assert_eq!(expired.data_headers.result_code, 2004);
     assert!(expired.data.get("user_info").is_none());
 
     set_time("2030-01-01T18:00:00.000Z");
@@ -413,7 +419,8 @@ fn does_not_reissue_an_expired_mail_after_virtual_date_rewind() {
         "/api/index.php/mail/receive",
         &encode_request(&MailReceiveRequest { viewer_id, mail_id }),
     );
-    assert!(repeated.starts_with("HTTP/1.1 400 Bad Request"));
+    let repeated = decode_response::<Value>(&repeated);
+    assert_eq!(repeated.data_headers.result_code, 2002);
     service.stop().expect("service stops cleanly");
 }
 // //// /验证邮件过期后日期回退不会重复发放 ////

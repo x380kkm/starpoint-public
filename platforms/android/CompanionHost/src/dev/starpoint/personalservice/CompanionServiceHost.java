@@ -11,16 +11,15 @@ import android.content.Context;
 import android.util.Log;
 
 import java.io.File;
-import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import dev.starpoint.gamehost.GameHostProtocol;
+
 final class CompanionServiceHost {
     private static final String LOG_TAG = "StarpointPersonalService";
-    private static final int PERSONAL_SERVICE_PORT = 17171;
+    private static final int PERSONAL_SERVICE_PORT = GameHostProtocol.PERSONAL_SERVICE_PORT;
 
     private static CompanionServiceHost processHost;
 
@@ -173,33 +172,9 @@ final class CompanionServiceHost {
     }
     // //// /用伴随 APK 的持久化目录和外部 CDN 启动固定回环服务 ////
 
-    // //// 查询固定端点并提交个人服务状态 [@x380kkm 2026-09-01] ////
+    // //// 查询固定端点并提交个人服务状态 [@x380kkm 2026-09-04] ////
     boolean isRunning() {
         return probeCurrentService() != null;
-    }
-
-    boolean isHealthy() {
-        StartedService currentService = probeCurrentService();
-        if (currentService == null) {
-            return false;
-        }
-        HttpURLConnection connection = null;
-        try {
-            connection = (HttpURLConnection)new URL(
-                String.format(Locale.ROOT, "http://127.0.0.1:%d/health", currentService.endpoint.port)
-            ).openConnection();
-            connection.setConnectTimeout(1000);
-            connection.setReadTimeout(1000);
-            connection.setRequestMethod("GET");
-            connection.setUseCaches(false);
-            return connection.getResponseCode() == HttpURLConnection.HTTP_OK;
-        } catch (IOException | RuntimeException failure) {
-            return false;
-        } finally {
-            if (connection != null) {
-                connection.disconnect();
-            }
-        }
     }
 
     void restart(CdnAssetInstaller.StatusListener statusListener) {
@@ -218,14 +193,17 @@ final class CompanionServiceHost {
     }
 
     String managementUrl() {
-        StartedService currentService = probeCurrentService();
-        if (currentService == null) {
+        Endpoint currentEndpoint;
+        synchronized (stateLock) {
+            currentEndpoint = endpoint;
+        }
+        if (currentEndpoint == null) {
             return null;
         }
         return String.format(
             Locale.ROOT,
             "http://127.0.0.1:%d/manage/",
-            currentService.endpoint.port
+            currentEndpoint.port
         );
     }
 
@@ -246,24 +224,11 @@ final class CompanionServiceHost {
     // //// /查询固定端点并提交个人服务状态 ////
 
     private void closeNativeHandle(long handle, Throwable previousFailure) {
-        boolean checkpointCompleted = false;
         Throwable closeFailure = null;
-        try {
-            checkpointCompleted = nativeFlush(handle);
-        } catch (RuntimeException | LinkageError failure) {
-            closeFailure = failure;
-        }
         try {
             nativeStop(handle);
         } catch (RuntimeException | LinkageError failure) {
-            if (closeFailure == null) {
-                closeFailure = failure;
-            } else {
-                closeFailure.addSuppressed(failure);
-            }
-        }
-        if (!checkpointCompleted) {
-            Log.e(LOG_TAG, "Personal service checkpoint failed while closing a handle.");
+            closeFailure = failure;
         }
         if (closeFailure == null) {
             return;

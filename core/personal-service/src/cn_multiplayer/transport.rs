@@ -1,7 +1,7 @@
 // audience: internal
 // # personal-service-cn-multiplayer-transport
 //
-// 该模块读写 NUL 分隔 JSON 帧并序列化大厅成员.
+// 该模块读写 NUL 分隔 JSON 帧并序列化大厅成员. 套接字故障关闭对应连接.
 
 use super::SessionClient;
 use crate::database::{MultiplayerMember, MultiplayerRoom, ServiceDatabase};
@@ -13,11 +13,12 @@ use std::io::{ErrorKind, Read, Write};
 const MAX_FRAME_BYTES: usize = 4 * 1024 * 1024;
 const READ_CHUNK_BYTES: usize = 64 * 1024;
 
+// //// 读取完整联机帧并关闭失效连接 [@x380kkm 2026-10-02] ////
 pub(super) fn read_client_frames(
     client_index: usize,
     client: &mut SessionClient,
     frames: &mut Vec<(usize, Value)>,
-) -> Result<bool, PersonalServiceError> {
+) -> bool {
     let mut did_work = false;
     let mut chunk = [0_u8; READ_CHUNK_BYTES];
     loop {
@@ -35,6 +36,7 @@ pub(super) fn read_client_frames(
                 }
             }
             Err(error) if error.kind() == ErrorKind::WouldBlock => break,
+            Err(error) if error.kind() == ErrorKind::Interrupted => continue,
             Err(error)
                 if matches!(
                     error.kind(),
@@ -45,9 +47,9 @@ pub(super) fn read_client_frames(
                 break;
             }
             Err(error) => {
-                return Err(PersonalServiceError::new(format!(
-                    "failed to read multiplayer session: {error}"
-                )));
+                eprintln!("multiplayer client read failed: {error}");
+                client.peer_closed = true;
+                break;
             }
         }
     }
@@ -66,9 +68,11 @@ pub(super) fn read_client_frames(
         };
         frames.push((client_index, frame));
     }
-    Ok(did_work)
+    did_work
 }
+// //// /读取完整联机帧并关闭失效连接 ////
 
+// //// 写出联机帧并保留已送达的通知位置 [@x380kkm 2026-10-02] ////
 pub(super) fn flush_client(client: &mut SessionClient) -> Result<bool, PersonalServiceError> {
     let mut wrote = false;
     while !client.pending_write.is_empty() {
@@ -90,6 +94,7 @@ pub(super) fn flush_client(client: &mut SessionClient) -> Result<bool, PersonalS
                 wrote = true;
             }
             Err(error) if error.kind() == ErrorKind::WouldBlock => break,
+            Err(error) if error.kind() == ErrorKind::Interrupted => continue,
             Err(error)
                 if matches!(
                     error.kind(),
@@ -100,9 +105,9 @@ pub(super) fn flush_client(client: &mut SessionClient) -> Result<bool, PersonalS
                 break;
             }
             Err(error) => {
-                return Err(PersonalServiceError::new(format!(
-                    "failed to write multiplayer session: {error}"
-                )));
+                eprintln!("multiplayer client write failed: {error}");
+                client.peer_closed = true;
+                break;
             }
         }
     }
@@ -115,6 +120,7 @@ pub(super) fn flush_client(client: &mut SessionClient) -> Result<bool, PersonalS
     }
     Ok(wrote)
 }
+// //// /写出联机帧并保留已送达的通知位置 ////
 
 pub(super) fn queue_frame(
     client: &mut SessionClient,
@@ -224,6 +230,7 @@ pub(super) fn lobby_roster(
                 .collect::<Result<Vec<_>, PersonalServiceError>>()?,
         );
     }
+    roster.sort_by_key(|player| player.get("isHost").and_then(Value::as_bool) != Some(true));
     Ok(roster)
 }
 

@@ -3,6 +3,8 @@
 //
 // 该模块处理 CN 单机战斗的开始, 继续, 结算和终止请求. 活跃战斗和玩家快照保存在 SQLite 中.
 
+pub(crate) mod presentation;
+
 use crate::cn::{decode_request, json_response_at, msgpack_response_at, server_time};
 use crate::cn_battle_assets::load_battle_fixture;
 use crate::cn_battle_state::{
@@ -11,7 +13,7 @@ use crate::cn_battle_state::{
 use crate::database::{ActiveSingleQuest, PlayerSnapshot, ServiceDatabase, ViewerSessionPlayer};
 use crate::http::{HttpRequest, HttpResponse};
 use crate::PersonalServiceError;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 #[derive(Deserialize)]
@@ -33,13 +35,16 @@ struct FinishRequest {
     quest_id: i64,
     category: i64,
     elapsed_time_ms: i64,
+    #[serde(deserialize_with = "crate::cn::deserialize_i64")]
     score: i64,
     add_mana: i64,
     is_accomplished: bool,
+    #[serde(default)]
+    is_lose: bool,
     statistics: QuestStatistics,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct QuestStatistics {
     party: QuestParty,
     #[serde(default)]
@@ -48,9 +53,11 @@ struct QuestStatistics {
     max_skill_chain_count: Option<i64>,
     #[serde(default)]
     max_combo_count: Option<i64>,
+    #[serde(flatten)]
+    extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct QuestParty {
     characters: Vec<Option<PartyCharacter>>,
     unison_characters: Vec<Option<PartyCharacter>>,
@@ -58,14 +65,18 @@ struct QuestParty {
     equipments: Vec<Option<PartyCharacter>>,
     #[serde(default)]
     ability_soul_ids: Vec<Option<i64>>,
+    #[serde(flatten)]
+    extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct PartyCharacter {
     id: Option<i64>,
+    #[serde(flatten)]
+    extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct QuestZone {
     #[serde(default)]
     use_power_flip_count: i64,
@@ -73,6 +84,8 @@ struct QuestZone {
     use_dash_count: i64,
     #[serde(default)]
     use_skill_count: i64,
+    #[serde(flatten)]
+    extra: serde_json::Map<String, Value>,
 }
 
 #[derive(Deserialize)]
@@ -80,6 +93,8 @@ struct AbortRequest {
     viewer_id: i64,
     play_id: String,
     category: Option<i64>,
+    finish_kind: Option<i64>,
+    statistics: Option<Value>,
 }
 
 #[derive(Deserialize)]
@@ -108,7 +123,17 @@ fn replay_battle_receipt(
     receipt: &str,
     database: &ServiceDatabase,
 ) -> Result<HttpResponse, PersonalServiceError> {
-    let response = decode_battle_receipt(action, receipt)?;
+    let mut response = decode_battle_receipt(action, receipt)?;
+    if action == "finish" {
+        let snapshot = match get_player_snapshot(database, viewer_id)? {
+            Ok(snapshot) => snapshot,
+            Err(response) => return Ok(response),
+        };
+        let player = crate::cn_tutorial::decode_player_data(&snapshot.data)?;
+        let root = player.as_object().ok_or_else(|| PersonalServiceError::new("stored CN player is invalid"))?;
+        presentation::normalize_finish_response(root, &mut response);
+        crate::cn_character::complete_character_response_times(&mut response, root, server_time(database)?);
+    }
     msgpack_response_at(viewer_id, false, server_time(database)?, response)
 }
 
@@ -180,6 +205,11 @@ fn route_start(
             );
         }
     }
+    if (body.use_boss_boost_point && body.category != 2)
+        || (body.use_boost_point && body.category == 2)
+    {
+        return Ok(battle_error("400 Bad Request", "Bad Request", "Invalid boost selection."));
+    }
     let fixture = load_battle_fixture()?;
     let quest_key = format!("{}:{}", body.category, body.quest_id);
     let Some(quest) = fixture.quests.get(&quest_key) else {
@@ -190,7 +220,10 @@ fn route_start(
         ));
     };
     let response_time = server_time(database)?;
-    let start = match prepare_battle_start(&snapshot.data, quest, body.party_id, response_time)? {
+    if !crate::cn_quest::is_quest_open(database, body.category, body.quest_id)? {
+        return crate::cn::msgpack_result_code_response_at(body.viewer_id, response_time, 4050);
+    }
+    let mut start = match prepare_battle_start(&snapshot.data, quest, body.party_id, response_time)? {
         Ok(start) => start,
         Err(StartBattleFailure::InsufficientEntryItem) => {
             return Ok(battle_error(
@@ -207,6 +240,16 @@ fn route_start(
             ));
         }
     };
+    let previous: Value = serde_json::from_str(&snapshot.data)
+        .map_err(|error| PersonalServiceError::new(format!("invalid battle snapshot: {error}")))?;
+    let mut started = crate::cn_tutorial::decode_player_data(&start.snapshot)?;
+    let started_root = crate::cn_tutorial::require_root(&mut started)?;
+    let mut active_missions = crate::cn_mission::record_active_quest_challenge(started_root, database, body.category, body.quest_id)?;
+    let used_stamina = started_root.get("user_info").and_then(|user| user.get("total_stamina_used")).and_then(Value::as_i64).unwrap_or_default()
+        .saturating_sub(previous["user_info"]["total_stamina_used"].as_i64().unwrap_or_default());
+    active_missions.extend(crate::cn_mission::record_active_counters(started_root, database, &[("used_stamina_count", used_stamina)])?);
+    crate::cn_mission::capture_battle_mission_window(started_root, database, &body.play_id, response_time)?;
+    start.snapshot = crate::cn_tutorial::encode_player_data(&started)?;
     let response = json!({
         "user_info": {
             "last_main_quest_id": body.quest_id,
@@ -215,8 +258,10 @@ fn route_start(
         },
         "category_id": body.category,
         "is_multi": "single",
+        "item_list": start.items,
         "start_time": response_time,
         "quest_name": "",
+        "active_mission_list": active_missions,
     });
     let response_json = encode_battle_receipt("start", &response)?;
     database.start_active_single_quest_with_receipt(
@@ -336,45 +381,58 @@ fn route_finish(
         })?;
     let response_time = server_time(database)?;
     let drop_multiplier = database.drop_multiplier()?;
-    let mutation = finish_battle(
-        database,
-        snapshot.account_id,
-        &snapshot.data,
-        &active_quest,
-        quest,
-        &fixture,
-        &FinishBattleInput {
-            elapsed_time_ms: body.elapsed_time_ms,
-            score: body.score,
-            add_mana: body.add_mana,
-            is_accomplished: body.is_accomplished,
-            character_ids: &character_ids,
-            main_character_ids: &main_character_ids,
-            unison_character_ids: &unison_character_ids,
-            equipment_ids: &equipment_ids,
-            ability_soul_ids: &ability_soul_ids,
-            is_multi: false,
-            power_flip_count: Some(power_flip_count),
-            dash_count: Some(dash_count),
-            skill_count: Some(skill_count),
-            max_skill_chain_count: body.statistics.max_skill_chain_count,
-            max_combo_count: body.statistics.max_combo_count,
-            is_host: None,
-            is_mvp: None,
-        },
-        drop_multiplier,
-        response_time,
-    )?;
-    let response_json = encode_battle_receipt("finish", &mutation.response)?;
-    database.finish_active_single_quest_with_receipt(
-        snapshot.account_id,
-        &body.play_id,
-        active_quest.category,
-        active_quest.quest_id,
-        &mutation.snapshot,
-        &response_json,
-    )?;
-    msgpack_response_at(body.viewer_id, false, response_time, mutation.response)
+    let battle_statistics = serde_json::to_value(&body.statistics)
+        .map_err(|error| PersonalServiceError::new(format!("invalid battle statistics: {error}")))?;
+    let party_id = crate::cn_tutorial::decode_player_data(&snapshot.data)?
+        .get("user_info")
+        .and_then(|user| user.get("party_slot"))
+        .and_then(Value::as_i64)
+        .unwrap_or_default();
+    database.with_player_settlement(|database| {
+        let mutation = finish_battle(
+            database,
+            snapshot.account_id,
+            body.viewer_id,
+            &snapshot.data,
+            &active_quest,
+            quest,
+            &fixture,
+            &FinishBattleInput {
+                party_id,
+                elapsed_time_ms: body.elapsed_time_ms,
+                score: body.score,
+                add_mana: body.add_mana,
+                is_accomplished: body.is_accomplished,
+                is_lose: body.is_lose,
+                character_ids: &character_ids,
+                main_character_ids: &main_character_ids,
+                unison_character_ids: &unison_character_ids,
+                equipment_ids: &equipment_ids,
+                ability_soul_ids: &ability_soul_ids,
+                is_multi: false,
+                power_flip_count: Some(power_flip_count),
+                dash_count: Some(dash_count),
+                skill_count: Some(skill_count),
+                max_skill_chain_count: body.statistics.max_skill_chain_count,
+                max_combo_count: body.statistics.max_combo_count,
+                is_host: None,
+                is_mvp: None,
+            },
+            drop_multiplier,
+            response_time,
+            &battle_statistics,
+        )?;
+        let response_json = encode_battle_receipt("finish", &mutation.response)?;
+        database.finish_active_single_quest_with_receipt(
+            snapshot.account_id,
+            &body.play_id,
+            active_quest.category,
+            active_quest.quest_id,
+            &mutation.snapshot,
+            &response_json,
+        )?;
+        Ok(Some(msgpack_response_at(body.viewer_id, false, response_time, mutation.response)?))
+    })?.ok_or_else(|| PersonalServiceError::new("single battle settlement returned no result"))
 }
 // //// /结算并持久化 CN 单机战斗 ////
 
@@ -483,11 +541,29 @@ fn route_abort(
         response_time,
     );
     let response_json = encode_battle_receipt("abort", &response)?;
-    if !database.abort_active_single_quest_with_receipt(
-        snapshot.account_id,
-        &body.play_id,
-        &response_json,
-    )? {
+    let aborted = database.with_player_settlement(|database| {
+        if !database.abort_active_single_quest_with_receipt(
+            snapshot.account_id, &body.play_id, &response_json,
+        )? {
+            return Ok(None);
+        }
+        if let Some(statistics) = body.statistics.as_ref()
+            .filter(|_| crate::cn_battle_history::supports_history(active_quest.category)) {
+            let mut player = crate::cn_tutorial::decode_player_data(&snapshot.data)?;
+            crate::cn_battle_history::record_abort(
+                crate::cn_tutorial::require_root(&mut player)?,
+                &active_quest,
+                statistics,
+                body.finish_kind.unwrap_or(1),
+                response_time,
+            )?;
+            database.save_player_snapshot(
+                snapshot.account_id, &crate::cn_tutorial::encode_player_data(&player)?,
+            )?;
+        }
+        Ok(Some(()))
+    })?;
+    if aborted.is_none() {
         if let Some(receipt) =
             database.single_battle_abort_receipt(snapshot.account_id, &body.play_id)?
         {

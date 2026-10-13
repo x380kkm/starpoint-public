@@ -1,163 +1,39 @@
-import { randomInt } from "crypto";
-import { clientSerializeDate } from "../data/utils";
-import { getPlayerCharacterSync, getPlayerSync, givePlayerItemSync, updatePlayerSync } from "../data/wdfpData";
-import { getRareScoreRewardGroup } from "./assets";
+// audience: internal
+// # quest-rewards
+// 战斗掉落沿用共用主表中的评级次数, 概率和位置, 库存响应记录各物品发放后的总量.
+
+import { getPlayerCharacterSync, getPlayerItemSync, getPlayerSingleQuestProgressSync, getPlayerSync, givePlayerItemSync, updatePlayerSync } from "../data/wdfpData";
+import { ActiveQuest, insertActiveQuest } from "../control/battleSettlementState";
+import { getServerTime } from "../utils";
+import { getAdditionalQuestEvents } from "./additionalQuestRewards";
 import { givePlayerCharacterSync } from "./character";
 import { givePlayerEquipmentSync } from "./equipment";
-import { CharacterReward, CommonScoreReward, CurrencyReward, CurrencyScoreReward, DropScoreRewardId, EquipmentItemReward, GivePlayerScoreRewardsResult, ItemScoreReward, PlayerRewardResult, RareScoreRewardGroup, Reward, RewardType, ScoreReward, ScoreRewardType } from "./types";
-import { Player } from "../data/types";
+import { drawQuestDrops, randomFraction } from "./questDrops";
+import { BattleQuest, CharacterReward, CurrencyReward, EquipmentItemReward, GivePlayerScoreRewardsResult, PlayerRewardResult, Reward, RewardType } from "./types";
 
-/**
- * Grants a player score rewards.
- * 
- * @param playerId The ID of the player.
- * @param groupId The ID of the score reward group.
- * @param scoreRewards The score rewards inside of the group.
- * @returns A result detailing what was added/changed.
- */
+// //// 开战时保存限时追加奖励资格 [@x380kkm 2026-09-28] ////
+export function startPlayerQuest(playerId: number, quest: ActiveQuest): void {
+    const startedAt = quest.startedAt ?? getServerTime()
+    const additionalEventIds = getAdditionalQuestEvents(startedAt,
+        (category, questId) => getPlayerSingleQuestProgressSync(playerId, category, questId)?.finished === true)
+    insertActiveQuest(playerId, { ...quest, startedAt, additionalEventIds })
+}
+
+// //// 发放按关卡评级抽取的普通和稀有掉落 [@x380kkm 2026-09-28] ////
 export function givePlayerScoreRewardsSync(
     playerId: number,
-    groupId?: number,
-    scoreRewards?: ScoreReward[],
-    boostPointUsed: boolean = false,
+    quest: BattleQuest,
+    clearRank: number,
+    boostPointUsed: boolean,
+    isMulti = false,
 ): GivePlayerScoreRewardsResult {
-
-    const dropScoreRewardIds: DropScoreRewardId[] = []
-    const dropRareRewardIds: DropScoreRewardId[] = []
-
-    let mana = 0
-    let vmoney = 0
-    let expPool = 0
-    let joinedCharacterIdList: number[] = []
-    let characterList: Object[] = []
-    let equipmentList: Object[] = []
-    let items: Record<string, number> = {}
-
-    if (scoreRewards !== undefined && groupId !== undefined) {
-        let rewardIndex = 0
-        for (const scoreReward of scoreRewards) {
-            rewardIndex += 1;
-            switch (scoreReward.type) {
-                case ScoreRewardType.ITEM: {
-                    const reward = scoreReward as CommonScoreReward
-
-                    let rewardAmount = 0
-
-                    switch (reward.reward_type) {
-                        case RewardType.ITEM: {
-                            const itemReward = reward as ItemScoreReward
-                            const itemId = itemReward.id
-                            rewardAmount = itemReward.count * 10 * (boostPointUsed ? 2 : 1)
-                            items[String(itemId)] = givePlayerItemSync(playerId, itemId, rewardAmount);
-                            break;
-                        }
-                        case RewardType.MANA: {
-                            const player = getPlayerSync(playerId)
-                            const currencyReward = reward as CurrencyScoreReward
-                            rewardAmount = currencyReward.count * 10 * (boostPointUsed ? 2 : 1)
-                            mana += rewardAmount
-                            updatePlayerSync({
-                                id: playerId,
-                                freeMana: (player?.freeMana || 0) + rewardAmount
-                            })
-                            break;
-                        }
-                        case RewardType.EXP: {
-                            const player = getPlayerSync(playerId)
-                            const currencyReward = reward as CurrencyScoreReward
-                            rewardAmount = currencyReward.count * 10 * (boostPointUsed ? 2 : 1)
-                            expPool += rewardAmount
-                            updatePlayerSync({
-                                id: playerId,
-                                expPool: (player?.expPool || 0) + rewardAmount
-                            })
-                            break;
-                        }
-                    }
-
-                    dropScoreRewardIds.push({
-                        group_id: groupId,
-                        index: rewardIndex,
-                        number: rewardAmount
-                    })
-                    break;
-                }
-                case ScoreRewardType.RARE_POOL: {
-                    const reward = scoreReward as RareScoreRewardGroup
-                    const roll = randomInt(0, 100) / 100
-
-                    if (reward.rarity >= roll) {
-                        // give reward from group
-                        // TODO: implement RareScoreReward rarity using .rarity field instead of having an even chance between all items in pool
-                        const rareGroupId = reward.id
-                        const group = getRareScoreRewardGroup(rareGroupId)
-                        if (group !== null) {
-                            const random_index = 1 >= group.length ? 0 : randomInt(group.length)
-                            const reward = group[random_index]
-                            const result = givePlayerRewardSync(playerId, reward)
-
-                            if (result) {
-                                // merge arrays
-                                mana += result.user_info.free_mana
-                                vmoney += result.user_info.free_vmoney
-                                joinedCharacterIdList = [...joinedCharacterIdList, ...result.joined_character_id_list]
-                                characterList = [...characterList, ...result.character_list]
-                                equipmentList = [...equipmentList, ...result.equipment_list]
-
-                                // merge items
-                                for (const [itemId, count] of Object.entries(result.items)) {
-                                    const existingCount = items[itemId]
-                                    if (existingCount === undefined) {
-                                        items[itemId] = count
-                                    } else {
-                                        items[itemId] = existingCount + count
-                                    }
-                                }
-
-                                // calculate number
-                                let number = 0
-                                switch (reward.type) {
-                                    case RewardType.ITEM:
-                                    case RewardType.EQUIPMENT:
-                                        number = (reward as Reward as EquipmentItemReward).count
-                                        break;
-                                    case RewardType.CHARACTER:
-                                        number = 1;
-                                        break;
-                                    case RewardType.BEADS:
-                                    case RewardType.EXP:
-                                    case RewardType.MANA:
-                                        number = (reward as Reward as CurrencyReward).count
-                                        break;
-                                }
-
-                                // add reward id to table
-                                dropRareRewardIds.push({
-                                    group_id: rareGroupId,
-                                    index: random_index + 1,
-                                    number: number
-                                })
-                            }  
-                        }
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
+    const drops = drawQuestDrops(quest, clearRank, boostPointUsed, randomFraction, isMulti)
+    const rewards = givePlayerRewardsSync(playerId, drops.rewards)
+    if (rewards === null) throw new Error("Player for battle rewards is missing")
     return {
-        drop_score_reward_ids: dropScoreRewardIds,
-        drop_rare_reward_ids: dropRareRewardIds,
-        user_info: {
-            free_mana: mana,
-            free_vmoney: vmoney,
-            exp_pool: expPool
-        },
-        character_list: characterList,
-        joined_character_id_list: joinedCharacterIdList,
-        equipment_list: equipmentList,
-        items: items
+        ...rewards,
+        drop_score_reward_ids: drops.commonDrops,
+        drop_rare_reward_ids: drops.rareDrops,
     }
 }
 
@@ -186,7 +62,7 @@ export function givePlayerRewardsSync(
                 const convertedReward = (reward as EquipmentItemReward)
                 const itemId = convertedReward.id
                 const result = givePlayerItemSync(playerId, itemId, convertedReward.count);
-                items.set(itemId, (items.get(itemId) ?? 0) + result)
+                items.set(itemId, result)
                 break;
             }
             case RewardType.EQUIPMENT: {
@@ -204,7 +80,7 @@ export function givePlayerRewardsSync(
                 const giveItem = giveResult?.item
                 if (giveItem !== undefined) {
                     const itemId = giveItem.id
-                    items.set(itemId, (items.get(itemId) ?? 0) + giveItem.count)
+                    items.set(itemId, getPlayerItemSync(playerId, itemId) ?? 0)
                 }
     
                 const giveCharacter = giveResult?.character

@@ -1,11 +1,15 @@
 // audience: internal
 // # generate-cn-single-battle-fixture
 //
-// 该脚本从 startpoint-cn 的 CN 任务和奖励资产生成个人服务使用的单机战斗数据.
+// 该脚本从 CN 任务资产和 battle-reward-rules 主数据生成个人服务使用的单机战斗数据.
+// 关卡主表的角色奖励每条发放 1 名角色.
 
 import { createHash } from "node:crypto"
 import fs from "node:fs"
 import path from "node:path"
+import { decodeOrderedMapFile } from "./decode-cn-orderedmap.mjs"
+import { readScoreAttackQuests, readScoreAttackBorderRewards } from "./read-cn-score-attack-quests.mjs"
+import { readCarnivalQuests } from "./read-cn-carnival-quests.mjs"
 
 const QUEST_SOURCES = [
     { name: "main_quest", category: 1, entryCategory: 1, expectedCount: 419 },
@@ -18,7 +22,7 @@ const QUEST_SOURCES = [
     { name: "ranking_event_single_quest", category: 11, entryCategory: 10, expectedCount: 7 },
     { name: "challenge_dungeon_event_quest", category: 13, entryCategory: 13, expectedCount: 46 },
     { name: "daily_exp_mana_event_quest", category: 14, entryCategory: 14, expectedCount: 6 },
-    { name: "practice_quest", category: 15, entryCategory: 15, expectedCount: 98 },
+    { name: "practice_quest", category: 15, entryCategory: 15, expectedCount: 91 },
     { name: "world_story_event_quest", category: 18, entryCategory: 18, expectedCount: 913 },
     { name: "world_story_event_boss_battle_quest", category: 19, entryCategory: 19, expectedCount: 96 },
     { name: "tower_dungeon_event_quest", category: 20, entryCategory: 20, expectedCount: 480 },
@@ -31,7 +35,13 @@ const QUEST_SOURCES = [
     { name: "score_attack_event_quest", category: 27, entryCategory: 9, expectedCount: 123 },
 ]
 
-const EXPECTED_SOURCE_TOTAL = 5257
+const EXPECTED_SOURCE_TOTAL = 5250
+const ACTIVITY_FAMILIES = {
+    6: "daily-week", 7: "advent", 10: "story", 11: "ranking", 13: "challenge-dungeon",
+    14: "daily-exp-mana", 18: "world-story", 19: "world-story", 20: "tower-dungeon",
+    21: "expert-single", 22: "carnival", 23: "raid", 24: "rush", 25: "solo-time-attack",
+    26: "hard-multi", 27: "score-attack",
+}
 const EXPECTED_CHARACTER_COUNT = 505
 const EXPECTED_ENTRY_COST_COUNT = 3021
 const EXPECTED_CLEAR_REWARD_COUNT = 238
@@ -87,18 +97,21 @@ function optionalNumber(value, label) {
 // //// 规范奖励和任务字段 [@x380kkm 2026-08-22] ////
 function normalizeReward(reward, label) {
     if (reward === undefined) return undefined
+    const rewardType = requireInteger(reward.type, `${label}.type`)
     return {
-        type: requireInteger(reward.type, `${label}.type`),
+        type: rewardType,
         id: optionalInteger(reward.id, `${label}.id`),
-        count: optionalInteger(reward.count, `${label}.count`),
+        count: rewardType === 2 ? 1 : optionalInteger(reward.count, `${label}.count`),
         rarity: optionalNumber(reward.rarity, `${label}.rarity`),
+        position: optionalInteger(reward.position, `${label}.position`),
+        element_rarity: optionalInteger(reward.element_rarity, `${label}.element_rarity`),
     }
 }
 
 function resolveElementRewardId(rewardElementMap, rewardType, rarity, questElement, label) {
     const mapType = rewardType === 6 ? 1 : 2
     const enemyElement = ENEMY_ELEMENT_BY_QUEST_ELEMENT[questElement ?? 0] ?? 3
-    const value = rewardElementMap[String(mapType)]?.[String(rarity)]?.[String(enemyElement)]?.[0]?.[0]
+    const value = rewardElementMap[String(mapType)]?.[String(rarity)]?.[String(enemyElement)]?.[0]
     const itemId = Number(value)
     if (!Number.isSafeInteger(itemId)) throw new Error(`${label} has no element reward mapping`)
     return itemId
@@ -116,7 +129,7 @@ function normalizeScoreReward(reward, rewardElementMap, questElement, label) {
             ? resolveElementRewardId(rewardElementMap, rewardType, sourceId, questElement, label)
             : sourceId,
         element_rarity: resolvesElementItem ? sourceId : undefined,
-        count: optionalInteger(reward.count, `${label}.count`),
+        count: rewardType === 2 ? 1 : optionalInteger(reward.count, `${label}.count`),
         rarity: optionalNumber(reward.rarity, `${label}.rarity`),
         position: optionalInteger(reward.position, `${label}.position`),
         field5: optionalInteger(reward.field5, `${label}.field5`),
@@ -161,43 +174,42 @@ function normalizeScoreAttackBorderRewards(rewards, label) {
     if (!Array.isArray(rewards) || rewards.length === 0) {
         throw new Error(`${label} must contain at least one border reward`)
     }
-    return rewards.map((reward, index) => ({
-        score: requireInteger(reward.score, `${label}[${index}].score`),
-        coinItemId: requireInteger(reward.coinItemId, `${label}[${index}].coinItemId`),
-        coinCount: requireInteger(reward.coinCount, `${label}[${index}].coinCount`),
-    }))
-}
-
-function normalizeEntryCost(entryCost, label) {
-    if (entryCost === undefined) {
-        return { entry_item_id: undefined, entry_item_count: 0, stamina_cost: 0 }
-    }
-    const itemId = integerOrZero(entryCost.itemId, `${label}.itemId`)
-    return {
-        entry_item_id: itemId === 0 ? undefined : itemId,
-        entry_item_count: integerOrZero(entryCost.itemCount, `${label}.itemCount`),
-        stamina_cost: integerOrZero(entryCost.stamina, `${label}.stamina`),
-    }
+    return rewards
 }
 
 function normalizeQuest(context) {
-    const { descriptor, questId, rawQuest, entryCost, carnivalScore } = context
+    const { descriptor, questId } = context
     const label = `${descriptor.name}:${questId}`
+    const rewardRule = requireReference(context.questRewards, `${descriptor.category}:${questId}`, "quest reward rule")
+    const rawQuest = { ...context.rawQuest, ...requireReference(rewardRule, "master_fields", "quest master fields") }
+    const { carnivalScore } = rawQuest
     const isHardMulti = descriptor.name === "hard_multi_event_quest"
     const isScoreAttack = descriptor.name === "score_attack_event_quest"
-    const clearRewardId = isHardMulti ? undefined : optionalInteger(rawQuest.clearRewardId, `${label}.clearRewardId`)
+    const clearRewardId = optionalInteger(rawQuest.clearRewardId, `${label}.clearRewardId`)
     const sPlusRewardId = optionalInteger(rawQuest.sPlusRewardId, `${label}.sPlusRewardId`)
     const sourceScoreRewardGroupId =
-        optionalInteger(rawQuest.scoreRewardGroupId, `${label}.scoreRewardGroupId`)
+        optionalInteger(isScoreAttack
+            ? rawQuest.scoreRewardGroupId : rewardRule.score_reward_group_id, `${label}.scoreRewardGroupId`)
     const scoreRewardGroupId = isScoreAttack
         ? undefined
         : sourceScoreRewardGroupId
     const fixedPartyId = optionalInteger(rawQuest.fixedParty, `${label}.fixedParty`)
     const eventId = optionalInteger(rawQuest.eventId, `${label}.eventId`)
     const folderId = optionalInteger(rawQuest.folderId, `${label}.folderId`)
-    const element = optionalInteger(rawQuest.element, `${label}.element`)
-    const entry = normalizeEntryCost(entryCost, `${label}.entry`)
-    const scoreAttackBorderKey = isScoreAttack ? `${eventId}_${folderId}` : undefined
+    const element = optionalInteger(rewardRule.element ?? rawQuest.element, `${label}.element`)
+    const scoreRewardCounts = scoreRewardGroupId === undefined
+        ? [0, 0, 0, 0, 0]
+        : rewardRule.score_reward_counts
+    if (!Array.isArray(scoreRewardCounts) || scoreRewardCounts.length !== 5
+        || scoreRewardCounts.some((count) => !Number.isSafeInteger(count) || count < 0)) {
+        throw new Error(`${label} has invalid score reward counts`)
+    }
+    const entry = {
+        entry_item_id: optionalInteger(rewardRule.entry_item_id, `${label}.entry_item_id`),
+        entry_item_count: requireInteger(rewardRule.entry_item_count, `${label}.entry_item_count`),
+        stamina_cost: requireInteger(rewardRule.stamina_cost, `${label}.stamina_cost`),
+    }
+    const scoreAttackBorderKey = isScoreAttack ? `${eventId}_${rawQuest.scoreAttackRewardGroupId}` : undefined
     const scoreAttackBorderSource = scoreAttackBorderKey === undefined
         ? undefined
         : context.scoreAttackBorderRewards[scoreAttackBorderKey]
@@ -218,10 +230,12 @@ function normalizeQuest(context) {
         s_plus_reward: resolveClearReward(context.clearRewards, sPlusRewardId, label, context.includedClearRewardIds),
         score_reward_group_id: scoreRewardGroupId,
         score_attack_reward_group_id: isScoreAttack
-            ? sourceScoreRewardGroupId
+            ? requireInteger(rawQuest.scoreAttackRewardGroupId, `${label}.scoreAttackRewardGroupId`)
             : undefined,
         score_rewards: resolveScoreRewards(context, scoreRewardGroupId, element, label),
+        score_reward_counts: scoreRewardCounts,
         score_attack_border_rewards: scoreAttackBorderRewards,
+        score_rank_thresholds: rawQuest.scoreRankThresholds,
         b_rank_time: integerOrZero(rawQuest.bRankTime, `${label}.bRankTime`),
         a_rank_time: integerOrZero(rawQuest.aRankTime, `${label}.aRankTime`),
         s_rank_time: integerOrZero(rawQuest.sRankTime, `${label}.sRankTime`),
@@ -236,7 +250,7 @@ function normalizeQuest(context) {
         fixed_party_id: fixedPartyId,
         has_fixed_party: fixedPartyId !== undefined,
         linked_quest_id: isHardMulti
-            ? optionalInteger(rawQuest.clearRewardId, `${label}.clearRewardId`)
+            ? optionalInteger(context.rawQuest.clearRewardId, `${label}.linkedQuestId`)
             : undefined,
         rush_event_id: optionalInteger(rawQuest.rushEventId, `${label}.rushEventId`),
         rush_event_folder_id: optionalInteger(rawQuest.rushEventFolderId, `${label}.rushEventFolderId`),
@@ -253,7 +267,13 @@ function normalizeQuest(context) {
 
 // //// 生成完整任务和引用闭包 [@x380kkm 2026-08-22] ////
 function loadSourceAssets(assetRoot) {
-    const sources = Object.fromEntries(QUEST_SOURCES.map((source) => [source.name, readJson(assetRoot, source.name)]))
+    const rewardRules = JSON.parse(fs.readFileSync(new URL("../../core/personal-service/assets/cn-battle-reward-rules.json", import.meta.url), "utf8"))
+    const sources = Object.fromEntries(QUEST_SOURCES.map((source) => {
+        const quests = source.name === "score_attack_event_quest" ? readScoreAttackQuests()
+            : source.name === "carnival_event_quest" ? readCarnivalQuests() : readJson(assetRoot, source.name)
+        return [source.name, Object.fromEntries(Object.entries(quests).filter(([id]) =>
+            Object.hasOwn(rewardRules.quest_rewards, `${source.category}:${id}`)))]
+    }))
     for (const descriptor of QUEST_SOURCES) {
         requireSourceCount(descriptor.name, sources[descriptor.name], descriptor.expectedCount)
     }
@@ -263,20 +283,21 @@ function loadSourceAssets(assetRoot) {
         characters: readJson(assetRoot, "character"),
         rawCharacters: readJson(assetRoot, "cdndata/character"),
         clearRewards: readJson(assetRoot, "clear_reward"),
-        scoreRewardGroups: readJson(assetRoot, "score_reward"),
-        rareRewardGroups: readJson(assetRoot, "rare_score_reward"),
-        rewardElementMap: readJson(assetRoot, "reward_element_map"),
+        scoreRewardGroups: rewardRules.score_reward_groups,
+        rareRewardGroups: rewardRules.rare_reward_groups,
+        rewardElementMap: rewardRules.reward_element_map,
+        questRewards: rewardRules.quest_rewards,
         entryCosts: readJson(assetRoot, "quest_entry_costs"),
-        carnivalScores: readJson(assetRoot, "carnival_event_quest_scores"),
-        scoreAttackBorderRewards: readJson(assetRoot, "score_attack_border_reward"),
+        scoreAttackBorderRewards: readScoreAttackBorderRewards(),
     }
     requireSourceCount("character", assets.characters, EXPECTED_CHARACTER_COUNT)
     requireSourceCount("cdndata/character", assets.rawCharacters, EXPECTED_CHARACTER_COUNT)
     requireSourceCount("clear_reward", assets.clearRewards, EXPECTED_CLEAR_REWARD_COUNT)
-    requireSourceCount("score_reward", assets.scoreRewardGroups, EXPECTED_SCORE_REWARD_COUNT)
-    requireSourceCount("rare_score_reward", assets.rareRewardGroups, EXPECTED_RARE_REWARD_COUNT)
+    requireSourceCount("score_reward", assets.scoreRewardGroups,
+        EXPECTED_SCORE_REWARD_COUNT + rewardRules.currency_projection.score_group_count)
+    requireSourceCount("rare_score_reward", assets.rareRewardGroups,
+        EXPECTED_RARE_REWARD_COUNT + rewardRules.currency_projection.rare_group_count)
     requireSourceCount("quest_entry_costs", assets.entryCosts, EXPECTED_ENTRY_COST_COUNT)
-    requireSourceCount("carnival_event_quest_scores", assets.carnivalScores, 171)
     requireSourceCount("score_attack_border_reward", assets.scoreAttackBorderRewards, 123)
     return assets
 }
@@ -306,7 +327,6 @@ function normalizeCharacterRaces(row, characterId) {
 function buildFixture(assets) {
     const quests = {}
     const consumedEntryCosts = new Set()
-    const consumedCarnivalScores = new Set()
     const includedClearRewardIds = new Set()
     const includedScoreRewardIds = new Set()
     const includedRareRewardIds = new Set()
@@ -315,6 +335,7 @@ function buildFixture(assets) {
 
     for (const descriptor of QUEST_SOURCES) {
         const sourceQuests = assets.sources[descriptor.name]
+        const activityIds = readQuestActivities(descriptor, sourceQuests)
         sourceCounts[descriptor.name] = Object.keys(sourceQuests).length
         categoryCounts[String(descriptor.category)] = Object.keys(sourceQuests).length
         for (const [questId, rawQuest] of Object.entries(sourceQuests)) {
@@ -323,25 +344,21 @@ function buildFixture(assets) {
             const entryCostKey = `${descriptor.entryCategory}_${questId}`
             const entryCost = assets.entryCosts[entryCostKey]
             if (entryCost !== undefined) consumedEntryCosts.add(entryCostKey)
-            const carnivalScore = descriptor.name === "carnival_event_quest"
-                ? requireReference(assets.carnivalScores, questId, "carnival quest score")
-                : undefined
-            if (carnivalScore !== undefined) consumedCarnivalScores.add(String(questId))
             quests[questKey] = normalizeQuest({
                 descriptor,
                 questId,
                 rawQuest,
-                entryCost,
-                carnivalScore,
                 scoreAttackBorderRewards: assets.scoreAttackBorderRewards,
                 clearRewards: assets.clearRewards,
                 scoreRewardGroups: assets.scoreRewardGroups,
                 rareRewardGroups: assets.rareRewardGroups,
                 rewardElementMap: assets.rewardElementMap,
+                questRewards: assets.questRewards,
                 includedClearRewardIds,
                 includedScoreRewardIds,
                 includedRareRewardIds,
             })
+            if (activityIds[questId]) quests[questKey].activity_id = activityIds[questId]
         }
     }
 
@@ -353,8 +370,6 @@ function buildFixture(assets) {
 
     const unusedEntryCosts = Object.keys(assets.entryCosts).filter((key) => !consumedEntryCosts.has(key))
     if (unusedEntryCosts.length > 0) throw new Error(`Entry costs reference unknown quests: ${unusedEntryCosts.join(", ")}`)
-    const unusedCarnivalScores = Object.keys(assets.carnivalScores).filter((key) => !consumedCarnivalScores.has(key))
-    if (unusedCarnivalScores.length > 0) throw new Error(`Carnival scores reference unknown quests: ${unusedCarnivalScores.join(", ")}`)
 
     const rareRewardGroups = Object.fromEntries([...includedRareRewardIds].map((groupId) => {
         const rewards = requireReference(assets.rareRewardGroups, groupId, "rare reward group")
@@ -386,6 +401,26 @@ function buildFixture(assets) {
     }
 }
 // //// /生成完整任务和引用闭包 ////
+
+// //// 从原始关卡分组映射所属活动 [@x380kkm 2026-09-21] ////
+function readQuestActivities(descriptor, sourceQuests) {
+    const family = ACTIVITY_FAMILIES[descriptor.category]
+    if (!family) return {}
+    const master = decodeOrderedMapFile(new URL(`../../core/personal-service/assets/cn-activity-masters/${descriptor.name}.orderedmap`, import.meta.url))
+    const activities = {}
+    for (const [eventId, quests] of Object.entries(master)) {
+        for (const questId of Object.keys(quests)) {
+            const id = Number(eventId) * 1000 + Number(questId)
+            if (!sourceQuests[id]) throw new Error(`Activity quest ${descriptor.name}:${id} has no battle definition`)
+            activities[id] = `${family}:${eventId}`
+        }
+    }
+    for (const id of Object.keys(sourceQuests)) {
+        if (!activities[id]) throw new Error(`Battle quest ${descriptor.name}:${id} has no activity`)
+    }
+    return activities
+}
+// //// /从原始关卡分组映射所属活动 ////
 
 // //// 写出确定的单机战斗数据 [@x380kkm 2026-08-22] ////
 function sortObjectKeys(value) {

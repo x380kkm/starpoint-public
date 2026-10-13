@@ -5,6 +5,7 @@
 // 摘要覆盖方法定义, 方法体, 引用常量语义, 异常表和方法内 trait.
 
 import com.jpexs.decompiler.flash.abc.ABC;
+import com.jpexs.decompiler.flash.abc.avm2.instructions.AVM2Instruction;
 import com.jpexs.decompiler.flash.abc.types.ABCException;
 import com.jpexs.decompiler.flash.abc.types.ClassInfo;
 import com.jpexs.decompiler.flash.abc.types.InstanceInfo;
@@ -21,6 +22,7 @@ import java.io.DataOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -148,6 +150,65 @@ final class AbcMethodDigest {
     }
     // //// /要求全部方法摘要保持一致 ////
 
+    // //// 核对实例方法及重编号闭包的完整内容 [@x380kkm 2026-09-26] ////
+    static void requireSameInstanceMethods(
+            ABC expected, int expectedClass, ABC actual, int actualClass, String message) throws Exception {
+        InstanceInfo expectedInfo = expected.instance_info.get(expectedClass);
+        InstanceInfo actualInfo = actual.instance_info.get(actualClass);
+        Map<String, MethodDefinition> expectedMethods = collectMethods(
+                expected, expectedInfo.iinit_index, "<iinit>", expectedInfo.instance_traits.traits);
+        Map<String, MethodDefinition> actualMethods = collectMethods(
+                actual, actualInfo.iinit_index, "<iinit>", actualInfo.instance_traits.traits);
+        if (!expectedMethods.keySet().equals(actualMethods.keySet())) {
+            throw new IllegalStateException(message + ": 方法集合不同");
+        }
+        for (String name : expectedMethods.keySet()) {
+            requireSameMethod(expected, expectedMethods.get(name), actual, actualMethods.get(name),
+                    new HashSet<>(), message + ": " + name);
+        }
+    }
+
+    private static void requireSameMethod(ABC expected, MethodDefinition expectedMethod,
+            ABC actual, MethodDefinition actualMethod, Set<MethodPair> visited, String message) throws Exception {
+        MethodBody expectedBody = expectedMethod.body();
+        MethodBody actualBody = actualMethod.body();
+        MethodPair pair = new MethodPair(expectedBody.method_info, actualBody.method_info);
+        if (!visited.add(pair)) { return; }
+        List<AVM2Instruction> expectedCode = expectedBody.getCode().code;
+        List<AVM2Instruction> actualCode = actualBody.getCode().code;
+        if (expectedCode.size() != actualCode.size()) { throw new IllegalStateException(message); }
+        byte[] normalized = expectedBody.getCodeBytes().clone();
+        for (int index = 0; index < expectedCode.size(); index++) {
+            AVM2Instruction before = expectedCode.get(index);
+            if (!before.definition.instructionName.equals("newfunction")) { continue; }
+            AVM2Instruction after = actualCode.get(index);
+            if (!after.definition.instructionName.equals("newfunction")
+                    || before.getAddress() != after.getAddress()
+                    || before.getBytesLength() != after.getBytesLength()) {
+                throw new IllegalStateException(message + ": 闭包指令边界不同");
+            }
+            MethodBody expectedClosure = expected.findBody(before.operands[0]);
+            MethodBody actualClosure = actual.findBody(after.operands[0]);
+            if (expectedClosure == null || actualClosure == null) {
+                throw new IllegalStateException(message + ": 闭包方法体缺失");
+            }
+            requireSameMethod(expected, new MethodDefinition(null, expectedClosure),
+                    actual, new MethodDefinition(null, actualClosure), visited, message + ": 闭包");
+            byte[] reference = after.getBytes();
+            System.arraycopy(reference, 0, normalized, Math.toIntExact(before.getAddress()), reference.length);
+        }
+        MethodBody comparable = expectedBody.clone();
+        comparable.setCodeBytes(normalized);
+        if (!digestMethod(expected, expectedMethod.trait(), comparable)
+                .equals(digestMethod(actual, actualMethod.trait(), actualBody))) {
+            throw new IllegalStateException(message);
+        }
+    }
+
+    private record MethodDefinition(Trait trait, MethodBody body) { }
+    private record MethodPair(int expected, int actual) { }
+    // //// /核对实例方法及重编号闭包的完整内容 ////
+
     // //// 计算指定 trait 集合中的方法摘要 [@x380kkm 2026-08-11] ////
     private static Map<String, String> digestMethods(
             ABC abc,
@@ -155,11 +216,21 @@ final class AbcMethodDigest {
             String initializerName,
             List<Trait> traits) throws Exception {
         Map<String, String> digests = new LinkedHashMap<>();
+        for (var entry : collectMethods(abc, initializerIndex, initializerName, traits).entrySet()) {
+            MethodDefinition method = entry.getValue();
+            digests.put(entry.getKey(), digestMethod(abc, method.trait(), method.body()));
+        }
+        return digests;
+    }
+
+    private static Map<String, MethodDefinition> collectMethods(
+            ABC abc, int initializerIndex, String initializerName, List<Trait> traits) {
+        Map<String, MethodDefinition> methods = new LinkedHashMap<>();
         MethodBody initializer = abc.findBody(initializerIndex);
         if (initializer == null) {
             throw new IllegalStateException("method initializer is missing: " + initializerName);
         }
-        digests.put(initializerName, digestMethod(abc, null, initializer));
+        methods.put(initializerName, new MethodDefinition(null, initializer));
 
         for (Trait trait : traits) {
             Integer methodInfo = methodInfo(trait);
@@ -171,11 +242,11 @@ final class AbcMethodDigest {
                 continue;
             }
             String methodName = traitName(abc, trait);
-            if (digests.put(methodName, digestMethod(abc, trait, body)) != null) {
+            if (methods.put(methodName, new MethodDefinition(trait, body)) != null) {
                 throw new IllegalStateException("duplicate method name: " + methodName);
             }
         }
-        return digests;
+        return methods;
     }
     // //// /计算指定 trait 集合中的方法摘要 ////
 

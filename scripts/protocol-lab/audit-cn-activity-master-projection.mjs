@@ -84,14 +84,23 @@ function assertLegacyZip(zipPath) {
     assert.notEqual(bytes.readUInt32LE(endOffset + 16), 0xffffffff, `ZIP64 directory offset: ${zipPath}`)
 }
 
-async function assertArchiveContainsEntry(cdnRoot, archiveName, entryPath) {
+// //// 按归档逐项核对主表成员 [@x380kkm 2026-09-28] ////
+export function assertArchiveEntries(archiveName, files, entryPaths) {
+    const entries = new Map(files.filter((entry) => entry.type === "File").map((entry) => [entry.path, entry]))
+    return [...entryPaths].map((entryPath) => {
+        const entry = entries.get(entryPath)
+        assert.ok(entry, `archive entry missing: ${archiveName}/${entryPath}`)
+        return { entry_path: entryPath, uncompressed_size: entry.uncompressedSize }
+    })
+}
+
+async function assertArchiveContainsEntries(cdnRoot, archiveName, entryPaths) {
     const archivePath = path.join(cdnRoot, archiveName)
     assertLegacyZip(archivePath)
     const archive = await unzipper.Open.file(archivePath)
-    const entry = archive.files.find((candidate) => candidate.path === entryPath)
-    assert.ok(entry && entry.type === "File", `archive entry missing: ${archiveName}/${entryPath}`)
-    return { archive: archiveName, entry_path: entryPath, uncompressed_size: entry.uncompressedSize }
+    return { archive: archiveName, entries: assertArchiveEntries(archiveName, archive.files, entryPaths) }
 }
+// //// /按归档逐项核对主表成员 ////
 
 function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, "utf8"))
@@ -146,6 +155,24 @@ function assertRankingChain(projection, projectionPath, singleBattle) {
     }
 }
 
+// //// 核对全部活动关卡在结算目录中的身份 [@x380kkm 2026-09-28] ////
+export function assertQuestCoverage(masters, decodedMasters, singleBattle) {
+    let checked = 0
+    for (const master of masters) {
+        if (!Number.isInteger(master.quest_category) || !Number.isInteger(master.start_index)) continue
+        for (const row of allRows(decodedMasters.get(master.name))) {
+            const key = `${master.quest_category}:${row[0]}`
+            const quest = singleBattle.quests?.[key]
+            assert.ok(quest, `activity quest missing from settlement catalog: ${master.name}/${key}`)
+            assert.equal(quest.category, master.quest_category, `activity quest category mismatch: ${key}`)
+            assert.equal(String(quest.quest_id), row[0], `activity quest identity mismatch: ${key}`)
+            checked += 1
+        }
+    }
+    return checked
+}
+// //// /核对全部活动关卡在结算目录中的身份 ////
+
 // //// 执行活动 master 投影审计 [@x380kkm 2026-08-29] ////
 async function audit(args) {
     const projectionPath = path.resolve(args.projection ?? DEFAULT_PROJECTION)
@@ -172,14 +199,19 @@ async function audit(args) {
         assert.equal(digestForEntity(buffer), master.source_entity_digest, `seed binary digest mismatch: ${master.name}`)
         roundTrips.push({ name: master.name, ...assertRoundTrip(master.name, buffer) })
         decodedMasters.set(master.name, decodeOrderedMap(buffer))
-        if (master.source_archive) archiveTargets.set(master.source_archive, master.entry_path)
+        if (master.source_archive) {
+            if (!archiveTargets.has(master.source_archive)) archiveTargets.set(master.source_archive, new Set())
+            archiveTargets.get(master.source_archive).add(master.entry_path)
+        }
     }
     const archiveChecks = []
-    for (const [archiveName, entryPath] of archiveTargets) {
-        archiveChecks.push(await assertArchiveContainsEntry(cdnRoot, archiveName, entryPath))
+    for (const [archiveName, entryPaths] of archiveTargets) {
+        archiveChecks.push(await assertArchiveContainsEntries(cdnRoot, archiveName, entryPaths))
     }
     const catalogCoverage = assertCatalogCoverage(readJson(catalogPath), masters, decodedMasters)
-    const rankingChain = assertRankingChain(projection, projectionPath, readJson(singleBattlePath))
+    const singleBattle = readJson(singleBattlePath)
+    const questCoverage = assertQuestCoverage(masters, decodedMasters, singleBattle)
+    const rankingChain = assertRankingChain(projection, projectionPath, singleBattle)
     if (args.archive) {
         const archivePath = path.resolve(args.archive)
         assertLegacyZip(archivePath)
@@ -191,6 +223,8 @@ async function audit(args) {
         catalog_non_gacha_activity_count: catalogCoverage,
         round_trip_count: roundTrips.length,
         archive_check_count: archiveChecks.length,
+        archive_entry_check_count: archiveChecks.reduce((count, archive) => count + (archive.entries?.length ?? 0), 0),
+        activity_quest_count: questCoverage,
         ranking_chain: rankingChain,
         zip64: false,
     }

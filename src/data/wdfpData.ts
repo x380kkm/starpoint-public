@@ -11,6 +11,7 @@ import { generateViewerId, getServerDate, getServerTime } from "../utils";
 import { Account, DailyChallengePointListCampaign, DailyChallengePointListEntry, MergedPlayerData, PartyCategory, Player, PlayerActiveMission, PlayerBoxGacha, PlayerBoxGachaDrawnReward, PlayerCharacter, PlayerCharacterBondToken, PlayerCharacterExBoost, PlayerDrawnQuest, PlayerEquipment, PlayerGachaCampaign, PlayerGachaInfo, PlayerMultiSpecialExchangeCampaign, PlayerParty, PlayerPartyGroup, PlayerPeriodicRewardPoint, PlayerQuestProgress, PlayerRushEvent, PlayerRushEventClearedFolders, PlayerRushEventPlayedParty, PlayerStartDashExchangeCampaign, RawAccount, RawDailyChallengePointListCampaign, RawDailyChallengePointListEntry, RawPlayer, RawPlayerActiveMission, RawPlayerActiveMissionStage, RawPlayerBoxGacha, RawPlayerCharacter, RawPlayerCharacterBondToken, RawPlayerCharacterManaNode, RawPlayerClearedRegularMission, RawPlayerDrawnQuest, RawPlayerEquipment, RawPlayerGachaCampaign, RawPlayerGachaInfo, RawPlayerItem, RawPlayerMissionCounter, RawPlayerMultiSpecialExchangeCampaign, RawPlayerOption, RawPlayerParty, RawPlayerPartyGroup, RawPlayerQuestProgress, RawPlayerRushEvent, RawPlayerRushEventClearedFolder, RawPlayerRushEventPlayedParty, RawPlayerRushEventRanking, RawPlayerStartDashExchangeCampaign, RawPlayerTriggeredTutorial, RawSession, RushEventBattleType, GetRushEventEndlessRankingListResult, Session, SessionType, UserRushEventEndlessBattleRanking, UserRushEventPlayedParty } from "./types";
 import { deserializeBoolean, deserializeNumberList, getDefaultPlayerData, serializeBoolean, serializeNumberList } from "./utils";
 import { getPlayerRushEventEndlessBattleRankingSync } from "../lib/rush";
+import { characterReference } from "../lib/characterReference";
 import referencePlayerData from "../../assets/save_data.json";
 
 const db = getDatabase(Database.WDFP_DATA)
@@ -865,6 +866,17 @@ function insertPlayerDailyChallengePointListSync(
         for (const entry of entries) {
             insertPlayerDailyChallengePointListEntrySync(playerId, entry)
         }
+    })()
+}
+
+// //// 在同一事务中替换玩家挑战次数及其活动记录 [@x380kkm 2026-09-28] ////
+export function replacePlayerDailyChallengePointListSync(
+    playerId: number,
+    entries: DailyChallengePointListEntry[],
+): void {
+    db.transaction(() => {
+        db.prepare("DELETE FROM daily_challenge_point_list_entries WHERE player_id = ?").run(playerId)
+        for (const entry of entries) insertPlayerDailyChallengePointListEntrySync(playerId, entry)
     })()
 }
 
@@ -3439,12 +3451,12 @@ export function serializePlayerRushEventPlayedParty(
     deserialized: PlayerRushEventPlayedParty
 ): UserRushEventPlayedParty {
     return {
-        character_id_1: deserialized.characterIds[0],
-        character_id_2: deserialized.characterIds[1],
-        character_id_3: deserialized.characterIds[2],
-        unison_character_id_1: deserialized.unisonCharacterIds[0],
-        unison_character_id_2: deserialized.unisonCharacterIds[1],
-        unison_character_id_3: deserialized.unisonCharacterIds[2],
+        character_id_1: characterReference(deserialized.characterIds[0]),
+        character_id_2: characterReference(deserialized.characterIds[1]),
+        character_id_3: characterReference(deserialized.characterIds[2]),
+        unison_character_id_1: characterReference(deserialized.unisonCharacterIds[0]),
+        unison_character_id_2: characterReference(deserialized.unisonCharacterIds[1]),
+        unison_character_id_3: characterReference(deserialized.unisonCharacterIds[2]),
         equipment_id_1: deserialized.equipmentIds[0],
         equipment_id_2: deserialized.equipmentIds[1],
         equipment_id_3: deserialized.equipmentIds[2],
@@ -4175,12 +4187,7 @@ export function insertDefaultPlayerSync(
         {
             id: 251,
             point: 2,
-            campaignList: [
-                {
-                    campaignId: 2023013102,
-                    additionalPoint: 2
-                }
-            ]
+            campaignList: []
         },
         {
             id: 5001,
@@ -4584,26 +4591,6 @@ export function insertDefaultPlayerSync(
             oddsId: 35
         },
     ]))
-
-    // insert periodicReward
-    insertPlayerPeriodicRewardPointsListSync(playerId, [
-        {
-            id: 1,
-            point: 22,
-        },
-        {
-            id: 2,
-            point: 2,
-        },
-        {
-            id: 3,
-            point: 2,
-        },
-        {
-            id: 10000000,
-            point: 2,
-        },
-    ])
 
     // insert active missions
     insertPlayerActiveMissionsSync(playerId, {})

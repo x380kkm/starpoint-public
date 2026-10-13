@@ -1,9 +1,9 @@
 {
   "format_version": 1,
   "region": "cn",
-  "client_asset_version": "1.4.54",
-  "target_asset_version": "1.4.55",
-  "eventual_target_asset_version": "1.4.55",
+  "client_asset_version": "1.4.83",
+  "target_asset_version": "1.4.84",
+  "eventual_target_asset_version": "1.4.84",
   "entity_manifest": "entities/PathFile.csv",
   "binary_root": "cn-activity-masters",
   "masters": [
@@ -800,6 +800,361 @@
       "quest_category": null
     },
     {
+      "name": "player_history",
+      "activity_id_prefix": "player-history:",
+      "logical_path": "master/player_history/player_history.orderedmap",
+      "entry_path": "production/upload/75/c70b35c27687907f2d87186c5d5e9301126283",
+      "source_archive": "archive-common-diff/pinball-1.4.53-1.4.54-1-a2efb240.zip",
+      "source_version": "1.4.54",
+      "source_asset_kind": "common",
+      "source_byte_length": 82,
+      "source_entity_digest": "8XiDPvR93v7a0cNFyIpc3yJjemvOdNsvUhxGAIeRpsU",
+      "binary_path": "cn-activity-masters/player_history.orderedmap",
+      "row_count": 1,
+      "root_key_count": 1,
+      "start_index": 2,
+      "end_index": 3,
+      "time_indexes": [
+        1,
+        2,
+        3
+      ],
+      "scalar_schedule_indexes": [
+        1,
+        2,
+        3
+      ],
+      "composite_schedule_indexes": [],
+      "composite_schedules": [],
+      "synchronized_field_indexes": [
+        1,
+        2,
+        3
+      ],
+      "parent_activity_master": null,
+      "quest_category": null
+    },
+    {
+      "name": "multi_special_exchange_campaign",
+      "activity_id_prefix": "multi-special-exchange:",
+      "logical_path": "master/campaign/multi_special_exchange/multi_special_exchange_campaign.orderedmap",
+      "entry_path": "production/upload/5f/b02bb9275c4f6ca4ba06fd23b6085e70766ee1",
+      "source_archive": "archive-common-diff/pinball-1.4.42-1.4.43-1-69919501.zip",
+      "source_version": "1.4.43",
+      "source_asset_kind": "common",
+      "source_byte_length": 569,
+      "source_entity_digest": "vA4PS0p3lKc5-nlTLKc4Zmkxtixjg9274FrIYU7xq78",
+      "binary_path": "cn-activity-masters/multi_special_exchange_campaign.orderedmap",
+      "row_count": 3,
+      "root_key_count": 3,
+      "start_index": 3,
+      "end_index": 4,
+      "time_indexes": [
+        3,
+        4,
+        5
+      ],
+      "scalar_schedule_indexes": [
+        3,
+        4,
+        5
+      ],
+      "composite_schedule_indexes": [],
+      "composite_schedules": [],
+      "synchronized_field_indexes": [
+        3,
+        4,
+        5
+      ],
+      "parent_activity_master": null,
+      "quest_category": null
+    },
+    {
+      "name": "special_exchange_campaign",
+      "activity_id_prefix": "special-exchange:",
+      "logical_path": "master/campaign/special_exchange/special_exchange_campaign.orderedmap",
+      "entry_path": "production/upload/23/a86a734a68f448904d456371c13b3468d9b7f2",
+      "source_archive": "archive-common-diff/pinball-1.4.48-1.4.49-1-4c2dd780.zip",
+      "source_version": "1.4.49",
+      "source_asset_kind": "common",
+      "source_byte_length": 7764,
+      "source_entity_digest": "qh_DNutseTi7_VdDpD2nFEmFV6tLoHTwUZLjHIJUwCs",
+      "binary_path": "cn-activity-masters/special_exchange_campaign.orderedmap",
+      "row_count": 32,
+      "root_key_count": 32,
+      "start_index": 4,
+      "end_index": 5,
+      "time_indexes": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "scalar_schedule_indexes": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "composite_schedule_indexes": [],
+      "composite_schedules": [],
+      "synchronized_field_indexes": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "parent_activity_master": null,
+      "quest_category": null
+    },
+    {
+      "name": "start_dash_exchange_campaign",
+      "activity_id_prefix": "start-dash-exchange:",
+      "logical_path": "master/campaign/start_dash_exchange/start_dash_exchange_campaign.orderedmap",
+      "entry_path": "production/upload/3a/af95cbc684f5b7c6e03b83fb380cf5d556481a",
+      "source_archive": "archive-common-full/pinball-1.4.0-76-aa22ad90.zip",
+      "source_version": "1.4.0",
+      "source_asset_kind": "common",
+      "source_byte_length": 204,
+      "source_entity_digest": "uSroVolnfzue20H0bRmtGDIAie0USHkpmZB7He3qluQ",
+      "binary_path": "cn-activity-masters/start_dash_exchange_campaign.orderedmap",
+      "row_count": 1,
+      "root_key_count": 1,
+      "start_index": 2,
+      "end_index": 3,
+      "time_indexes": [
+        2
+      ],
+      "scalar_schedule_indexes": [
+        2,
+        3
+      ],
+      "composite_schedule_indexes": [],
+      "composite_schedules": [],
+      "synchronized_field_indexes": [
+        2,
+        3
+      ],
+      "parent_activity_master": null,
+      "quest_category": null
+    },
+    {
+      "name": "treasure_vault_exchange_campaign",
+      "activity_id_prefix": "treasure-vault-exchange:",
+      "logical_path": "master/campaign/treasure_vault_exchange/treasure_vault_exchange_campaign.orderedmap",
+      "entry_path": "production/upload/65/56ff17923df4a2ba622dac927e1db2b6186370",
+      "source_archive": "archive-common-full/pinball-1.4.0-131-f0af82ff.zip",
+      "source_version": "1.4.0",
+      "source_asset_kind": "common",
+      "source_byte_length": 474,
+      "source_entity_digest": "9CBCPDfIfKXmg_yGfQ0zvwjNqNGb3ZZKBc5JplJ5XzY",
+      "binary_path": "cn-activity-masters/treasure_vault_exchange_campaign.orderedmap",
+      "row_count": 2,
+      "root_key_count": 2,
+      "start_index": 4,
+      "end_index": 5,
+      "time_indexes": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "scalar_schedule_indexes": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "composite_schedule_indexes": [],
+      "composite_schedules": [],
+      "synchronized_field_indexes": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "parent_activity_master": null,
+      "quest_category": null
+    },
+    {
+      "name": "character_election",
+      "activity_id_prefix": "character-election:",
+      "logical_path": "master/character_election/character_election.orderedmap",
+      "entry_path": "production/upload/68/69084bbad3eeefde85c2fdb3fd286f928a5151",
+      "source_archive": "archive-common-full/pinball-1.4.0-134-afd40c77.zip",
+      "source_version": "1.4.0",
+      "source_asset_kind": "common",
+      "source_byte_length": 102,
+      "source_entity_digest": "T0hBHPdzdhqFi0e1m36Qk3GsNG6sftKRCv3yMITy2pU",
+      "binary_path": "cn-activity-masters/character_election.orderedmap",
+      "row_count": 1,
+      "root_key_count": 1,
+      "start_index": 2,
+      "end_index": 3,
+      "time_indexes": [
+        2,
+        3
+      ],
+      "scalar_schedule_indexes": [
+        2,
+        3
+      ],
+      "composite_schedule_indexes": [],
+      "composite_schedules": [],
+      "synchronized_field_indexes": [
+        2,
+        3
+      ],
+      "parent_activity_master": null,
+      "quest_category": null
+    },
+    {
+      "name": "collect_item_event_mission",
+      "activity_id_prefix": "collect-item:",
+      "logical_path": "master/mission/collect_item_event_mission.orderedmap",
+      "entry_path": "production/upload/87/220b4d797a23acca0491ada95dee23faf5478d",
+      "source_archive": "archive-common-diff/pinball-1.4.42-1.4.43-1-69919501.zip",
+      "source_version": "1.4.43",
+      "source_asset_kind": "common",
+      "source_byte_length": 162020,
+      "source_entity_digest": "k6hBqPyrR_cvKX6GPFG9jPSPqQ_np4dYGnpunUKRNSQ",
+      "binary_path": "cn-activity-masters/collect_item_event_mission.orderedmap",
+      "row_count": 997,
+      "root_key_count": 997,
+      "start_index": 27,
+      "end_index": 28,
+      "activity_id_index": 0,
+      "time_indexes": [
+        27,
+        28,
+        29,
+        30
+      ],
+      "scalar_schedule_indexes": [
+        27,
+        28,
+        29,
+        30
+      ],
+      "composite_schedule_indexes": [],
+      "composite_schedules": [],
+      "synchronized_field_indexes": [
+        27,
+        28,
+        29,
+        30
+      ],
+      "parent_activity_master": "collect_item_event",
+      "quest_category": null
+    },
+    {
+      "name": "event_mission",
+      "activity_id_prefix": "raid:",
+      "logical_path": "master/mission/event_mission.orderedmap",
+      "entry_path": "production/upload/ac/de425a8da0664edad2bf99feddc5e97ae6741d",
+      "source_archive": "archive-common-diff/pinball-1.4.47-1.4.48-1-74436299.zip",
+      "source_version": "1.4.48",
+      "source_asset_kind": "common",
+      "source_byte_length": 426273,
+      "source_entity_digest": "0ehqKKV9ozfCljlqKCUS8PCNpb2hb8EcMIAZyWnTWUw",
+      "binary_path": "cn-activity-masters/event_mission.orderedmap",
+      "row_count": 2512,
+      "root_key_count": 2512,
+      "start_index": 25,
+      "end_index": 26,
+      "activity_id_index": 8,
+      "activity_id_filter": [
+        7,
+        "16"
+      ],
+      "time_indexes": [
+        25,
+        26,
+        27,
+        28
+      ],
+      "scalar_schedule_indexes": [
+        25,
+        26,
+        27,
+        28
+      ],
+      "composite_schedule_indexes": [],
+      "composite_schedules": [],
+      "synchronized_field_indexes": [
+        25,
+        26,
+        27,
+        28
+      ],
+      "parent_activity_master": "raid_event",
+      "quest_category": null
+    },
+    {
+      "name": "event_item_shop",
+      "activity_id_prefix": "event-shop:",
+      "logical_path": "master/shop/event_item_shop.orderedmap",
+      "entry_path": "production/upload/fe/1035fdd920d54f65f6797bad2d4ac054feb10d",
+      "source_archive": "archive-common-diff/pinball-1.4.49-1.4.50-1-2f8c317d.zip",
+      "source_version": "1.4.50",
+      "source_asset_kind": "common",
+      "source_byte_length": 2233388,
+      "source_entity_digest": "R8AqPM7vkkPwFuRz62diUEO2bZUURmti9l0UTSm_Sr4",
+      "binary_path": "cn-activity-masters/event_item_shop.orderedmap",
+      "row_count": 8532,
+      "root_key_count": 8532,
+      "start_index": 26,
+      "end_index": 27,
+      "time_indexes": [
+        26,
+        27
+      ],
+      "scalar_schedule_indexes": [
+        26,
+        27
+      ],
+      "composite_schedule_indexes": [],
+      "composite_schedules": [],
+      "synchronized_field_indexes": [
+        26,
+        27
+      ],
+      "parent_activity_master": null,
+      "quest_category": null
+    },
+    {
+      "name": "box",
+      "activity_id_prefix": "box-gacha:",
+      "logical_path": "master/box_gacha/box.orderedmap",
+      "entry_path": "production/upload/63/07ee65542d68ef1be95ec6076bcd1397fa3ac9",
+      "source_archive": "archive-common-diff/pinball-1.4.47-1.4.48-1-74436299.zip",
+      "source_version": "1.4.48",
+      "source_asset_kind": "common",
+      "source_byte_length": 43709,
+      "source_entity_digest": "dCFMjkl4B-xVPtHtXsFQWd7rW0cEb5G7GVcKG4F7KJ0",
+      "binary_path": "cn-activity-masters/box.orderedmap",
+      "row_count": 269,
+      "root_key_count": 48,
+      "start_index": 13,
+      "end_index": 14,
+      "time_indexes": [
+        13,
+        14
+      ],
+      "scalar_schedule_indexes": [
+        13,
+        14
+      ],
+      "composite_schedule_indexes": [],
+      "composite_schedules": [],
+      "synchronized_field_indexes": [
+        13,
+        14
+      ],
+      "parent_activity_master": "box_gacha",
+      "quest_category": null
+    },
+    {
       "name": "advent_event_quest",
       "activity_id_prefix": "advent:",
       "logical_path": "master/quest/event/advent_event_quest.orderedmap",
@@ -1258,25 +1613,21 @@
       "binary_path": "cn-activity-masters/hard_multi_event_quest.orderedmap",
       "row_count": 12,
       "root_key_count": 12,
-      "start_index": 7,
-      "end_index": 8,
+      "start_index": 5,
+      "end_index": 6,
       "time_indexes": [
         5,
         6
       ],
       "scalar_schedule_indexes": [
         5,
-        6,
-        7,
-        8
+        6
       ],
       "composite_schedule_indexes": [],
       "composite_schedules": [],
       "synchronized_field_indexes": [
         5,
-        6,
-        7,
-        8
+        6
       ],
       "parent_activity_master": "hard_multi_event",
       "quest_category": 26
@@ -1455,6 +1806,56 @@
       "sourceByteLength": 3361
     },
     {
+      "name": "player_history",
+      "encodedByteLength": 88,
+      "sourceByteLength": 82
+    },
+    {
+      "name": "multi_special_exchange_campaign",
+      "encodedByteLength": 582,
+      "sourceByteLength": 569
+    },
+    {
+      "name": "special_exchange_campaign",
+      "encodedByteLength": 7806,
+      "sourceByteLength": 7764
+    },
+    {
+      "name": "start_dash_exchange_campaign",
+      "encodedByteLength": 209,
+      "sourceByteLength": 204
+    },
+    {
+      "name": "treasure_vault_exchange_campaign",
+      "encodedByteLength": 482,
+      "sourceByteLength": 474
+    },
+    {
+      "name": "character_election",
+      "encodedByteLength": 108,
+      "sourceByteLength": 102
+    },
+    {
+      "name": "collect_item_event_mission",
+      "encodedByteLength": 168310,
+      "sourceByteLength": 162020
+    },
+    {
+      "name": "event_mission",
+      "encodedByteLength": 440843,
+      "sourceByteLength": 426273
+    },
+    {
+      "name": "event_item_shop",
+      "encodedByteLength": 2299780,
+      "sourceByteLength": 2233388
+    },
+    {
+      "name": "box",
+      "encodedByteLength": 44633,
+      "sourceByteLength": 43709
+    },
+    {
       "name": "advent_event_quest",
       "encodedByteLength": 143750,
       "sourceByteLength": 143487
@@ -1565,6 +1966,16 @@
       "production/upload/4b/c0a3b255afcf2547cb3affd210d30f8c3c7cdc",
       "production/upload/ee/b52fb1662e9df61a64744cc0672f881e285709",
       "production/upload/fd/e2171718031dffc68305877a21338b1d55219a",
+      "production/upload/75/c70b35c27687907f2d87186c5d5e9301126283",
+      "production/upload/5f/b02bb9275c4f6ca4ba06fd23b6085e70766ee1",
+      "production/upload/23/a86a734a68f448904d456371c13b3468d9b7f2",
+      "production/upload/3a/af95cbc684f5b7c6e03b83fb380cf5d556481a",
+      "production/upload/65/56ff17923df4a2ba622dac927e1db2b6186370",
+      "production/upload/68/69084bbad3eeefde85c2fdb3fd286f928a5151",
+      "production/upload/87/220b4d797a23acca0491ada95dee23faf5478d",
+      "production/upload/ac/de425a8da0664edad2bf99feddc5e97ae6741d",
+      "production/upload/fe/1035fdd920d54f65f6797bad2d4ac054feb10d",
+      "production/upload/63/07ee65542d68ef1be95ec6076bcd1397fa3ac9",
       "production/upload/6b/ef338822b2c963eb40c67b3d43a3b3f911ad73",
       "production/upload/3d/702094031bfe5ffac079a0fef5ab59156fa35c",
       "production/upload/4c/b71440a3399b320dc49a84d6b6cde23f569593",

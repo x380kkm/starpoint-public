@@ -6,6 +6,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { readScoreAttackBorderRewards } from "./read-cn-score-attack-quests.mjs"
 
 const SCRIPT_DIRECTORY = path.dirname(fileURLToPath(import.meta.url))
 const DEFAULT_PROJECT_ROOT = path.resolve(SCRIPT_DIRECTORY, "..", "..")
@@ -123,29 +124,20 @@ function auditCharacterRaces(referenceAssets, projectRoot) {
     return Object.keys(referenceCharacters).length
 }
 
-function auditScoreAttack(referenceAssets, projectRoot) {
-    const referenceBorders = readJson(path.join(referenceAssets, "score_attack_border_reward.json"))
+function auditScoreAttack(projectRoot) {
+    const referenceBorders = readScoreAttackBorderRewards(path.join(
+        projectRoot, "core/personal-service/assets/cn-activity-masters/score_attack_border_reward.orderedmap",
+    ))
     const localBattle = readJson(
         path.join(projectRoot, "core", "personal-service", "assets", "cn-single-battle.json"),
     )
     let matchedQuests = 0
     for (const quest of Object.values(localBattle.quests).filter((quest) => quest.category === 27)) {
-        const key = String(quest.event_id) + "_" + String(quest.folder_id)
+        const key = String(quest.event_id) + "_" + String(quest.quest_id % 1000)
         const source = referenceBorders[key]
-        if (source === undefined) {
-            requireCondition(
-                quest.score_attack_border_rewards.length === 0,
-                "Score attack quest " + quest.quest_id + " has an unknown border source",
-            )
-            continue
-        }
-        const expected = source.map((border) => ({
-            score: border.score,
-            coinItemId: border.coinItemId,
-            coinCount: border.coinCount,
-        }))
+        requireCondition(source !== undefined, "Score attack quest " + quest.quest_id + " has an unknown border source")
         requireCondition(
-            equal(quest.score_attack_border_rewards, expected),
+            equal(quest.score_attack_border_rewards, source),
             "Score attack quest " + quest.quest_id + " has different borders",
         )
         matchedQuests += 1
@@ -186,7 +178,7 @@ function main() {
     const result = {
         mission: auditMissionContracts(referenceAssets, projectRoot),
         character_race_count: auditCharacterRaces(referenceAssets, projectRoot),
-        score_attack_quest_count: auditScoreAttack(referenceAssets, projectRoot),
+        score_attack_quest_count: auditScoreAttack(projectRoot),
         reference: auditReferenceTrackers(referenceRoot),
     }
     console.log(JSON.stringify(result))

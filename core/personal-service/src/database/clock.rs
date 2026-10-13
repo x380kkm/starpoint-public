@@ -116,6 +116,11 @@ impl ServiceDatabase {
         Ok(self.current_server_time_millis()? / 1_000)
     }
 
+    pub(crate) fn current_server_time_rate(&self) -> Result<f64, PersonalServiceError> {
+        let (enabled, _, _, rate) = self.read_virtual_time()?;
+        Ok(if enabled { rate } else { 1.0 })
+    }
+
     pub(crate) fn current_server_utc_day(&self) -> Result<i64, PersonalServiceError> {
         Ok(utc_day_from_millis(self.current_server_time_millis()?))
     }
@@ -125,9 +130,37 @@ impl ServiceDatabase {
     }
     // //// /返回 CN 服务使用的 Unix 毫秒时间 ////
 
+    // //// 按同一虚拟时钟锚点映射真实时间区间 [@x380kkm 2026-09-25] ////
+    pub(crate) fn project_wall_time_window(
+        &self,
+        start_ms: i64,
+        end_ms: i64,
+    ) -> Result<(i64, i64), PersonalServiceError> {
+        let (enabled, virtual_anchor_ms, real_anchor_ms, rate) = self.read_virtual_time()?;
+        Ok(if enabled {
+            (
+                project_time(virtual_anchor_ms, real_anchor_ms, rate, start_ms),
+                project_time(virtual_anchor_ms, real_anchor_ms, rate, end_ms),
+            )
+        } else {
+            (start_ms, end_ms)
+        })
+    }
+    // //// /按同一虚拟时钟锚点映射真实时间区间 ////
+
     // //// 返回真实墙钟毫秒时间 [@x380kkm 2026-08-23] ////
     pub(crate) fn current_wall_time_millis(&self) -> Result<i64, PersonalServiceError> {
         system_time_millis()
+    }
+
+    pub(crate) fn current_wall_date(&self) -> Result<String, PersonalServiceError> {
+        self.connection
+            .query_row(
+                "SELECT date(?1 / 1000.0, 'unixepoch', 'localtime')",
+                [system_time_millis()?],
+                |row| row.get(0),
+            )
+            .map_err(clock_database_error)
     }
     // //// /返回真实墙钟毫秒时间 ////
 
@@ -215,6 +248,8 @@ impl ServiceDatabase {
         if inserted == 0 {
             return Ok(false);
         }
+        super::activity_history::record_snapshot_events(&transaction, account_id, data, history_created_at)?;
+        let data = super::reward_deliveries::prepare_snapshot(&transaction, account_id, data)?;
         transaction
             .execute(
                 "INSERT INTO player_snapshots (account_id, data_json) VALUES (?1, ?2)
@@ -283,7 +318,7 @@ pub(crate) fn parse_iso_timestamp(value: &str) -> Option<i64> {
         return None;
     }
 
-    let (clock, fraction) = time.split_once('.').map_or((time, ""), |parts| parts);
+    let (clock, fraction) = time.split_once('.').map_or((time, "0"), |parts| parts);
     let mut clock_parts = clock.split(':');
     let hour = parse_fixed_i32(clock_parts.next()?, 2)?;
     let minute = parse_fixed_i32(clock_parts.next()?, 2)?;
@@ -363,6 +398,10 @@ mod tests {
 
     #[test]
     fn parses_rfc3339_utc_milliseconds() {
+        assert_eq!(
+            parse_iso_timestamp("2030-01-01T00:00:00Z"),
+            Some(1_893_456_000_000)
+        );
         assert_eq!(
             parse_iso_timestamp("2030-01-01T00:00:00.000Z"),
             Some(1_893_456_000_000)

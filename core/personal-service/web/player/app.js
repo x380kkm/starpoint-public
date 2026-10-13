@@ -125,8 +125,12 @@ function makeElement(tagName, className, text) {
     return element
 }
 
-function downloadJson(filename, payload) {
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" })
+async function downloadJson(filename, payload) {
+    const contents = JSON.stringify(payload, null, 2)
+    if (typeof window.StarpointDocuments?.saveJson === "function") {
+        return window.StarpointDocuments.saveJson(filename, contents)
+    }
+    const blob = new Blob([contents], { type: "application/json" })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.href = url
@@ -135,6 +139,14 @@ function downloadJson(filename, payload) {
     link.click()
     link.remove()
     setTimeout(() => URL.revokeObjectURL(url), 0)
+    return "download_requested"
+}
+
+// //// 返回文件分发结果提示 [@x380kkm 2026-09-28] ////
+function documentExportFeedback(result) {
+    if (result === "saved") return "文件已保存."
+    if (result === "download_requested") return "已发起下载, 请在系统完成保存."
+    return undefined
 }
 
 function safeFilename(name, suffix) {
@@ -200,7 +212,7 @@ function renderSaves(state) {
         title.append(makeElement("p", "meta", `更新于 ${slot.updated_at}, 快照 ${slot.snapshot_count}`))
         head.append(title)
         const actions = makeElement("div", "save-actions")
-        const exportButton = makeElement("button", "button ghost", "导出 JSON")
+        const exportButton = makeElement("button", "button ghost", "导出可编辑 JSON")
         exportButton.type = "button"
         exportButton.addEventListener("click", () => runAction(exportButton, () => exportSave(slot, false)))
         const encryptedButton = makeElement("button", "button ghost", "导出密文")
@@ -234,8 +246,8 @@ async function exportSave(slot, encrypted) {
     const suffix = encrypted ? ".starpoint-save" : ".json"
     const path = `/v1/player/local-saves/${encodeURIComponent(slot.id)}/${encrypted ? "encrypted-export" : "export"}`
     const payload = await requestApi(path)
-    downloadJson(safeFilename(slot.name, suffix), payload)
-    return encrypted ? "密文存档已导出." : "存档 JSON 已导出."
+    const result = await downloadJson(safeFilename(slot.name, suffix), payload)
+    return documentExportFeedback(result)
 }
 
 async function activateSave(slot) {
@@ -339,9 +351,10 @@ elements.recoveryExportForm.addEventListener("submit", async (event) => {
             method: "POST",
             body: { password },
         })
-        downloadJson("starpoint-recovery.starpoint-recovery", response.package)
+        const result = await downloadJson("starpoint-recovery.starpoint-recovery", response.package)
+        if (result === "cancelled") return undefined
         elements.recoveryExportForm.reset()
-        return "恢复包已导出."
+        return documentExportFeedback(result)
     })
 })
 

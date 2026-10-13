@@ -2,21 +2,27 @@
 // # android-personal-service-management-activity
 //
 // 该 Activity 安装内嵌游戏, 启动持久前台服务并进入游戏或本机管理页面.
-// WebView 只访问固定回环端点, Activity 进入后台时提交状态, 伴随服务继续运行.
+// WebView 只访问固定回环端点, Activity 进入后台时伴随服务继续运行.
 
 package dev.starpoint.personalservice;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ComponentName;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.system.Os;
+import android.system.OsConstants;
+import android.util.Log;
 import android.view.ViewGroup;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -24,6 +30,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.ByteArrayInputStream;
 import java.util.Collections;
@@ -32,6 +39,8 @@ public final class ManagementActivity extends Activity {
     private static final int MANAGEMENT_PORT = 17171;
     private static final long READY_POLL_MILLISECONDS = 250;
     private static final int NOTIFICATION_PERMISSION_REQUEST = 17171;
+    private static final int RESOURCE_DOCUMENT_REQUEST = 17174;
+    private static final String DOCUMENT_REQUEST_PENDING = "document_request_pending";
     private static final String GAME_PACKAGE = GameInstaller.GAME_PACKAGE;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -41,14 +50,19 @@ public final class ManagementActivity extends Activity {
     private String displayedStatus;
     private TextView statusView;
     private WebView managementView;
+    private ManagementDocuments managementDocuments;
     private boolean launchGameWhenReady;
     private boolean gameLaunchAttempted;
+    private boolean installationAttempted;
+    private boolean compatibilityConfirmed;
+    private boolean compatibilityPromptVisible;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestNotificationPermission();
-        launchGameWhenReady = isLauncherIntent(getIntent());
+        launchGameWhenReady = isLauncherIntent(getIntent())
+            && (savedInstanceState == null || !savedInstanceState.getBoolean(DOCUMENT_REQUEST_PENDING));
         handleInstallIntent(getIntent());
         if (GameInstaller.isInstalled(this)) {
             showStatus("正在启动个人服务...");
@@ -62,6 +76,16 @@ public final class ManagementActivity extends Activity {
     protected void onResume() {
         super.onResume();
         int generation = ++lifecycleGeneration;
+        if (showCompatibilityNotice()) {
+            return;
+        }
+        continueStartup(generation);
+    }
+
+    private void continueStartup(int generation) {
+        if (!isCurrentLifecycle(generation)) {
+            return;
+        }
         if (!GameInstaller.isInstalled(this)) {
             showGameInstallWhenReady(generation);
             return;
@@ -102,12 +126,19 @@ public final class ManagementActivity extends Activity {
             );
             return;
         }
-        String persistedStatus = GameInstaller.status(this);
-        if (!GameInstaller.isInstallInProgress(this) && persistedStatus == null) {
+        if (!GameInstaller.isInstallInProgress(this) && !installationAttempted) {
+            installationAttempted = true;
+            showStatus(GameInstaller.hasOutdatedInstallation(this)
+                ? "正在更新配套游戏..." : "正在准备游戏安装...");
             GameInstaller.beginInstallIfNeeded(this);
+        }
+        if (GameInstaller.launchPendingUserConfirmation(this)) {
+            installationAttempted = true;
+            return;
         }
         String status = currentInstallStatus();
         if (GameInstaller.isInstallInProgress(this)) {
+            installationAttempted = true;
             showStatus(status);
             mainHandler.postDelayed(
                 () -> showGameInstallWhenReady(generation),
@@ -182,7 +213,16 @@ public final class ManagementActivity extends Activity {
             return;
         }
         if (CompanionServiceHost.getOrCreate(this).managementUrl() == null) {
-            showStatus("正在启动个人服务...");
+            if (showResourceImportWhenNeeded(generation)) return;
+            String failure = PersonalServiceForegroundService.lastStartFailure();
+            if (failure != null) {
+                showActionStatus(failure + "\n\n点击这里重试启动.", () -> {
+                    PersonalServiceForegroundService.ensureStarted(this);
+                    launchGameWhenServiceReady(generation);
+                });
+                return;
+            }
+            showStatus(CdnAssetInstaller.status());
             mainHandler.postDelayed(
                 () -> launchGameWhenServiceReady(generation),
                 READY_POLL_MILLISECONDS
@@ -228,6 +268,7 @@ public final class ManagementActivity extends Activity {
             showManagementPage(managementUrl);
             return;
         }
+        if (showResourceImportWhenNeeded(generation)) return;
         String failure = PersonalServiceForegroundService.lastStartFailure();
         showStatus(failure == null ? CdnAssetInstaller.status() : failure);
         mainHandler.postDelayed(
@@ -253,6 +294,37 @@ public final class ManagementActivity extends Activity {
     }
     // //// /安装游戏并在个人服务就绪后进入游戏或管理页 ////
 
+    // //// 通过系统文档选择器准备独立资源包 [@x380kkm 2026-09-26] ////
+    private boolean showResourceImportWhenNeeded(int generation) {
+        if (!CdnAssetInstaller.requiresResourceDocument()) return false;
+        if (CdnResourceImport.isRunning()) {
+            showStatus(CdnAssetInstaller.status());
+        } else {
+            String failure = CdnResourceImport.lastFailure();
+            String prompt = "请选择与安装包配套的 .starpoint-resources 文件.\n\n点击这里打开系统文件选择器.";
+            showActionStatus(failure == null ? prompt : failure + "\n\n" + prompt, this::chooseResourceDocument);
+        }
+        mainHandler.postDelayed(() -> {
+            if (!isCurrentLifecycle(generation)) return;
+            if (launchGameWhenReady && !gameLaunchAttempted) launchGameWhenServiceReady(generation);
+            else showManagementPageWhenReady(generation);
+        }, READY_POLL_MILLISECONDS);
+        return true;
+    }
+
+    private void chooseResourceDocument() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try {
+            startActivityForResult(intent, RESOURCE_DOCUMENT_REQUEST);
+        } catch (ActivityNotFoundException | SecurityException error) {
+            Toast.makeText(this, "系统文件选择器不可用, 请启用系统文件应用后重试.", Toast.LENGTH_LONG).show();
+        }
+    }
+    // //// /通过系统文档选择器准备独立资源包 ////
+
     // //// 限制管理 WebView 只访问固定回环服务 [@x380kkm 2026-08-31] ////
     private WebView createManagementView() {
         WebView.setWebContentsDebuggingEnabled(false);
@@ -264,7 +336,19 @@ public final class ManagementActivity extends Activity {
         settings.setAllowContentAccess(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
         settings.setSaveFormData(false);
+        ManagementDocuments documents = new ManagementDocuments(this, view);
+        managementDocuments = documents;
         view.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageStarted(WebView webView, String url, Bitmap favicon) {
+                documents.cancelPageRequests();
+            }
+
+            @Override
+            public void onPageFinished(WebView webView, String url) {
+                if (url.equals(webView.getUrl())) documents.attachToPage();
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView webView, WebResourceRequest request) {
                 return !isLocalManagementUri(request.getUrl());
@@ -302,6 +386,49 @@ public final class ManagementActivity extends Activity {
     }
     // //// /限制管理 WebView 只访问固定回环服务 ////
 
+    // //// 显示设备原生库兼容信息 [@x380kkm 2026-09-10] ////
+    private boolean showCompatibilityNotice() {
+        if (compatibilityConfirmed) {
+            return false;
+        }
+        if (compatibilityPromptVisible) {
+            return true;
+        }
+        long pageSize;
+        try {
+            pageSize = Os.sysconf(OsConstants._SC_PAGESIZE);
+        } catch (RuntimeException error) {
+            Log.w("StarpointPersonalService", "Unable to read system page size.", error);
+            compatibilityConfirmed = true;
+            return false;
+        }
+        if (pageSize <= 4096) {
+            compatibilityConfirmed = true;
+            return false;
+        }
+        compatibilityPromptVisible = true;
+        new AlertDialog.Builder(this)
+            .setTitle("设备兼容提醒")
+            .setMessage("当前系统使用 " + (pageSize / 1024) + " KB 内存页. "
+                + "游戏内原生库按 4 KB 构建, 运行依赖系统提供的旧应用兼容模式. "
+                + "可在游戏的系统应用详情中查看兼容选项, 或继续尝试运行.")
+            .setPositiveButton("继续", (dialog, which) -> {
+                compatibilityPromptVisible = false;
+                compatibilityConfirmed = true;
+                continueStartup(++lifecycleGeneration);
+            })
+            .setNegativeButton("退出", (dialog, which) -> finish())
+            .setNeutralButton("应用详情", (dialog, which) -> {
+                compatibilityPromptVisible = false;
+                startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:" + GAME_PACKAGE)));
+            })
+            .setCancelable(false)
+            .show();
+        return true;
+    }
+    // //// /显示设备原生库兼容信息 ////
+
     // //// 显示服务状态并申请通知权限 [@x380kkm 2026-08-31] ////
     private void showStatus(String message) {
         if (message.equals(displayedStatus) && statusView != null && managementView == null) {
@@ -309,6 +436,8 @@ public final class ManagementActivity extends Activity {
         }
         displayedStatus = message;
         if (managementView != null) {
+            managementDocuments.dispose();
+            managementDocuments = null;
             managementView.stopLoading();
             managementView.destroy();
             managementView = null;
@@ -348,14 +477,34 @@ public final class ManagementActivity extends Activity {
     }
     // //// /显示服务状态并申请通知权限 ////
 
-    // //// 在界面生命周期边界提交状态并释放 WebView [@x380kkm 2026-08-31] ////
+    // //// 处理界面生命周期边界 [@x380kkm 2026-09-04] ////
+    @Override
+    protected void onSaveInstanceState(Bundle state) {
+        state.putBoolean(DOCUMENT_REQUEST_PENDING,
+            managementDocuments != null && managementDocuments.hasPendingRequest());
+        super.onSaveInstanceState(state);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == RESOURCE_DOCUMENT_REQUEST && resultCode == RESULT_OK && data != null) {
+            CdnResourceImport.start(this, data.getData());
+            return;
+        }
+        if (ManagementDocuments.isDocumentResult(requestCode)) {
+            if (managementDocuments != null) {
+                managementDocuments.onActivityResult(requestCode, resultCode, data);
+            } else if (resultCode == RESULT_OK) {
+                Toast.makeText(this, "页面已重新载入, 请重新选择文件或导出存档.", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
     @Override
     protected void onPause() {
         ++lifecycleGeneration;
         mainHandler.removeCallbacksAndMessages(null);
-        if (CompanionServiceHost.getOrCreate(this).isRunning()) {
-            PersonalServiceForegroundService.requestFlush(this);
-        }
         super.onPause();
     }
 
@@ -365,6 +514,8 @@ public final class ManagementActivity extends Activity {
         ++lifecycleGeneration;
         mainHandler.removeCallbacksAndMessages(null);
         if (managementView != null) {
+            managementDocuments.dispose();
+            managementDocuments = null;
             managementView.stopLoading();
             managementView.loadUrl("about:blank");
             managementView.destroy();
@@ -372,5 +523,5 @@ public final class ManagementActivity extends Activity {
         }
         super.onDestroy();
     }
-    // //// /在界面生命周期边界提交状态并释放 WebView ////
+    // //// /处理界面生命周期边界 ////
 }

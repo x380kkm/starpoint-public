@@ -18,6 +18,7 @@ function ConvertFrom-IosCandidateCommandLine {
         cncdnbundle = 'CnCdnBundle'
         bundleid = 'BundleId'
         displayname = 'DisplayName'
+        releaseversion = 'ReleaseVersion'
         sshhost = 'SshHost'
         outputdirectory = 'OutputDirectory'
         commit = 'Commit'
@@ -41,7 +42,7 @@ function ConvertFrom-IosCandidateCommandLine {
         }
         $parameters[$canonicalName] = [string]$Arguments[$index + 1]
     }
-    foreach ($requiredName in @('InputIpa', 'CnCdnBundle', 'BundleId', 'DisplayName')) {
+    foreach ($requiredName in @('InputIpa', 'CnCdnBundle', 'BundleId', 'DisplayName', 'ReleaseVersion')) {
         if (-not $parameters.ContainsKey($requiredName) -or
             [string]::IsNullOrWhiteSpace([string]$parameters[$requiredName])) {
             throw "缺少必要命令行参数: -$requiredName"
@@ -183,6 +184,7 @@ function Invoke-IosCnCandidateBuild {
         [Parameter(Mandatory)][string]$CnCdnBundle,
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$')][string]$BundleId,
         [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$DisplayName,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$ReleaseVersion,
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._:-]*$')][string]$SshHost = 'starpoint-mac',
         [string]$OutputDirectory,
         [string]$Commit = 'HEAD',
@@ -197,6 +199,12 @@ function Invoke-IosCnCandidateBuild {
                 -WorkingDirectory $WorkingDirectory -TimeoutSeconds $TimeoutSeconds
         }
     }
+
+    $webCheckScript = Join-Path $PSScriptRoot 'check-personal-service-web.ps1'
+    $webCheckResult = Invoke-IosCandidateProcess -ProcessInvoker $ProcessInvoker -FilePath 'pwsh' `
+        -Arguments @('-File', $webCheckScript, '-RepositoryRoot', $repositoryRoot) `
+        -WorkingDirectory $repositoryRoot -TimeoutSeconds 120
+    Assert-IosCandidateProcessPassed -Result $webCheckResult -Operation '校验个人服务网页构建产物'
 
     $headResult = Invoke-IosCandidateProcess -ProcessInvoker $ProcessInvoker -FilePath 'git' `
         -Arguments @('-C', $repositoryRoot, 'rev-parse', 'HEAD') -WorkingDirectory $repositoryRoot -TimeoutSeconds 30
@@ -391,6 +399,7 @@ function Invoke-IosCnCandidateBuild {
             '-OutputIpa', $outputIpa,
             '-BundleId', $BundleId,
             '-DisplayName', $DisplayName,
+            '-ReleaseVersion', $ReleaseVersion,
             '-CnCdnBundle', $cdnBundlePath,
             '-Report', $packageReport
         )
@@ -461,6 +470,7 @@ function Invoke-IosCnCandidateBuild {
         run_id = $runId
         commit = $headCommit
         bundle_id = $BundleId
+        release_version = $ReleaseVersion
         output_directory = $outputRoot
         output_ipa = if ($ipaArtifactPublished) { $outputIpa } else { $null }
         output_ipa_sha256 = $ipaSha256

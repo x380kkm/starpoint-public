@@ -1,7 +1,7 @@
 // audience: internal
 // # audit-cn-gacha-schedules
 //
-// 该脚本按 JST 解析 CN 卡池时间, 对照地区别名和临时别名, 并报告客户端入口与服务端时间门控可能分叉的记录.
+// 该脚本按 UTC+8 解析 CN 卡池时间, 对照地区别名和临时别名, 并报告客户端入口与服务端时间门控可能分叉的记录.
 
 import fs from "node:fs"
 import path from "node:path"
@@ -98,6 +98,9 @@ function main() {
     const document = readJson(gachaPath)
     const policy = readJson(policyPath)
     const campaigns = readJson(campaignPath)
+    const campaignIdsForPool = (gachaId) => Object.entries(campaigns)
+        .filter(([, campaign]) => campaign.gachaIds.includes(Number(gachaId)))
+        .map(([campaignId]) => Number(campaignId))
     const rows = Object.entries(document).map(([id, pool]) => {
         const numericId = Number(id)
         const clientWindow = patchedClientWindow(numericId, pool, policy, document)
@@ -113,7 +116,7 @@ function main() {
             isRegionalAlias: Object.hasOwn(policy.excludedRegionalAliases ?? {}, id),
             isCoverageAlias: Object.hasOwn(policy.normalizedCoverageAliases ?? {}, id),
             isTemporaryAlias: Object.hasOwn(policy.temporaryAliases ?? {}, id),
-            campaignId: campaigns[id] ?? null,
+            campaignIds: campaignIdsForPool(id),
         }
     })
     const temporaryRows = Object.entries(policy.temporaryAliases ?? {}).map(([id, canonicalId]) => ({
@@ -130,7 +133,7 @@ function main() {
         isRegionalAlias: false,
         isCoverageAlias: false,
         isTemporaryAlias: true,
-        campaignId: campaigns[String(canonicalId)] ?? null,
+        campaignIds: campaignIdsForPool(canonicalId),
     }))
     const sampleTimes = parseSampleTimes(args.at)
     const canonicalRows = rows.filter((row) => !row.isRegionalAlias && !row.isCoverageAlias && !row.isTemporaryAlias)
@@ -162,7 +165,7 @@ function main() {
         clientEndAtMs: row.endAtMs,
         canonicalStartAtMs: canonicalById.get(row.canonicalId)?.startAtMs ?? null,
         canonicalEndAtMs: canonicalById.get(row.canonicalId)?.endAtMs ?? null,
-        campaignId: row.campaignId,
+        campaignIds: row.campaignIds,
         serviceCanonicalGate: canonicalById.has(row.canonicalId),
     }))
     const visibleBySample = Object.fromEntries(sampleTimes.map(([label, at]) => [label, {
@@ -178,7 +181,7 @@ function main() {
             gacha: path.relative(root, gachaPath).replaceAll(path.sep, "/"),
             policy: path.relative(root, policyPath).replaceAll(path.sep, "/"),
             campaign: path.relative(root, campaignPath).replaceAll(path.sep, "/"),
-            timezone: "JST",
+            timezone: "UTC+8",
         },
         counts: {
             total: rows.length,
@@ -186,7 +189,7 @@ function main() {
             regionalAliases: rows.filter((row) => row.isRegionalAlias).length,
             coverageAliases: rows.filter((row) => row.isCoverageAlias).length,
             temporaryAliases: temporaryRows.length,
-            campaignMappings: rows.filter((row) => row.campaignId !== null).length,
+            campaignMappings: rows.reduce((count, row) => count + row.campaignIds.length, 0),
         },
         categories: countBy(rows, (row) => row.categories.join(",")),
         dateRange: {

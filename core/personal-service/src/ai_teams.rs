@@ -2,11 +2,12 @@
 // # personal-service-ai-teams
 //
 // 该模块从本地 CN 玩家存档提取队伍候选和两个队伍的白名单数据.
-// GET 为未配置槽位选择前两个有效队伍. PUT 追加不可变快照并移动当前 head.
+// GET 为未配置槽位选择前两个有效队伍. PUT 原子保存两个快照并将该槽位设为实例 AI 来源.
 // DELETE 清除当前选择并关闭该槽位的自动选择. 源存档变化不会改写已有快照.
+// 内置 AI 模板承接未选择或有效队伍不足的槽位, 模板数据只冻结到房间.
 
-use crate::database::ServiceDatabase;
 use crate::database::{AiTeamSnapshot, AiTeamSnapshotInput, AiTeamStoreError, LocalSaveStoreError};
+use crate::database::{MultiplayerAiSource, ServiceDatabase};
 use crate::http::{HttpRequest, HttpResponse};
 use crate::PersonalServiceError;
 use serde::Deserialize;
@@ -14,6 +15,7 @@ use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
 const LOCAL_SAVES_PREFIX: &str = "/v1/local-saves/";
+const SOURCE_PATH: &str = "/v1/local-saves/ai-team-source";
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -33,10 +35,10 @@ struct PartyCandidate {
 
 #[derive(Clone)]
 pub(crate) struct MultiplayerAiTeam {
-    pub(crate) snapshot_id: String,
+    pub(crate) source: MultiplayerAiSource,
     pub(crate) slot_id: i64,
     pub(crate) team_index: i64,
-    pub(crate) party_id: i64,
+    pub(crate) party_id: Option<i64>,
     pub(crate) data: Value,
 }
 
@@ -45,18 +47,24 @@ enum PlayerDataError {
     Storage(PersonalServiceError),
 }
 
-// //// 读取或建立当前账号的两个联机 AI 队伍 [@x380kkm 2026-08-22] ////
+// //// 读取或建立来源存档的两个联机 AI 队伍 [@x380kkm 2026-09-29] ////
 pub(crate) fn get_or_create_multiplayer_ai_teams(
     database: &mut ServiceDatabase,
     account_id: i64,
 ) -> Result<Vec<MultiplayerAiTeam>, PersonalServiceError> {
     let slot_id = database
-        .multiplayer_current_slot_id(account_id)?
+        .multiplayer_ai_source_slot_id(account_id)?
         .ok_or_else(|| PersonalServiceError::new("current account has no local save slot"))?;
     let mut snapshots = database
         .list_ai_team_snapshots(slot_id)?
         .ok_or_else(|| PersonalServiceError::new("current local save slot does not exist"))?;
     if snapshots.is_empty() {
+        if !database
+            .is_ai_team_automatic_selection_enabled(slot_id)?
+            .unwrap_or(false)
+        {
+            return Ok(default_multiplayer_ai_teams(slot_id));
+        }
         let (revision_id, player_data) =
             load_current_player_data(database, slot_id).map_err(|error| match error {
                 PlayerDataError::Response(_) => {
@@ -66,9 +74,7 @@ pub(crate) fn get_or_create_multiplayer_ai_teams(
             })?;
         let candidates = collect_valid_party_candidates(&player_data);
         if candidates.len() < 2 {
-            return Err(PersonalServiceError::new(
-                "current local save has fewer than two valid non-empty AI parties",
-            ));
+            return Ok(default_multiplayer_ai_teams(slot_id));
         }
         let inputs = snapshot_inputs(candidates.iter().take(2))?;
         snapshots = database
@@ -101,22 +107,44 @@ pub(crate) fn get_or_create_multiplayer_ai_teams(
                 ));
             }
             Ok(MultiplayerAiTeam {
-                snapshot_id: snapshot.id,
+                source: MultiplayerAiSource {
+                    snapshot_id: Some(snapshot.id),
+                    template_index: None,
+                },
                 slot_id: snapshot.slot_id,
                 team_index: snapshot.team_index,
-                party_id: snapshot.party_id,
+                party_id: Some(snapshot.party_id),
                 data,
             })
         })
         .collect()
 }
-// //// /读取或建立当前账号的两个联机 AI 队伍 ////
+// //// /读取或建立来源存档的两个联机 AI 队伍 ////
+
+// //// 为未选择玩家队伍的槽位提供内置房间模板 [@x380kkm 2026-09-27] ////
+fn default_multiplayer_ai_teams(slot_id: i64) -> Vec<MultiplayerAiTeam> {
+    (0..2)
+        .map(|team_index| MultiplayerAiTeam {
+            source: MultiplayerAiSource {
+                snapshot_id: None,
+                template_index: Some(team_index),
+            },
+            slot_id,
+            team_index,
+            party_id: None,
+            data: Value::Null,
+        })
+        .collect()
+}
 
 // //// 分派本地槽位 AI 队伍快照管理 [@x380kkm 2026-08-18] ////
 pub(crate) fn route(
     request: &HttpRequest,
     database: &mut ServiceDatabase,
 ) -> Option<Result<HttpResponse, PersonalServiceError>> {
+    if request.path() == SOURCE_PATH {
+        return Some(manage_source(request, database));
+    }
     let Some((slot_id, action)) = parse_path(request.path()) else {
         return None;
     };
@@ -134,6 +162,30 @@ pub(crate) fn route(
     })
 }
 // //// /分派本地槽位 AI 队伍快照管理 ////
+
+// //// 读取来源配置或恢复跟随当前存档 [@x380kkm 2026-09-29] ////
+fn manage_source(
+    request: &HttpRequest,
+    database: &ServiceDatabase,
+) -> Result<HttpResponse, PersonalServiceError> {
+    match request.method() {
+        "GET" => (),
+        "DELETE" => database.follow_current_ai_team_source()?,
+        _ => {
+            return Ok(error_response(
+                "405 Method Not Allowed",
+                "method_not_allowed",
+            ))
+        }
+    }
+    serialize_json("200 OK", source_status(database)?)
+}
+
+// //// 投影实例 AI 来源选择 [@x380kkm 2026-09-29] ////
+fn source_status(database: &ServiceDatabase) -> Result<Value, PersonalServiceError> {
+    let slot_id = database.ai_team_source_slot_id()?;
+    Ok(json!({"slot_id": slot_id, "mode": if slot_id.is_some() { "selected" } else { "current" }}))
+}
 
 fn parse_path(path: &str) -> Option<(i64, &str)> {
     let suffix = path.strip_prefix(LOCAL_SAVES_PREFIX)?;
@@ -172,10 +224,9 @@ fn list(
             Err(error) => return map_replace_error(error),
         };
     }
-    serialize_json(
-        "200 OK",
-        response_body(slot_id, snapshots, &candidates, automatic_selection_enabled)?,
-    )
+    let mut response = response_body(slot_id, snapshots, &candidates, automatic_selection_enabled)?;
+    response["source"] = source_status(database)?;
+    serialize_json("200 OK", response)
 }
 
 fn replace(
@@ -228,11 +279,13 @@ fn replace(
             data_json,
         });
     }
-    let saved = match database.replace_ai_team_snapshots(slot_id, &revision_id, &snapshots) {
+    let saved = match database.select_ai_team_snapshots(slot_id, &revision_id, &snapshots) {
         Ok(snapshots) => snapshots,
         Err(error) => return map_replace_error(error),
     };
-    serialize_json("200 OK", response_body(slot_id, saved, &candidates, true)?)
+    let mut response = response_body(slot_id, saved, &candidates, true)?;
+    response["source"] = source_status(database)?;
+    serialize_json("200 OK", response)
 }
 
 fn clear(
@@ -448,15 +501,13 @@ fn copy_referenced_entries(
     Ok(copied.into_iter().collect())
 }
 
+// //// 为引用角色复制有效节点和觉醒等级 [@x380kkm 2026-09-24] ////
 fn copy_referenced_mana_nodes(
     root: &Map<String, Value>,
     character_ids: &[Value],
     unison_character_ids: &[Value],
 ) -> Result<Map<String, Value>, PartyValidationError> {
-    let list = root
-        .get("user_character_mana_node_list")
-        .and_then(Value::as_object)
-        .ok_or(PartyValidationError::Incomplete)?;
+    let list = root.get("user_character_mana_node_list");
     let mut copied = BTreeMap::new();
     for id in character_ids
         .iter()
@@ -467,15 +518,24 @@ fn copy_referenced_mana_nodes(
         if copied.contains_key(&key) {
             continue;
         }
-        let value = match list.get(&key) {
-            Some(value) if value.is_array() => value.clone(),
-            Some(_) => return Err(PartyValidationError::Incomplete),
-            None => Value::Array(Vec::new()),
-        };
-        copied.insert(key, value);
+        let nodes = crate::cn_mana::validated_node_awake_levels(
+            id,
+            list.and_then(|list| list.get(&key)).unwrap_or(&Value::Null),
+        )
+        .map_err(|_| PartyValidationError::Incomplete)?;
+        copied.insert(
+            key,
+            Value::Array(
+                nodes
+                    .into_iter()
+                    .map(|(id, level)| json!({"mana_node_multiplied_id": id, "awake_level": level}))
+                    .collect(),
+            ),
+        );
     }
     Ok(copied.into_iter().collect())
 }
+// //// /为引用角色复制有效节点和觉醒等级 ////
 
 fn contains_sensitive_key(value: &Value) -> bool {
     match value {

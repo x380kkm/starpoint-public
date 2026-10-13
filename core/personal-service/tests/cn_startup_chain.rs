@@ -9,22 +9,72 @@ mod cn_support;
 #[allow(dead_code)]
 mod support;
 
+use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
+use base64::Engine;
 use cn_support::{decode_response, encode_request, SignupData, SignupRequest};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use starpoint_personal_service::PersonalService;
 use std::fs;
+use std::io::{Cursor, Write};
 use std::path::Path;
 use support::{request, request_with_body, request_with_headers};
 use tempfile::TempDir;
+use zip::write::SimpleFileOptions;
 
-fn write_archive(root: &Path, directory: &str, name: &str, body: &[u8]) {
+struct AssetArchive {
+    metadata: Value,
+    entity_row: String,
+}
+
+// //// 生成包含实体文件的启动资源归档 [@x380kkm 2026-09-23] ////
+fn write_archive(root: &Path, directory: &str, name: &str, body: &[u8]) -> AssetArchive {
+    let asset_kind = directory
+        .strip_prefix("archive-")
+        .and_then(|name| name.strip_suffix("-full"))
+        .expect("archive directory identifies an asset kind");
+    let upload_directory = if asset_kind == "common" {
+        "upload".to_owned()
+    } else {
+        format!("{asset_kind}_upload")
+    };
+    let digest = Sha256::digest(body);
+    let digest_path = format!("{digest:x}");
+    let entry_path = format!(
+        "production/{upload_directory}/{}/{}",
+        &digest_path[..2],
+        &digest_path[2..40]
+    );
+    let mut archive = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    archive
+        .start_file(&entry_path, SimpleFileOptions::default())
+        .expect("asset entry is created");
+    archive.write_all(body).expect("asset entry is written");
+    let bytes = archive
+        .finish()
+        .expect("asset archive is finished")
+        .into_inner();
     let path = root.join("cdn").join("cn").join(directory).join(name);
     fs::create_dir_all(path.parent().expect("archive has a parent directory"))
         .expect("archive directory is created");
-    fs::write(path, body).expect("archive is written");
+    fs::write(path, &bytes).expect("archive is written");
+    AssetArchive {
+        metadata: json!({
+            "location": format!("https://retired.invalid/{directory}/{name}"),
+            "size": bytes.len(),
+            "sha256": STANDARD.encode(Sha256::digest(&bytes)),
+        }),
+        entity_row: format!(
+            "{entry_path},1.4.58,{},{},{asset_kind}\n",
+            body.len(),
+            URL_SAFE_NO_PAD.encode(digest)
+        ),
+    }
 }
+// //// /生成包含实体文件的启动资源归档 ////
 
-fn write_path_manifest(root: &Path) {
+// //// 写入启动路径和平台实体清单 [@x380kkm 2026-09-23] ////
+fn write_path_manifest(root: &Path, archives: &[AssetArchive]) -> String {
     let path = root.join("cdn").join("cn").join("path");
     let manifest = json!({
         "info": {
@@ -36,15 +86,7 @@ fn write_path_manifest(root: &Path) {
         },
         "full": {
             "version": "1.4.0",
-            "archive": [{
-                "location": "https://retired.invalid/archive-common-full/pinball-1.4.0-1-common.zip",
-                "size": 6,
-                "sha256": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-            }, {
-                "location": "https://retired.invalid/archive-ios-full/pinball-1.4.0-1-ios.zip",
-                "size": 3,
-                "sha256": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-            }]
+            "archive": archives.iter().map(|archive| &archive.metadata).collect::<Vec<_>>()
         },
         "diff": [],
         "asset_version_hash": "startup-chain"
@@ -54,7 +96,17 @@ fn write_path_manifest(root: &Path) {
         serde_json::to_vec(&manifest).expect("path manifest is encoded"),
     )
     .expect("path manifest is written");
+    let entities = root.join("cdn/cn/entities");
+    fs::create_dir_all(&entities).expect("entity directory is created");
+    let entity_list = archives
+        .iter()
+        .map(|archive| archive.entity_row.as_str())
+        .collect::<String>();
+    fs::write(entities.join("10939-ios_medium.csv"), &entity_list)
+        .expect("iOS entity list is written");
+    entity_list
 }
+// //// /写入启动路径和平台实体清单 ////
 
 fn response_body(response: &str) -> &str {
     response
@@ -76,21 +128,19 @@ fn assert_json_response(response: &str, expected: Value) {
 #[test]
 fn completes_the_registered_cn_startup_chain() {
     let root = TempDir::new().expect("temporary service directory is created");
-    fs::create_dir_all(root.path().join("cdn").join("cn").join("entities"))
-        .expect("entity directory is created");
-    write_archive(
+    let common_archive = write_archive(
         root.path(),
         "archive-common-full",
         "pinball-1.4.0-1-common.zip",
         b"common",
     );
-    write_archive(
+    let ios_archive = write_archive(
         root.path(),
         "archive-ios-full",
         "pinball-1.4.0-1-ios.zip",
         b"ios",
     );
-    write_path_manifest(root.path());
+    let entity_list = write_path_manifest(root.path(), &[common_archive, ios_archive]);
     let service = PersonalService::start(root.path(), 0).expect("service starts");
 
     let discovery = request(
@@ -171,23 +221,46 @@ fn completes_the_registered_cn_startup_chain() {
     ));
     assert_eq!(loaded.data_headers.viewer_id, viewer_id);
     assert!(loaded.data_headers.asset_update);
-    assert_eq!(loaded.data["available_asset_version"], "1.4.58");
+    let available_asset_version = loaded.data["available_asset_version"]
+        .as_str()
+        .expect("available asset version is text");
+    assert_ne!(available_asset_version, "1.4.57");
     assert!(loaded.data["unfinished_quest_list"].is_array());
     assert!(loaded.data["unfinished_multi_quest_list"].is_array());
 
-    let version_response = cn_support::send_request(
+    let version_response = request_with_headers(
         service.port(),
+        "POST",
         "/api/index.php/asset/version_info",
-        &encode_request(&json!({"viewer_id": viewer_id})),
+        "application/x-www-form-urlencoded",
+        &[("DEVICE", "1")],
+        encode_request(&json!({"viewer_id": viewer_id})).as_bytes(),
     );
     assert!(version_response.contains("Content-Type: application/x-msgpack"));
     let version = decode_response::<Value>(&version_response);
     assert_eq!(version.data_headers.viewer_id, 0);
     assert!(!version.data_headers.asset_update);
     assert!(version.data["base_url"].as_str().is_some());
-    assert!(version.data["files_list"]
-        .as_str()
-        .is_some_and(|path| path.ends_with("/entities/empty.csv")));
+    let files_list = url::Url::parse(
+        version.data["files_list"]
+            .as_str()
+            .expect("entity list URL is text"),
+    )
+    .expect("entity list URL parses");
+    assert!(files_list
+        .path()
+        .ends_with("/entities/10939-ios_medium.csv"));
+    let entities_response = request(service.port(), "GET", files_list.path());
+    assert!(entities_response.starts_with("HTTP/1.1 200 OK"));
+    assert!(entities_response.contains("Content-Type: text/csv"));
+    for entity in entity_list.lines() {
+        assert!(
+            response_body(&entities_response)
+                .lines()
+                .any(|line| line == entity),
+            "missing entity: {entity}"
+        );
+    }
     assert_eq!(version.data["delayed_assets_size"], 0);
 
     let path_response = request_with_headers(
@@ -202,7 +275,22 @@ fn completes_the_registered_cn_startup_chain() {
     assert_eq!(path.data_headers.viewer_id, viewer_id);
     assert!(path.data_headers.asset_update);
     assert_eq!(path.data["info"]["client_asset_version"], "1.4.57");
-    assert_eq!(path.data["info"]["target_asset_version"], "1.4.58");
+    assert_eq!(
+        path.data["info"]["target_asset_version"],
+        available_asset_version
+    );
+    assert_eq!(
+        path.data["info"]["eventual_target_asset_version"],
+        available_asset_version
+    );
+    let updates = path.data["diff"]
+        .as_array()
+        .expect("asset updates are an array");
+    assert_eq!(
+        updates.first().expect("activity projection adds a diff")["original_version"],
+        "1.4.58"
+    );
+    assert_eq!(updates.last().unwrap()["version"], available_asset_version);
     let archives = path.data["full"]["archive"]
         .as_array()
         .expect("full archive list is an array");
@@ -217,9 +305,10 @@ fn completes_the_registered_cn_startup_chain() {
         let order = decode_response::<Value>(&cn_support::send_request(
             service.port(),
             "/api/index.php/channels/channel_leiting_pay/query_unfinish_order",
-            "not-messagepack",
+            &encode_request(&json!({"viewer_id": viewer_id})),
         ));
-        assert_eq!(order.data_headers.viewer_id, 0);
+        assert_eq!(order.data_headers.viewer_id, viewer_id);
+        assert_eq!(order.data_headers.result_code, 1);
         assert_eq!(order.data, json!({"order_id": ""}));
 
         assert_json_response(
@@ -258,23 +347,24 @@ fn completes_the_registered_cn_startup_chain() {
         assert!(report.starts_with("HTTP/1.1 204 No Content"));
         assert!(response_body(&report).is_empty());
     }
-    for (path, expected) in [
+    for (path, result_code) in [
         (
             "/api/index.php/channels/channel_leiting_pay/query_purcharge",
-            json!({"status": 3}),
+            20001,
         ),
         (
             "/api/index.php/channels/channel_leiting_pay/set_unfinish_order_status",
-            json!({}),
+            1,
         ),
     ] {
         let response = decode_response::<Value>(&cn_support::send_request(
             service.port(),
             path,
-            "not-messagepack",
+            &encode_request(&json!({"viewer_id": viewer_id})),
         ));
-        assert_eq!(response.data_headers.viewer_id, 0);
-        assert_eq!(response.data, expected);
+        assert_eq!(response.data_headers.viewer_id, viewer_id);
+        assert_eq!(response.data_headers.result_code, result_code);
+        assert_eq!(response.data, json!({}));
     }
     service.stop().expect("service stops cleanly");
 }

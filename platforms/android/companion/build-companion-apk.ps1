@@ -2,7 +2,7 @@
 # # build-android-personal-service-companion
 #
 # 该脚本在 Windows 上构建 ARM64 游戏安装入口和个人服务前台宿主, 嵌入已签名游戏 APK 与 CDN 清单.
-# targetSdkVersion 29 和 v1 签名允许分发包在 ZIP 末尾追加 CDN 数据.
+# 内嵌资源模式使用 v1 签名, 独立资源模式使用标准 ZIP 布局及 v1/v2 签名.
 
 [CmdletBinding()]
 param(
@@ -17,13 +17,14 @@ param(
     [string]$KeyPassword,
     [string]$NdkVersion = "29.0.14206865",
     [string]$BuildToolsVersion = "35.0.0",
-    [ValidateRange(26, 35)][int]$MinimumApi = 26,
+    [ValidateRange(26, 35)][Nullable[int]]$MinimumApi,
     [ValidateRange(26, 35)][int]$TargetApi = 29,
     [ValidateRange(26, 35)][int]$PlatformApi = 35,
+    [ValidateSet('Embedded', 'External')][string]$ResourceDelivery = 'Embedded',
     [string]$RustToolchain = "1.78.0",
-    [ValidateNotNullOrEmpty()][string]$ServiceBaselineRef = "v-beta-0.0.15",
-    [ValidateRange(1, [int]::MaxValue)][int]$VersionCode = 1,
-    [string]$VersionName = "1.0.0"
+    [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$ServiceBaselineRef,
+    [Parameter(Mandatory)][ValidateRange(1, [int]::MaxValue)][int]$VersionCode,
+    [Parameter(Mandatory)][ValidatePattern('^\d+\.\d+\.\d+$')][string]$VersionName
 )
 
 Set-StrictMode -Version Latest
@@ -33,6 +34,7 @@ Import-Module (Join-Path $PSScriptRoot "../../../scripts/protocol-lab/android-pa
 
 $AndroidRoot = Split-Path -Parent $PSScriptRoot
 $RepositoryRoot = [IO.Path]::GetFullPath((Join-Path $AndroidRoot "../.."))
+& (Join-Path $RepositoryRoot 'scripts/protocol-lab/check-personal-service-web.ps1') -RepositoryRoot $RepositoryRoot
 $WorkspaceRoot = Resolve-AndroidPackagingWorkspaceRoot -RepositoryRoot $RepositoryRoot
 $ServiceBaseline = Assert-AndroidPersonalServiceBaseline `
     -RepositoryRoot $RepositoryRoot `
@@ -70,9 +72,17 @@ if (-not (Test-Path -LiteralPath $ResolvedGameApkPath -PathType Leaf)) {
 if ((Get-Item -LiteralPath $ResolvedGameApkPath).Length -eq 0) {
     throw "内嵌游戏 APK 为空: $ResolvedGameApkPath"
 }
-if ($TargetApi -lt $MinimumApi -or $TargetApi -gt $PlatformApi) {
+# //// 按资源载体约束 ZIP 读取能力和签名兼容级别 [@x380kkm 2026-09-26] ////
+if ($null -eq $MinimumApi) {
+    $MinimumApi = if ($ResourceDelivery -eq 'Embedded') { 31 } else { 26 }
+}
+if ($MinimumApi -gt $PlatformApi -or $TargetApi -gt $PlatformApi) {
     throw "Android API 关系无效: minimum=$MinimumApi target=$TargetApi platform=$PlatformApi"
 }
+if ($ResourceDelivery -eq 'Embedded' -and ($MinimumApi -lt 31 -or $TargetApi -ge 30)) {
+    throw '完整尾附资源包需要 Android 12 起的 ZIP 读取器和 targetSdkVersion 29 的 JAR 签名兼容级别.'
+}
+# //// /按资源载体约束 ZIP 读取能力和签名兼容级别 ////
 if (Test-Path -LiteralPath $ResolvedOutputDirectory) {
     throw "伴随 APK 输出目录已存在: $ResolvedOutputDirectory"
 }
@@ -238,7 +248,14 @@ $GameBadging = Invoke-CompanionTool -FilePath $Aapt2 -ArgumentList @(
 if (($GameBadging -join "`n") -notmatch "package: name='com\.leiting\.wf'") {
     throw "内嵌游戏 APK 包名不是 com.leiting.wf: $ResolvedGameApkPath"
 }
+$GameVersionMatch = [regex]::Match(($GameBadging -join "`n"), "(?m)^package:.*versionCode='([0-9]+)'")
+if (-not $GameVersionMatch.Success) {
+    throw "内嵌游戏缺少 Android versionCode."
+}
+$GameVersionPath = Join-Path $ResolvedOutputDirectory "starpoint-game-version.txt"
+$GameVersionMatch.Groups[1].Value | Set-Content -LiteralPath $GameVersionPath -Encoding UTF8
 Copy-Item -LiteralPath $ResolvedManifestPath -Destination (Join-Path $AssetsDirectory "manifest.sha256")
+[IO.File]::WriteAllText((Join-Path $AssetsDirectory 'resource-delivery.txt'), $ResourceDelivery.ToLowerInvariant(), [Text.UTF8Encoding]::new($false))
 
 # //// 构建 ARM64 Rust 核心和伴随服务 JNI [@x380kkm 2026-08-31] ////
 $EnvironmentNames = @(
@@ -341,10 +358,14 @@ foreach ($RequiredSymbol in @(
 # //// 编译伴随 Activity, 前台服务和独立 DEX [@x380kkm 2026-08-31] ////
 $JavaSources = @(
     (Join-Path $CompanionHostRoot "src/dev/starpoint/personalservice/CdnAssetInstaller.java"),
+    (Join-Path $CompanionHostRoot "src/dev/starpoint/personalservice/CdnResourceImport.java"),
     (Join-Path $CompanionHostRoot "src/dev/starpoint/personalservice/CompanionServiceHost.java"),
     (Join-Path $CompanionHostRoot "src/dev/starpoint/personalservice/GameInstaller.java"),
     (Join-Path $CompanionHostRoot "src/dev/starpoint/personalservice/GameInstallReceiver.java"),
+    (Join-Path $CompanionHostRoot "src/dev/starpoint/personalservice/GameConnectionService.java"),
+    (Join-Path $AndroidRoot "GameHostBridge/src/dev/starpoint/gamehost/GameHostProtocol.java"),
     (Join-Path $CompanionHostRoot "src/dev/starpoint/personalservice/ManagementActivity.java"),
+    (Join-Path $CompanionHostRoot "src/dev/starpoint/personalservice/ManagementDocuments.java"),
     (Join-Path $CompanionHostRoot "src/dev/starpoint/personalservice/PersonalServiceForegroundService.java")
 )
 foreach ($JavaSource in $JavaSources) {
@@ -438,6 +459,10 @@ try {
         -EntryName "assets/starpoint-personal-service-cdn/manifest.sha256"
     Add-ApkEntry `
         -Archive $Archive `
+        -SourcePath (Join-Path $AssetsDirectory 'resource-delivery.txt') `
+        -EntryName 'assets/starpoint-personal-service-cdn/resource-delivery.txt'
+    Add-ApkEntry `
+        -Archive $Archive `
         -SourcePath $ResolvedGameApkPath `
         -EntryName "assets/starpoint-game.apk" `
         -WithoutCompression
@@ -445,6 +470,10 @@ try {
         -Archive $Archive `
         -SourcePath $GameSignersPath `
         -EntryName "assets/starpoint-game-signers.sha256"
+    Add-ApkEntry `
+        -Archive $Archive `
+        -SourcePath $GameVersionPath `
+        -EntryName "assets/starpoint-game-version.txt"
     Add-ApkEntry `
         -Archive $Archive `
         -SourcePath $SourceReportPath `
@@ -501,7 +530,7 @@ Invoke-CompanionTool -FilePath $Java -ArgumentList @(
     "--v1-signing-enabled",
     "true",
     "--v2-signing-enabled",
-    "false",
+    ($ResourceDelivery -eq 'External').ToString().ToLowerInvariant(),
     "--v3-signing-enabled",
     "false",
     "--v4-signing-enabled",
@@ -560,6 +589,9 @@ if (($Badging -join "`n") -notmatch "package: name='dev\.starpoint\.personalserv
 if (($Badging -join "`n") -notmatch "targetSdkVersion:'$TargetApi'") {
     throw "伴随 APK targetSdkVersion 无效."
 }
+if (($Badging -join "`n") -notmatch "(?m)^(?:sdkVersion|minSdkVersion):'$MinimumApi'\s*$") {
+    throw "伴随 APK minSdkVersion 无效."
+}
 $ManifestTree = Invoke-CompanionTool -FilePath $Aapt2 -ArgumentList @(
     "dump",
     "xmltree",
@@ -609,7 +641,8 @@ $Distribution = [ordered]@{
         minimum_sdk = $MinimumApi
         target_sdk = $TargetApi
         compile_sdk = $PlatformApi
-        signature_scheme = "v1"
+        signature_scheme = $(if ($ResourceDelivery -eq 'External') { 'v1+v2' } else { 'v1' })
+        resource_delivery = $ResourceDelivery.ToLowerInvariant()
     }
     game = [ordered]@{
         package_id = "com.leiting.wf"

@@ -10,22 +10,34 @@ use base64::Engine;
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::time::{Duration, Instant};
 
 const HTTP_OBSERVATION_LIMIT: i64 = 256;
+const HTTP_OBSERVATION_FLUSH_LIMIT: usize = 64;
+const HTTP_OBSERVATION_FLUSH_INTERVAL: Duration = Duration::from_millis(250);
 
 mod activity_calendar;
 mod activity_catalog;
+mod activity_history;
+mod battle_history;
+mod player_settlement;
 mod ai_teams;
+mod client_reports;
 mod clock;
 mod gameplay_settings;
+mod rescue_settings;
 mod local_save_keys;
 mod local_saves;
 mod mails;
+mod reward_deliveries;
 mod mission_counters;
 mod multiplayer;
 mod receive_history;
+mod raid_boss;
+mod reward_history;
 mod save_automation;
 mod save_sync;
 mod server_profile_identities;
@@ -40,16 +52,18 @@ pub(crate) use activity_catalog::is_valid_activity_id;
 pub(crate) use ai_teams::{AiTeamSnapshot, AiTeamSnapshotInput, AiTeamStoreError};
 pub(crate) use clock::{parse_iso_timestamp, VirtualTimeState};
 pub(crate) use mails::{
-    CreateMailInput, MailClaimReward, MailReward, StoredMail, MAX_MAIL_PAGE, MAX_MAIL_PAGE_SIZE,
+    CreateMailInput, MailClaim, MailClaimReward, MailReward, StoredMail, MAX_MAIL_PAGE, MAX_MAIL_PAGE_SIZE,
     MAX_MAIL_REWARD_ENTRIES,
 };
 pub(crate) use multiplayer::{
-    MultiplayerAiMate, MultiplayerAiMateInput, MultiplayerBattleAbort, MultiplayerBattleContinue,
+    MultiplayerAiMate, MultiplayerAiMateInput, MultiplayerAiSource, MultiplayerBattleAbort,
+    MultiplayerBattleContinue,
     MultiplayerBattleFinish, MultiplayerBattleIdentity, MultiplayerBattleReceipt,
     MultiplayerBattleStart, MultiplayerMember, MultiplayerRoom, MultiplayerRoomEvent,
     MultiplayerRoomEventKind,
 };
-pub(crate) use receive_history::{ReceiveHistoryEntry, StoredReceiveHistory};
+pub(crate) use receive_history::{mail_reward_history_entries, ReceiveHistoryEntry, StoredReceiveHistory};
+pub(crate) use reward_history::RewardHistoryRecord;
 pub(crate) use server_profile_identities::ServerProfileIdentity;
 pub(crate) use server_profiles::{
     RemoteServerProfileInput, ServerProfile, ServerProfileMode, ServerProfileState,
@@ -114,6 +128,8 @@ pub(crate) struct ServiceDatabase {
     connection: Connection,
     management_token: String,
     multiplayer_session_port: u16,
+    pending_http_observations: HashMap<(String, String, i64), i64>,
+    pending_http_observation_since: Option<Instant>,
 }
 
 impl ServiceDatabase {
@@ -232,6 +248,7 @@ impl ServiceDatabase {
         migrate_active_single_quest_schema(&connection)?;
         migrate_single_battle_finish_receipt_schema(&connection)?;
         local_saves::migrate(&connection)?;
+        client_reports::migrate(&connection)?;
         ai_teams::migrate(&connection)?;
         activity_calendar::migrate(&connection)?;
         activity_catalog::migrate(&connection)?;
@@ -246,12 +263,18 @@ impl ServiceDatabase {
         server_profile_identities::migrate(&connection)?;
         transfer_bindings::migrate(&connection)?;
         clock::migrate(&connection)?;
+        activity_history::migrate(&connection)?;
+        battle_history::migrate(&connection)?;
         gameplay_settings::migrate(&connection)?;
+        rescue_settings::migrate(&connection)?;
+        raid_boss::migrate(&connection)?;
         let management_token = rotate_management_token(&connection)?;
         Ok(Self {
             connection,
             management_token,
             multiplayer_session_port: 17_172,
+            pending_http_observations: HashMap::new(),
+            pending_http_observation_since: None,
         })
     }
     // //// /创建并迁移本地 SQLite 数据库 ////
@@ -265,7 +288,8 @@ impl ServiceDatabase {
     }
 
     // //// 截断已经提交的 SQLite WAL [@x380kkm 2026-07-22] ////
-    pub(crate) fn checkpoint(&self) -> Result<(), PersonalServiceError> {
+    pub(crate) fn checkpoint(&mut self) -> Result<(), PersonalServiceError> {
+        self.flush_http_observations()?;
         self.connection
             .execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
             .map_err(|error| {
@@ -308,7 +332,8 @@ impl ServiceDatabase {
         path: &str,
         status: impl ToString,
     ) -> Result<(), PersonalServiceError> {
-        if path == "/manage"
+        if path == "/health"
+            || path == "/manage"
             || path.starts_with("/manage/")
             || path == "/v1"
             || path.starts_with("/v1/")
@@ -321,22 +346,60 @@ impl ServiceDatabase {
             .next()
             .and_then(|value| value.parse::<i64>().ok())
             .ok_or_else(|| PersonalServiceError::new("invalid HTTP response status"))?;
+        if self.pending_http_observations.is_empty() {
+            self.pending_http_observation_since = Some(Instant::now());
+        }
+        *self
+            .pending_http_observations
+            .entry((method.to_owned(), path.to_owned(), status))
+            .or_insert(0) += 1;
+        Ok(())
+    }
+
+    // //// 判断请求观察记录是否达到提交条件 [@x380kkm 2026-09-03] ////
+    pub(crate) fn should_flush_http_observations(&self) -> bool {
+        !self.pending_http_observations.is_empty()
+            && (self
+                .pending_http_observations
+                .values()
+                .copied()
+                .sum::<i64>()
+                >= HTTP_OBSERVATION_FLUSH_LIMIT as i64
+                || self
+                    .pending_http_observation_since
+                    .is_some_and(|started| started.elapsed() >= HTTP_OBSERVATION_FLUSH_INTERVAL))
+    }
+    // //// /判断请求观察记录是否达到提交条件 ////
+
+    // //// 合并提交请求观察记录 [@x380kkm 2026-09-03] ////
+    pub(crate) fn flush_http_observations(&mut self) -> Result<(), PersonalServiceError> {
+        if self.pending_http_observations.is_empty() {
+            self.pending_http_observation_since = None;
+            return Ok(());
+        }
+        let pending = self
+            .pending_http_observations
+            .iter()
+            .map(|((method, path, status), count)| (method.clone(), path.clone(), *status, *count))
+            .collect::<Vec<_>>();
         let transaction = self.connection.transaction().map_err(database_error)?;
-        transaction
-            .execute(
-                "INSERT INTO http_observations (
-                     method, path, status, count, first_seen, last_seen
-                 ) VALUES (
-                     ?1, ?2, ?3, 1,
-                     strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-                     strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-                 )
-                 ON CONFLICT(method, path, status) DO UPDATE SET
-                     count = count + 1,
-                     last_seen = excluded.last_seen",
-                params![method, path, status],
-            )
-            .map_err(database_error)?;
+        for (method, path, status, count) in pending {
+            transaction
+                .execute(
+                    "INSERT INTO http_observations (
+                         method, path, status, count, first_seen, last_seen
+                     ) VALUES (
+                         ?1, ?2, ?3, ?4,
+                         strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                         strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                     )
+                     ON CONFLICT(method, path, status) DO UPDATE SET
+                         count = count + excluded.count,
+                         last_seen = excluded.last_seen",
+                    params![method, path, status, count],
+                )
+                .map_err(database_error)?;
+        }
         transaction
             .execute(
                 "DELETE FROM http_observations
@@ -349,10 +412,18 @@ impl ServiceDatabase {
                 params![HTTP_OBSERVATION_LIMIT],
             )
             .map_err(database_error)?;
-        transaction.commit().map_err(database_error)
+        transaction.commit().map_err(database_error)?;
+        self.pending_http_observations.clear();
+        self.pending_http_observation_since = None;
+        Ok(())
     }
+    // //// /合并提交请求观察记录 ////
 
-    pub(crate) fn http_observations(&self) -> Result<Vec<HttpObservation>, PersonalServiceError> {
+    // //// 读取最近的 HTTP 请求记录 [@x380kkm 2026-09-03] ////
+    pub(crate) fn http_observations(
+        &mut self,
+    ) -> Result<Vec<HttpObservation>, PersonalServiceError> {
+        self.flush_http_observations()?;
         let mut statement = self
             .connection
             .prepare(
@@ -378,6 +449,7 @@ impl ServiceDatabase {
             .map_err(database_error)?;
         Ok(observations)
     }
+    // //// /读取最近的 HTTP 请求记录 ////
     // //// /记录并读取最近的 HTTP 请求 ////
 
     // //// 签发和撤销账号存档访问 token [@x380kkm 2026-07-24] ////
@@ -470,50 +542,6 @@ impl ServiceDatabase {
     }
     // //// /签发和撤销账号存档访问 token ////
 
-    // //// 读取活动 Boss 状态 [@x380kkm 2026-07-24] ////
-    pub(crate) fn raid_boss_state(
-        &self,
-        event_id: i64,
-    ) -> Result<RaidBossState, PersonalServiceError> {
-        self.connection
-            .query_row(
-                "SELECT hp_percentage, total_kill_count FROM raid_boss_states WHERE event_id = ?1",
-                params![event_id],
-                |row| {
-                    Ok(RaidBossState {
-                        hp_percentage: row.get(0)?,
-                        total_kill_count: row.get(1)?,
-                    })
-                },
-            )
-            .optional()
-            .map_err(database_error)
-            .map(|state| {
-                state.unwrap_or(RaidBossState {
-                    hp_percentage: 100,
-                    total_kill_count: 0,
-                })
-            })
-    }
-    // //// /读取活动 Boss 状态 ////
-
-    // //// 写入活动 Boss 状态 [@x380kkm 2026-07-24] ////
-    pub(crate) fn set_raid_boss_state(
-        &mut self,
-        event_id: i64,
-        hp_percentage: i64,
-        total_kill_count: i64,
-    ) -> Result<(), PersonalServiceError> {
-        self.connection
-            .execute(
-                "INSERT OR REPLACE INTO raid_boss_states (event_id, hp_percentage, total_kill_count) VALUES (?1, ?2, ?3)",
-                params![event_id, hp_percentage, total_kill_count],
-            )
-            .map_err(database_error)?;
-        Ok(())
-    }
-    // //// /写入活动 Boss 状态 ////
-
     // //// 原子增加持久化验证计数 [@x380kkm 2026-07-22] ////
     pub(crate) fn increment_generation(&self) -> Result<i64, PersonalServiceError> {
         self.connection
@@ -543,7 +571,7 @@ impl ServiceDatabase {
         let transaction = self.connection.transaction().map_err(storage_error)?;
         let idp_id = format!("cn:{device_id}");
         let idp_alias = format!("wf_cn:{device_id}:android");
-        let active_account_id = local_saves::active_local_save_account_id(&transaction, device_id)
+        let active_account_id = local_saves::selected_account_id(&transaction, device_id)
             .map_err(storage_error)?;
         let read_account = |row: &rusqlite::Row<'_>| {
             Ok((
@@ -678,43 +706,28 @@ impl ServiceDatabase {
         account_id: i64,
         data: &str,
     ) -> Result<(), PersonalServiceError> {
-        self.connection
+        let captured_at = self.current_server_time_seconds()?;
+        let transaction = self.connection.savepoint().map_err(database_error)?;
+        activity_history::record_snapshot_events(&transaction, account_id, data, captured_at)?;
+        let data = reward_deliveries::prepare_snapshot(&transaction, account_id, data)?;
+        transaction
             .execute(
                 "INSERT INTO player_snapshots (account_id, data_json) VALUES (?1, ?2)
                  ON CONFLICT(account_id) DO UPDATE SET data_json = excluded.data_json",
                 params![account_id, data],
             )
             .map_err(database_error)?;
-        Ok(())
+        transaction.commit().map_err(database_error)
     }
     // //// /原子保存账号玩家快照 ////
 
     // //// 原子保存玩家快照和当前单机战斗 [@x380kkm 2026-07-22] ////
-    pub(crate) fn start_active_single_quest(
-        &mut self,
-        account_id: i64,
-        data: &str,
-        quest: &ActiveSingleQuest,
-    ) -> Result<(), PersonalServiceError> {
-        self.start_active_single_quest_transaction(account_id, data, quest, None)
-    }
-
     pub(crate) fn start_active_single_quest_with_receipt(
         &mut self,
         account_id: i64,
         data: &str,
         quest: &ActiveSingleQuest,
         response_json: &str,
-    ) -> Result<(), PersonalServiceError> {
-        self.start_active_single_quest_transaction(account_id, data, quest, Some(response_json))
-    }
-
-    fn start_active_single_quest_transaction(
-        &mut self,
-        account_id: i64,
-        data: &str,
-        quest: &ActiveSingleQuest,
-        response_json: Option<&str>,
     ) -> Result<(), PersonalServiceError> {
         let transaction = self.connection.transaction().map_err(database_error)?;
         let updated = transaction
@@ -765,16 +778,14 @@ impl ServiceDatabase {
                 ],
             )
             .map_err(database_error)?;
-        if let Some(response_json) = response_json {
-            transaction
-                .execute(
-                    "INSERT INTO single_battle_action_receipts (
-                         account_id, action, play_id, api_count, response_json
-                     ) VALUES (?1, 'start', ?2, -1, ?3)",
-                    params![account_id, quest.play_id.as_str(), response_json],
-                )
-                .map_err(database_error)?;
-        }
+        transaction
+            .execute(
+                "INSERT INTO single_battle_action_receipts (
+                     account_id, action, play_id, api_count, response_json
+                 ) VALUES (?1, 'start', ?2, -1, ?3)",
+                params![account_id, quest.play_id.as_str(), response_json],
+            )
+            .map_err(database_error)?;
         transaction.commit().map_err(database_error)?;
         Ok(())
     }
@@ -906,7 +917,10 @@ impl ServiceDatabase {
         data: &str,
         response_json: &str,
     ) -> Result<(), PersonalServiceError> {
-        let transaction = self.connection.transaction().map_err(database_error)?;
+        let captured_at = self.current_server_time_seconds()?;
+        let transaction = self.connection.savepoint().map_err(database_error)?;
+        activity_history::record_snapshot_events(&transaction, account_id, data, captured_at)?;
+        let data = reward_deliveries::prepare_snapshot(&transaction, account_id, data)?;
         let updated = transaction
             .execute(
                 "UPDATE player_snapshots SET data_json = ?1 WHERE account_id = ?2",
@@ -1035,12 +1049,12 @@ impl ServiceDatabase {
         play_id: &str,
         response_json: &str,
     ) -> Result<bool, PersonalServiceError> {
-        let transaction = self.connection.transaction().map_err(database_error)?;
+        let transaction = self.connection.savepoint().map_err(database_error)?;
         let deleted = transaction
             .execute(
                 "DELETE FROM active_single_quests
-                 WHERE account_id = ?1",
-                params![account_id],
+                 WHERE account_id = ?1 AND play_id = ?2",
+                params![account_id, play_id],
             )
             .map_err(database_error)?;
         if deleted != 1 {
@@ -1295,9 +1309,74 @@ fn generate_viewer_id() -> Result<i64, getrandom::Error> {
 fn database_error(error: rusqlite::Error) -> PersonalServiceError {
     PersonalServiceError::new(format!("failed to update CN account storage: {error}"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn batches_http_observations_and_flushes_on_read() {
+        let root = tempdir().expect("temporary database directory is created");
+        let mut database = ServiceDatabase::open(root.path()).expect("database opens");
+
+        database
+            .record_http_observation("GET", "/asset.bin", "404 Not Found")
+            .expect("observation is accepted");
+        database
+            .record_http_observation("GET", "/asset.bin", "404 Not Found")
+            .expect("observation is accepted");
+        assert!(!database.should_flush_http_observations());
+
+        let observations = database
+            .http_observations()
+            .expect("observations are flushed and read");
+        assert_eq!(observations.len(), 1);
+        assert_eq!(observations[0].count, 2);
+    }
+
+    #[test]
+    fn operational_paths_are_not_buffered() {
+        let root = tempdir().expect("temporary database directory is created");
+        let mut database = ServiceDatabase::open(root.path()).expect("database opens");
+
+        for path in ["/health", "/v1/http-observations"] {
+            database
+                .record_http_observation("GET", path, "200 OK")
+                .expect("operational observation is ignored");
+        }
+        assert!(database
+            .http_observations()
+            .expect("observations are read")
+            .is_empty());
+    }
+
+    #[test]
+    fn checkpoint_flushes_pending_http_observations() {
+        let root = tempdir().expect("temporary database directory is created");
+        let mut database = ServiceDatabase::open(root.path()).expect("database opens");
+
+        database
+            .record_http_observation("POST", "/sync_data", "200 OK")
+            .expect("observation is accepted");
+        database
+            .checkpoint()
+            .expect("checkpoint flushes observations");
+
+        let count = database
+            .connection
+            .query_row(
+                "SELECT count FROM http_observations WHERE method = 'POST' AND path = '/sync_data' AND status = 200",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .expect("flushed observation is stored");
+        assert_eq!(count, 1);
+    }
+}
 pub(crate) use local_save_keys::LocalSaveEncryptionKey;
 pub(crate) use local_saves::{
-    LocalIssuedTransferToken, LocalSaveExport, LocalSaveRevision, LocalSaveSlot, LocalSaveSnapshot,
+    LocalIssuedTransferToken, LocalSaveDeleteError, LocalSaveExport, LocalSaveRevision, LocalSaveSlot, LocalSaveSnapshot,
     LocalSaveState, LocalSaveStoreError, LocalTransferPermission, LocalTransferTokenMetadata,
 };
 pub(crate) use save_automation::{

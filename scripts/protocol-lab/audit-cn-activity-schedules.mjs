@@ -142,7 +142,7 @@ function formatWindow(window) {
 // //// /枚举 orderedmap 行 ////
 
 // //// 读取 master 记录 [@x380kkm 2026-08-30] ////
-function readMasterRecords(projectionPath, projection) {
+export function readMasterRecords(projectionPath, projection) {
     const records = new Map()
     const issues = []
     for (const master of projection.masters ?? []) {
@@ -160,15 +160,21 @@ function readMasterRecords(projectionPath, projection) {
         }
         const roots = new Map()
         for (const [key, value] of Object.entries(decoded ?? {})) {
-            const activityId = master.activity_id_prefix ? `${master.activity_id_prefix}${key}` : null
-            const rows = enumerateRows(value)
+            const rows = enumerateRows(value).filter(({ row }) => !master.activity_id_filter
+                || row[master.activity_id_filter[0]] === master.activity_id_filter[1])
+            if (rows.length === 0) continue
+            const activityKey = Number.isInteger(master.activity_id_index)
+                ? rows[0]?.row[master.activity_id_index]
+                : key
+            const activityId = master.activity_id_prefix ? `${master.activity_id_prefix}${activityKey}` : null
             const collected = collectWindows(master, rows)
-            roots.set(key, {
-                key,
+            const previous = roots.get(activityKey)
+            roots.set(activityKey, {
+                key: activityKey,
                 activity_id: activityId,
-                row_count: rows.length,
-                windows: uniqueWindows(collected.windows),
-                malformed_windows: collected.malformed,
+                row_count: (previous?.row_count ?? 0) + rows.length,
+                windows: uniqueWindows([...(previous?.windows ?? []), ...collected.windows]),
+                malformed_windows: [...(previous?.malformed_windows ?? []), ...collected.malformed],
             })
         }
         records.set(master.name, { master, decoded, roots })
@@ -220,7 +226,8 @@ function auditUnlistedMasterRoots(catalog, projection, masterRecords) {
     const catalogIds = new Set((catalog.activities ?? []).map((activity) => activity.activity_id))
     const unlisted = []
     for (const { master, roots } of masterRecords.values()) {
-        if (!master.activity_id_prefix || master.name === "event_list" || master.parent_activity_master) continue
+        if (!master.activity_id_prefix || master.name === "event_list" || master.parent_activity_master
+            || master.logical_path?.startsWith("master/shop/")) continue
         for (const record of roots.values()) {
             if (!record.activity_id || catalogIds.has(record.activity_id)) continue
             unlisted.push({
@@ -235,7 +242,7 @@ function auditUnlistedMasterRoots(catalog, projection, masterRecords) {
     return unlisted.sort((left, right) => left.activity_id.localeCompare(right.activity_id, "en", { numeric: true }))
 }
 
-function auditParentLinks(projection, masterRecords) {
+export function auditParentLinks(projection, masterRecords) {
     const links = []
     const issues = []
     for (const master of projection.masters ?? []) {
@@ -247,7 +254,8 @@ function auditParentLinks(projection, masterRecords) {
             const parentRecord = parent.roots.get(key)
             const childWindows = childRecord.windows
             const parentWindows = parentRecord?.windows ?? []
-            const overlap = childWindows.some((childWindow) => parentWindows.some((parentWindow) => intervalOverlaps(childWindow, parentWindow)))
+            const disjoint = childWindows.filter((childWindow) => !parentWindows.some((parentWindow) => intervalOverlaps(childWindow, parentWindow)))
+            const overlap = childWindows.length > 0 && disjoint.length === 0
             links.push({
                 master: master.name,
                 parent_master: master.parent_activity_master,
@@ -257,9 +265,11 @@ function auditParentLinks(projection, masterRecords) {
                 overlap,
             })
             if (!parentRecord) issues.push({ type: "child_parent_row_missing", master: master.name, parent: master.parent_activity_master, key })
-            else if (childWindows.length > 0 && parentWindows.length > 0 && !overlap) {
-                issues.push({ type: "child_parent_window_disjoint", master: master.name, parent: master.parent_activity_master, key, child_windows: childWindows.map(formatWindow), parent_windows: parentWindows.map(formatWindow) })
+            else if (parentWindows.length > 0 && disjoint.length > 0) {
+                issues.push({ type: "child_parent_window_disjoint", master: master.name, parent: master.parent_activity_master, key, child_windows: disjoint.map(formatWindow), parent_windows: parentWindows.map(formatWindow) })
             }
+            if (childRecord.malformed_windows.length) issues.push({ type: "malformed_child_window", master: master.name,
+                parent: master.parent_activity_master, key, rows: childRecord.malformed_windows })
         }
     }
     return { links, issues }
@@ -383,7 +393,7 @@ function main() {
             catalog: path.relative(root, catalogPath).replaceAll(path.sep, "/"),
             projection: path.relative(root, projectionPath).replaceAll(path.sep, "/"),
             region: catalog.region ?? null,
-            timezone: "JST",
+            timezone: "UTC+8",
         },
         counts: {
             catalog_activities: catalog.activities?.length ?? 0,
@@ -414,7 +424,8 @@ function main() {
         issues: [...masterIssues, ...catalogAudit.issues, ...parentAudit.issues, ...dependencyAudit.issues],
     }
     process.stdout.write(`${JSON.stringify(output, null, 2)}\n`)
+    if (output.issues.length > 0) process.exitCode = 1
 }
 // //// /执行活动时间审计 ////
 
-main()
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) main()

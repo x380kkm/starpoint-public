@@ -123,7 +123,7 @@ fn prepare(
     room = database
         .multiplayer_room(&room.room_number)?
         .ok_or_else(|| PersonalServiceError::new("prepared multiplayer room disappeared"))?;
-    if room.host_account_id == player.account_id {
+    if room.host_viewer_id == body.viewer_id {
         let host_entry_time = database.current_server_time_millis()? / 1_000;
         let expiry_anchor_ms = database.current_wall_time_millis()?;
         database.update_multiplayer_host_entry_time(
@@ -197,7 +197,7 @@ fn summon(
     for mate in &mates {
         if mate.room_number != body.room_number
             || mate.owner_account_id != player.account_id
-            || mate.snapshot_id.is_empty()
+            || !mate.source.is_valid()
         {
             return Err(PersonalServiceError::new(
                 "frozen multiplayer AI mate ownership is invalid",
@@ -285,6 +285,7 @@ fn share_room(
     msgpack_response(database, body.viewer_id, json!({}))
 }
 
+// //// 通过房主身份提交解散请求 [@x380kkm 2026-09-26] ////
 fn disband_room(
     request: &HttpRequest,
     database: &mut ServiceDatabase,
@@ -295,7 +296,12 @@ fn disband_room(
     };
     if super::lobby::is_room_number(&body.room_number) {
         if let Ok(player) = authenticate(database, body.viewer_id)? {
-            database.disband_multiplayer_room(&body.room_number, player.account_id)?;
+            if database
+                .multiplayer_room(&body.room_number)?
+                .is_some_and(|room| room.host_viewer_id == body.viewer_id)
+            {
+                database.disband_multiplayer_room(&body.room_number, player.account_id)?;
+            }
         }
     }
     msgpack_response(database, body.viewer_id, json!({}))
@@ -331,12 +337,12 @@ fn create_ai_mate_input(
         .unwrap_or(1);
     let party = match default_template {
         Some(template) => create_default_client_party(template),
-        None => create_client_party(&team.data)?,
+        None => create_client_party(&team.data, entry_time.div_euclid(1000))?,
     };
     let client_mate = json!({
         "com_id": com_id,
         "rank": rank,
-        "party": party,
+        "party": create_mate_party(&party),
         "degree_id": degree_id,
     });
     let lobby_player = json!({
@@ -346,7 +352,7 @@ fn create_ai_mate_input(
         "rank": rank,
         "degreeId": degree_id,
         "playerRoleKind": 99,
-        "party": create_lobby_party(&client_mate["party"]),
+        "party": create_lobby_party(&party),
         "connectionId": format!("{}-npc-{position}", room.room_number),
         "autoplayMode": false,
         "autoskillMode": 1,
@@ -359,12 +365,12 @@ fn create_ai_mate_input(
         "entryTime": entry_time,
         "isNewbie": false,
         "isHost": false,
-        "snapshotId": team.snapshot_id,
+        "snapshotId": team.source.snapshot_id,
         "sourceSlotId": team.slot_id,
         "sourcePartyId": team.party_id,
     });
     Ok(MultiplayerAiMateInput {
-        snapshot_id: team.snapshot_id.clone(),
+        source: team.source.clone(),
         client_mate_json: serde_json::to_string(&client_mate).map_err(|error| {
             PersonalServiceError::new(format!("failed to encode multiplayer AI mate: {error}"))
         })?,
@@ -376,8 +382,31 @@ fn create_ai_mate_input(
     })
 }
 
+// //// 读取冻结 AI 队伍的房主展示角色 [@x380kkm 2026-09-23] ////
+pub(super) fn ai_team_leader_id(team: &MultiplayerAiTeam) -> i64 {
+    default_ai_template(team).map(|template| template.character_ids[0])
+        .or_else(|| team.data.get("character_ids")?.as_array()?.first()?.as_i64()).unwrap_or(1)
+}
+
+// //// 生成自动续战的 BOT 救援队友载荷 [@x380kkm 2026-09-23] ////
+pub(super) fn create_attention_mate_input(
+    team: &MultiplayerAiTeam, room: &MultiplayerRoom, position: usize, entry_time: i64, source_is_newbie: bool,
+) -> Result<MultiplayerAiMateInput, PersonalServiceError> {
+    let mut input = create_ai_mate_input(team, room, position, entry_time)?;
+    let mut lobby: Value = serde_json::from_str(&input.lobby_player_json).map_err(|error| PersonalServiceError::new(format!("invalid rescue mate: {error}")))?;
+    lobby["isHost"] = json!(position == 1);
+    lobby["autoStart"] = json!(true);
+    lobby["isNewbie"] = json!(default_ai_template(team).is_none() && source_is_newbie);
+    lobby["mainCharacterId"] = json!(ai_team_leader_id(team));
+    input.lobby_player_json = serde_json::to_string(&lobby).map_err(|error| PersonalServiceError::new(format!("failed to encode rescue mate: {error}")))?;
+    Ok(input)
+}
+
 // //// 为新手默认空编队提供参考 COM 队伍 [@x380kkm 2026-08-23] ////
 fn default_ai_template(team: &MultiplayerAiTeam) -> Option<&'static DefaultAiTemplate> {
+    if let Some(index) = team.source.template_index {
+        return usize::try_from(index).ok().and_then(|index| DEFAULT_AI_TEMPLATES.get(index));
+    }
     let characters = team.data.get("character_ids").and_then(Value::as_array)?;
     let equipment = team.data.get("equipment_ids").and_then(Value::as_array)?;
     let unison = team
@@ -400,7 +429,7 @@ fn create_default_client_party(template: &DefaultAiTemplate) -> Value {
             "evolution_level": 5,
             "exp": 0,
             "over_limit_step": 0,
-            "mana_node_ids": [],
+            "mana_node_ids": {},
             "ex_boost": null,
         })),
         "unison_characters": [null, null, null],
@@ -414,14 +443,14 @@ fn create_default_client_party(template: &DefaultAiTemplate) -> Value {
 }
 // //// /为新手默认空编队提供参考 COM 队伍 ////
 
-fn create_client_party(snapshot: &Value) -> Result<Value, PersonalServiceError> {
+fn create_client_party(snapshot: &Value, response_time: i64) -> Result<Value, PersonalServiceError> {
     let character_ids = id_slots(snapshot, "character_ids")?;
     let unison_ids = id_slots(snapshot, "unison_character_ids")?;
     let equipment_ids = id_slots(snapshot, "equipment_ids")?;
     let ability_soul_ids = id_slots(snapshot, "ability_soul_ids")?;
     Ok(json!({
-        "characters": character_ids.iter().map(|id| client_character(snapshot, id.as_i64())).collect::<Result<Vec<_>, _>>()?,
-        "unison_characters": unison_ids.iter().map(|id| client_character(snapshot, id.as_i64())).collect::<Result<Vec<_>, _>>()?,
+        "characters": character_ids.iter().map(|id| client_character(snapshot, id.as_i64(), response_time)).collect::<Result<Vec<_>, _>>()?,
+        "unison_characters": unison_ids.iter().map(|id| client_character(snapshot, id.as_i64(), response_time)).collect::<Result<Vec<_>, _>>()?,
         "equipments": equipment_ids.iter().map(|id| client_equipment(snapshot, id.as_i64())).collect::<Result<Vec<_>, _>>()?,
         "ability_soul_ids": ability_soul_ids,
     }))
@@ -440,6 +469,7 @@ fn id_slots<'a>(snapshot: &'a Value, key: &str) -> Result<&'a Vec<Value>, Person
 fn client_character(
     snapshot: &Value,
     character_id: Option<i64>,
+    response_time: i64,
 ) -> Result<Value, PersonalServiceError> {
     let Some(character_id) = character_id else {
         return Ok(Value::Null);
@@ -456,22 +486,15 @@ fn client_character(
         })
         .and_then(Value::as_object)
         .ok_or_else(|| PersonalServiceError::new("multiplayer AI character is not owned"))?;
-    let mana_node_ids = snapshot
-        .get("mana_nodes")
-        .and_then(Value::as_object)
-        .and_then(|nodes| nodes.get(&character_id.to_string()))
-        .and_then(Value::as_array)
-        .map(|nodes| {
-            nodes
-                .iter()
-                .filter_map(|node| {
-                    node.as_i64()
-                        .or_else(|| node.get("mana_node_multiplied_id").and_then(Value::as_i64))
-                        .or_else(|| node.get("multiplied_id").and_then(Value::as_i64))
-                })
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
+    let mana_node_ids = crate::cn_mana::visible_node_awake_levels(
+        character_id,
+        character.get("mana_board_index").and_then(Value::as_i64).unwrap_or(1),
+        snapshot
+            .get("mana_nodes")
+            .and_then(|nodes| nodes.get(character_id.to_string()))
+            .unwrap_or(&Value::Null),
+        response_time,
+    )?;
     let mut result = json!({
         "id": character_id,
         "mana_node_ids": mana_node_ids,
@@ -491,7 +514,7 @@ fn client_character(
 
 #[cfg(test)]
 mod tests {
-    use super::client_character;
+    use super::{client_character, create_lobby_party, create_mate_party};
     use serde_json::json;
 
     // //// 读取标准和旧版联机 Mana node 字段 [@x380kkm 2026-08-28] ////
@@ -499,19 +522,32 @@ mod tests {
     fn reads_canonical_mana_node_ids_for_client_party() {
         let snapshot = json!({
             "characters": {
-                "1": {"evolution_level": 2, "exp": 10, "over_limit_step": 1}
+                "1": {"evolution_level": 2, "exp": 10, "over_limit_step": 1, "mana_board_index": 2}
             },
             "mana_nodes": {
                 "1": [
                     {"mana_node_multiplied_id": 2201},
                     {"multiplied_id": 2202},
-                    2203
+                    2203,
+                    {"mana_node_multiplied_id": 2202, "awake_level": 9},
+                    {"mana_node_multiplied_id": 2401},
+                    {"mana_node_multiplied_id": 222004201},
+                    {"legacy": "preserved"},
+                    -1
                 ]
             }
         });
 
-        let character = client_character(&snapshot, Some(1)).expect("client character is built");
-        assert_eq!(character["mana_node_ids"], json!([2201, 2202, 2203]));
+        let character = client_character(&snapshot, Some(1), 1_750_000_000).expect("client character is built");
+        assert_eq!(character["mana_node_ids"], json!({"2201":0,"2202":1,"2203":0,"2401":0}));
+        let earlier = client_character(&snapshot, Some(1), 1_420_000_000).unwrap();
+        assert_eq!(earlier["mana_node_ids"], json!({"2201":0,"2202":1,"2203":0}));
+        let party = json!({"characters":[character,null,null],"unison_characters":[null,null,null],
+            "equipments":[null,null,null],"ability_soul_ids":[null,null,null]});
+        assert_eq!(create_lobby_party(&party)["characters"][0][1]["mana_node_ids"]["2202"], 1);
+        assert_eq!(create_mate_party(&party)["characters"][0]["mana_node_ids"], json!([2201,2202,2203,2401]));
+        assert!(snapshot["mana_nodes"]["1"].as_array().unwrap().iter()
+            .any(|node| node["mana_node_multiplied_id"] == 2401));
     }
     // //// /读取标准和旧版联机 Mana node 字段 ////
 }
@@ -536,6 +572,21 @@ fn client_equipment(
     }))
 }
 
+// //// 将内部觉醒映射投影为 COM 接口的节点编号数组 [@x380kkm 2026-09-25] ////
+fn create_mate_party(client_party: &Value) -> Value {
+    let mut party = client_party.clone();
+    for field in ["characters", "unison_characters"] {
+        for character in party[field].as_array_mut().into_iter().flatten() {
+            if let Some(nodes) = character["mana_node_ids"].as_object() {
+                let ids = nodes.keys().filter_map(|id| id.parse::<i64>().ok()).collect::<Vec<_>>();
+                character["mana_node_ids"] = json!(ids);
+            }
+        }
+    }
+    party
+}
+// //// /将内部觉醒映射投影为 COM 接口的节点编号数组 ////
+
 fn create_lobby_party(client_party: &Value) -> Value {
     json!({
         "characters": option_slots(&client_party["characters"], true),
@@ -557,20 +608,6 @@ fn option_slots(value: &Value, character: bool) -> Vec<Value> {
             } else if character {
                 let mut value = value.clone();
                 let object = value.as_object_mut().expect("AI character is an object");
-                let nodes = object
-                    .remove("mana_node_ids")
-                    .and_then(|nodes| nodes.as_array().cloned())
-                    .unwrap_or_default();
-                object.insert(
-                    "mana_node_ids".to_owned(),
-                    Value::Object(
-                        nodes
-                            .into_iter()
-                            .filter_map(|node| node.as_i64())
-                            .map(|node| (node.to_string(), Value::from(0)))
-                            .collect(),
-                    ),
-                );
                 object.insert("illustration_settings".to_owned(), json!([1]));
                 let ex_boost = object
                     .remove("ex_boost")

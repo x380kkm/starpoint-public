@@ -2,6 +2,7 @@
 // # personal-service-cn-carnival-event
 //
 // 该模块返回 CN 嘉年华活动记录和持久化活动队伍.
+// 成绩响应的空角色使用 null, 历史成绩和原始队伍保存在玩家快照中.
 
 use super::{closed_activity_response, error_response, party, state};
 use crate::cn::{decode_request, msgpack_response_at, server_time};
@@ -9,7 +10,7 @@ use crate::database::ServiceDatabase;
 use crate::http::{HttpRequest, HttpResponse};
 use crate::PersonalServiceError;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use std::path::Path;
 
 const FAMILY: &str = "carnival";
@@ -60,12 +61,12 @@ fn index(
     }
     let root = player.root_mut()?;
     state::set_current_event(root, FAMILY, body.event_id)?;
-    let records = state::event_state(root, FAMILY, body.event_id)
-        .and_then(|event| event.get("carnival_records"))
-        .cloned()
-        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let records = records(root, body.event_id);
     let party_groups = party::carnival_party_groups(root, FAMILY, body.event_id)?;
+    let activity_id = format!("{FAMILY}:{}", body.event_id);
+    let round = crate::activity_history::participation_round(root, &activity_id);
     player.save(database)?;
+    database.record_activity_summary(player.account_id, &activity_id, round, &json!({"records":records}))?;
     msgpack_response_at(
         body.viewer_id,
         false,
@@ -77,6 +78,43 @@ fn index(
     )
 }
 // //// /返回嘉年华活动首页 ////
+
+// //// 读取嘉年华成绩并整理展示队伍的角色引用 [@x380kkm 2026-10-02] ////
+pub(crate) fn records(root: &Map<String, Value>, event_id: i64) -> Value {
+    let records = state::event_state(root, FAMILY, event_id)
+        .and_then(|event| event.get("carnival_records"))
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(present_record)
+        .collect();
+    Value::Array(records)
+}
+
+fn present_record(value: &Value) -> Option<Value> {
+    let record = value.as_object()?;
+    i32::try_from(record.get("folder_id")?.as_i64()?).ok()?;
+    let mut record = record.clone();
+    for field in ["best_score", "previous_score"] {
+        if let Some(score) = record.get_mut(field) {
+            if !score.is_number() {
+                *score = Value::Null;
+            }
+        }
+    }
+    for field in ["previous_character_ids", "previous_unison_character_ids"] {
+        let slots = record.entry(field.to_owned()).or_insert(Value::Null);
+        if let Some(slots) = slots.as_array_mut() {
+            slots.iter_mut().for_each(
+                crate::cn_character_presentation::normalize_optional_character_reference,
+            );
+        } else {
+            *slots = json!([null, null, null]);
+        }
+    }
+    Some(Value::Object(record))
+}
+// //// /读取嘉年华成绩并整理展示队伍的角色引用 ////
 
 // //// 返回嘉年华活动队伍 [@x380kkm 2026-08-22] ////
 fn get_party(

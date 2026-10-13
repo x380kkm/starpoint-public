@@ -4,16 +4,20 @@
 // 结算和中止只消费与当前 quest 和 play_id 一致的一次性状态.
 
 import { FastifyInstance, FastifyPluginOptions, FastifyReply, FastifyRequest } from "fastify";
-import { deleteActiveQuest, getActiveQuest, insertActiveQuest } from "../../control/battleSettlementState";
+import { deleteActiveQuest, getActiveQuest } from "../../control/battleSettlementState";
 import { deletePlayerRushEventPlayedPartyListSync, getAccountPlayers, getPlayerRushEventPlayedPartiesSync, getPlayerRushEventSync, getPlayerSingleQuestProgressSync, getPlayerSync, getSession, insertPlayerQuestProgressSync, insertPlayerRushEventClearedFolderSync, insertPlayerRushEventPlayedPartySync, updatePlayerQuestProgressSync, updatePlayerRushEventSync, updatePlayerSync } from "../../data/wdfpData";
 import { getQuestFromCategorySync, getRushEventFolderClearRewards } from "../../lib/assets";
 import { getCharactersEvolutionImgLevels, givePlayerCharactersExpSync } from "../../lib/character";
-import { givePlayerRewardsSync, givePlayerRewardSync, givePlayerScoreRewardsSync } from "../../lib/quest";
+import { givePlayerRewardsSync, givePlayerRewardSync, givePlayerScoreRewardsSync, startPlayerQuest } from "../../lib/quest";
 import { BattleQuest, EquipmentItemReward, PlayerRewardResult, QuestCategory } from "../../lib/types";
 import { generateDataHeaders, getServerTime } from "../../utils";
 import { rushEventFolderMaxRounds } from "./rushEvent";
 import { RushEventBattleType, UserRushEventPlayedParty } from "../../data/types";
 import { getSerializedPlayerRushEventPlayedPartiesSync } from "../../lib/rush";
+import { characterReference } from "../../lib/characterReference";
+import { drawAdditionalQuestRewards } from "../../lib/additionalQuestRewards";
+import { selectBattleRewards } from "../../lib/battleRewardSelection";
+import { PeriodicBattleRewards, settlePlayerPeriodicRewardsSync } from "../../data/periodicBattleRewards";
 
 interface StartBody {
     quest_id: number
@@ -48,6 +52,7 @@ export interface FinishBody {
     viewer_id: number
     add_mana: number
     is_accomplished: boolean
+    is_lose?: boolean
     statistics: QuestStatistics
     api_count: number
 }
@@ -88,7 +93,8 @@ export interface BattleQuestRouteOptions extends FastifyPluginOptions {
 
 const continueVmoneyCost = 50;
 
-export { deleteActiveQuest, insertActiveQuest } from "../../control/battleSettlementState"
+export { deleteActiveQuest } from "../../control/battleSettlementState"
+export { startPlayerQuest as insertActiveQuest } from "../../lib/quest"
 
 // //// 注册可复用的战斗结算和中止路由 [@x380kkm 2026-07-24] ////
 export const registerBattleSettlementRoutes = async (
@@ -150,6 +156,14 @@ export const registerBattleSettlementRoutes = async (
 
         // delete the active quest data from global record
         deleteActiveQuest(playerId)
+        const rewardSelection = selectBattleRewards(questData, questCategory, questId, {
+            accomplished: body.is_accomplished,
+            lost: body.is_lose === true,
+            clearedPhases: body.statistics.clear_phase,
+            fieldMana: body.add_mana,
+        })
+        const rewardQuest = rewardSelection.quest
+        const fieldMana = rewardSelection.fieldMana
 
         // calculate clear rank
         const clearTime = body.elapsed_time_ms
@@ -160,10 +174,10 @@ export const registerBattleSettlementRoutes = async (
                         : 1
 
         // calculate player rewards
-        const newExpPool = playerData.expPool + questData.poolExpReward
+        const newExpPool = playerData.expPool + rewardQuest.poolExpReward
         const beforeRankPoint = playerData.rankPoint
-        const newRankPoint = beforeRankPoint + questData.rankPointReward
-        let newMana = playerData.freeMana + questData.manaReward + body.add_mana
+        const newRankPoint = beforeRankPoint + rewardQuest.rankPointReward
+        const newMana = playerData.freeMana + rewardQuest.manaReward + fieldMana
 
         // calculate boost point
         let newBoostPoint = playerData.boostPoint - (activeQuestData.useBoostPoint ? 1 : 0)
@@ -172,14 +186,22 @@ export const registerBattleSettlementRoutes = async (
 
         // check current quest progress
         const questProgress = getPlayerSingleQuestProgressSync(playerId, questCategory, questId);
-        const questPreviouslyCompleted = questProgress !== null
-        const questAccomplished = body.is_accomplished
+        const questPreviouslyCompleted = questProgress?.finished === true
+        const questAccomplished = body.is_accomplished || rewardSelection.scriptedLoss
 
-        const clearReward = !questPreviouslyCompleted && questData.clearReward !== undefined ? givePlayerRewardSync(playerId, questData.clearReward) : null
-        const sPlusClearReward = (clearRank === 5) && (questProgress?.clearRank !== 5) && (questData.sPlusReward !== undefined) ? givePlayerRewardSync(playerId, questData.sPlusReward) : null
+        updatePlayerSync({
+            id: playerId,
+            freeMana: newMana,
+            expPool: newExpPool,
+            rankPoint: newRankPoint,
+            boostPoint: newBoostPoint,
+            bossBoostPoint: newBossBoostPoint
+        })
+        const clearReward = questAccomplished && !questPreviouslyCompleted && questData.clearReward !== undefined ? givePlayerRewardSync(playerId, questData.clearReward) : null
+        const sPlusClearReward = questAccomplished && (clearRank === 5) && (questProgress?.clearRank !== 5) && (questData.sPlusReward !== undefined) ? givePlayerRewardSync(playerId, questData.sPlusReward) : null
         if (questAccomplished) {
             // update quest progress
-            if (questPreviouslyCompleted) {
+            if (questProgress !== null) {
                 // simply update the quest progress if it already exists.
                 updatePlayerQuestProgressSync(playerId, questCategory, {
                     questId: questId,
@@ -200,18 +222,15 @@ export const registerBattleSettlementRoutes = async (
             }
         }
 
-        // update player
-        updatePlayerSync({
-            id: playerId,
-            freeMana: newMana,
-            expPool: newExpPool,
-            rankPoint: newRankPoint,
-            boostPoint: newBoostPoint,
-            bossBoostPoint: newBossBoostPoint
-        })
-
         // reward score rewards
-        const scoreRewardsResult = givePlayerScoreRewardsSync(playerId, questData.scoreRewardGroupId, questData.scoreRewardGroup, useBoostPoint)
+        const scoreRewardsResult = givePlayerScoreRewardsSync(playerId, rewardQuest, clearRank, useBoostPoint, battleGroup === "multi")
+        const additionalDrops = rewardSelection.receivesRewards
+            ? drawAdditionalQuestRewards({ category: questCategory, questId, element: questData.element ?? 0, eventIds: activeQuestData.additionalEventIds ?? [] })
+            : { rewards: [], drops: [] }
+        const additionalRewards = givePlayerRewardsSync(playerId, additionalDrops.rewards)!
+        const periodicRewards: PeriodicBattleRewards = questAccomplished
+            ? settlePlayerPeriodicRewardsSync(playerId, questCategory, questId, activeQuestData.startedAt ?? getServerTime())
+            : { drops: [] }
 
         // reward character exp
         const bodyPartyStatistics = body.statistics.party
@@ -220,7 +239,7 @@ export const registerBattleSettlementRoutes = async (
         for (const value of partyCharacterIds.values()) {
             if (value !== null && value.id !== null) partyCharacterIdsArray.push(value.id);
         }
-        const addExpAmount = questData.characterExpReward
+        const addExpAmount = rewardQuest.characterExpReward
 
         const rewardCharacterExpResult = givePlayerCharactersExpSync(
             playerId,
@@ -249,8 +268,8 @@ export const registerBattleSettlementRoutes = async (
                 const rushEventBattleType = rushEventRound === 0 ? RushEventBattleType.ENDLESS : RushEventBattleType.FOLDER
 
                 // map character ids
-                const characterIds = bodyPartyStatistics.characters.map(val => val?.id ?? null)
-                const unisonCharacterIds = bodyPartyStatistics.unison_characters.map(val => val?.id ?? null)
+                const characterIds = bodyPartyStatistics.characters.map(val => characterReference(val?.id))
+                const unisonCharacterIds = bodyPartyStatistics.unison_characters.map(val => characterReference(val?.id))
 
                 // get evolution image levels
                 const evolutionImgLevels: (number | null)[] = getCharactersEvolutionImgLevels(playerId, characterIds)
@@ -330,15 +349,16 @@ export const registerBattleSettlementRoutes = async (
             }
         }
 
+        const settledPlayer = getPlayerSync(playerId)!
         reply.header("content-type", "application/x-msgpack")
         return reply.status(200).send({
             "data_headers": dataHeaders,
             "data": {
                 "user_info": {
-                    "free_mana": newMana + (clearReward?.user_info.free_mana || 0) + (sPlusClearReward?.user_info.free_mana || 0) + scoreRewardsResult.user_info.free_mana,
-                    "exp_pool": rewardCharacterExpResult.exp_pool + (clearReward?.user_info.exp_pool || 0) + scoreRewardsResult.user_info.exp_pool,
+                    "free_mana": settledPlayer.freeMana,
+                    "exp_pool": settledPlayer.expPool,
                     "exp_pooled_time": getServerTime(playerData.expPooledTime),
-                    "free_vmoney": playerData.freeVmoney + (clearReward?.user_info.free_vmoney || 0) + (sPlusClearReward?.user_info.free_vmoney || 0) + scoreRewardsResult.user_info.free_vmoney,
+                    "free_vmoney": settledPlayer.freeVmoney,
                     "rank_point": newRankPoint,
                     "stamina": playerData.stamina,
                     "stamina_heal_time": getServerTime(playerData.staminaHealTime),
@@ -350,36 +370,50 @@ export const registerBattleSettlementRoutes = async (
                     ...rewardCharacterExpResult.character_list,
                     ...(clearReward?.character_list || []),
                     ...(sPlusClearReward?.character_list || []),
-                    ...scoreRewardsResult.character_list
+                    ...scoreRewardsResult.character_list,
+                    ...additionalRewards.character_list,
+                    ...(periodicRewards.rewardResult?.character_list ?? []),
                 ],
                 "bond_token_status_list": rewardCharacterExpResult.bond_token_status_list,
                 "rewards": {
                     "overflow_pool_exp": 0,
                     "converted_pool_exp": 0,
-                    "reward_pool_exp": questData.poolExpReward,
-                    "reward_mana": questData.manaReward,
-                    "field_mana": body.add_mana
+                    "reward_pool_exp": rewardQuest.poolExpReward,
+                    "reward_mana": rewardQuest.manaReward,
+                    "field_mana": fieldMana
                 },
                 "old_high_score": questProgress === null ? 0 : questProgress.highScore || 0,
                 "joined_character_id_list": [
                     ...(clearReward?.joined_character_id_list || []),
                     ...(sPlusClearReward?.joined_character_id_list || []),
-                    ...scoreRewardsResult.joined_character_id_list
+                    ...scoreRewardsResult.joined_character_id_list,
+                    ...additionalRewards.joined_character_id_list,
+                    ...(periodicRewards.rewardResult?.joined_character_id_list ?? []),
                 ],
                 "before_rank_point": beforeRankPoint,
                 "clear_rank": clearRank,
                 "drop_score_reward_ids": scoreRewardsResult.drop_score_reward_ids,
                 "drop_rare_reward_ids": scoreRewardsResult.drop_rare_reward_ids,
-                "drop_additional_reward_ids": [],
-                "drop_periodic_reward_ids": [],
+                "drop_additional_reward_ids": additionalDrops.drops,
+                "drop_periodic_reward_ids": periodicRewards.drops,
+                ...(periodicRewards.pointList ? { "user_periodic_reward_point_list": periodicRewards.pointList } : {}),
                 "presigned_quest_category": [],
-                "equipment_list": scoreRewardsResult.equipment_list,
+                "equipment_list": [
+                    ...(clearReward?.equipment_list ?? []), ...(sPlusClearReward?.equipment_list ?? []),
+                    ...scoreRewardsResult.equipment_list, ...additionalRewards.equipment_list,
+                    ...(periodicRewards.rewardResult?.equipment_list ?? []),
+                    ...(rushEventRewardsResult?.equipment_list ?? []),
+                ],
                 "category_id": questCategory,
-                "start_time": dataHeaders['servertime'],
+                "start_time": activeQuestData.startedAt ?? dataHeaders['servertime'],
                 "is_multi": battleGroup,
                 "quest_name": "",
                 "item_list": {
+                    ...(clearReward?.items ?? {}),
+                    ...(sPlusClearReward?.items ?? {}),
                     ...scoreRewardsResult.items,
+                    ...additionalRewards.items,
+                    ...(periodicRewards.rewardResult?.items ?? {}),
                     ...(rushEventRewardsResult?.items ?? {})
                 },
                 "rush_event": rushEventData
@@ -487,7 +521,7 @@ const registerSingleBattleQuestRoutes = async (fastify: FastifyInstance, options
 
         // add to active quests table
         deleteActiveQuest(playerId)
-        insertActiveQuest(playerId, {
+        startPlayerQuest(playerId, {
             questId: questId,
             playId: body.play_id,
             category: category,

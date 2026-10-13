@@ -9,6 +9,8 @@ use std::path::Path;
 use tempfile::TempDir;
 
 mod support;
+#[path = "cn_asset_files/empty_overrides.rs"]
+mod empty_overrides;
 
 use support::{request, request_with_headers};
 
@@ -225,6 +227,14 @@ fn serves_archive_head_and_single_byte_ranges() {
     let archive = "0123456789";
     let path = "archive-common-full/range-fixture.zip";
     write_asset(root.path(), path, archive);
+    let modified_at = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_704_067_200);
+    fs::File::options()
+        .write(true)
+        .open(root.path().join("cdn/cn").join(path))
+        .unwrap()
+        .set_times(fs::FileTimes::new().set_modified(modified_at))
+        .unwrap();
+    let modified_header = "Last-Modified: Mon, 01 Jan 2024 00:00:00 GMT\r\n";
     let service = PersonalService::start(root.path(), 0).expect("service starts");
     let request_path = format!("/patch/cn/{path}");
 
@@ -233,7 +243,11 @@ fn serves_archive_head_and_single_byte_ranges() {
     assert!(head_response.contains("Content-Type: application/zip\r\n"));
     assert!(head_response.contains("Content-Length: 10\r\n"));
     assert!(head_response.contains("Accept-Ranges: bytes\r\n"));
+    assert!(head_response.contains(modified_header));
     assert_eq!(response_body(&head_response), "");
+    let full_response = request(service.port(), "GET", &request_path);
+    assert!(full_response.contains(modified_header));
+    assert_eq!(response_body(&full_response), archive);
 
     for (range, content_range, expected_body) in [
         ("bytes=2-5", "bytes 2-5/10", "2345"),
@@ -253,6 +267,7 @@ fn serves_archive_head_and_single_byte_ranges() {
         assert!(response.contains(&format!("Content-Range: {content_range}\r\n")));
         assert!(response.contains(&format!("Content-Length: {}\r\n", expected_body.len())));
         assert!(response.contains("Accept-Ranges: bytes\r\n"));
+        assert!(response.contains(modified_header));
         assert_eq!(response_body(&response), expected_body);
     }
     service.stop().expect("service stops cleanly");
@@ -563,9 +578,9 @@ fn serves_optional_text_documents() {
 }
 // //// /为精确展示文档路径提供空文本格式 ////
 
-// //// 返回 SKAN 查询的文本兼容响应 [@x380kkm 2026-08-21] ////
+// //// 返回 SDK 可读取的本地广告归因配置 [@x380kkm 2026-09-27] ////
 #[test]
-fn serves_skan_query_detail_compatibility_response() {
+fn serves_skan_query_detail_with_disabled_attribution() {
     let root = TempDir::new().expect("temporary service directory is created");
     let service = PersonalService::start(root.path(), 0).expect("service starts");
 
@@ -575,11 +590,31 @@ fn serves_skan_query_detail_compatibility_response() {
         "/api/skan/query_detail?gameCode=wf&sign=expired&timestamp=0",
     );
     assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
-    assert!(response.contains("Content-Type: text/plain; charset=utf-8\r\n"));
-    assert_eq!(
-        response_body(&response),
-        "{status=1, message=签名已过失效时间}"
-    );
+    assert!(response.contains("Content-Type: application/json\r\n"));
+    let body: serde_json::Value =
+        serde_json::from_str(response_body(&response)).expect("SDK reads the response dictionary");
+    assert_eq!(body["status"], 0);
+    assert_eq!(body["data"]["installVerSwitch"], 0);
+    assert_eq!(body["data"]["converValuesSwitch"], 0);
+    assert_eq!(body["data"]["converValuesWindowPeriod"], 0);
+    assert_eq!(body["data"]["eventList"], serde_json::json!([]));
     service.stop().expect("service stops cleanly");
 }
-// //// /返回 SKAN 查询的文本兼容响应 ////
+// //// /返回 SDK 可读取的本地广告归因配置 ////
+
+// //// 返回 SDK 国家选择回调接受的未知地区 [@x380kkm 2026-09-27] ////
+#[test]
+fn serves_ip_country_for_sdk_region_selection() {
+    let root = TempDir::new().expect("temporary service directory is created");
+    let service = PersonalService::start(root.path(), 0).expect("service starts");
+
+    let response = request(service.port(), "GET", "/ip/getIpContry.do?ip=127.0.0.1");
+    assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
+    assert!(response.contains("Content-Type: application/json\r\n"));
+    let body: serde_json::Value =
+        serde_json::from_str(response_body(&response)).expect("SDK reads the response dictionary");
+    assert_eq!(body["status"].as_str(), Some("success"));
+    assert_eq!(body["data"].as_str(), Some("unKnow"));
+    service.stop().expect("service stops cleanly");
+}
+// //// /返回 SDK 国家选择回调接受的未知地区 ////

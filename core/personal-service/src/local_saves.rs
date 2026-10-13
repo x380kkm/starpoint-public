@@ -4,6 +4,7 @@
 // 该模块提供受管理 token 保护的本地存档槽 API. 导入创建新槽而不覆盖现有槽,
 // 回滚先保存当前状态. 自动快照带有来源标记并限制保留数量. 导出内容不包含实例
 // 身份, 关系, 权限, 管理凭据或加密密钥.
+// 明文文件导入按当前游戏数据重建摘要, Android 和 iOS 共用存档格式.
 
 use crate::database::{
     LocalIssuedTransferToken, LocalSaveExport, LocalSaveRevision, LocalSaveSlot, LocalSaveSnapshot,
@@ -88,6 +89,7 @@ struct LocalSaveContextResponse {
 struct LocalSaveStateResponse {
     slots: Vec<LocalSaveSlotResponse>,
     devices: Vec<LocalSaveDeviceResponse>,
+    local_slot_id: Option<i64>,
 }
 
 #[derive(Serialize)]
@@ -414,10 +416,15 @@ fn parse_import_request(request: &HttpRequest) -> Option<ImportRequest> {
     })
 }
 
+// //// 读取可编辑存档并更新数据摘要 [@x380kkm 2026-09-28] ////
 fn import_portable_package(
-    package: Value,
+    mut package: Value,
     requested_name: Option<String>,
 ) -> Option<ImportRequest> {
+    let payload_sha256 = portable_save::calculate_payload_sha256(package.get("data")?).ok()?;
+    package
+        .as_object_mut()?
+        .insert("payloadSha256".to_owned(), Value::String(payload_sha256));
     let package = portable_save::parse_package(package)?;
     let source_name = package.source.slot_name.as_deref().and_then(normalize_text);
     Some(ImportRequest {
@@ -494,6 +501,7 @@ fn parse_id(value: &str) -> Option<i64> {
 
 fn state_response(state: LocalSaveState) -> LocalSaveStateResponse {
     LocalSaveStateResponse {
+        local_slot_id: state.local_slot_id,
         slots: state.slots.into_iter().map(slot_response).collect(),
         devices: state
             .devices

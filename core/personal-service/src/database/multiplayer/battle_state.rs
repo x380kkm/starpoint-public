@@ -32,6 +32,7 @@ pub(crate) struct MultiplayerBattleIdentity<'a> {
 
 pub(crate) struct MultiplayerBattleStart<'a> {
     pub(crate) identity: MultiplayerBattleIdentity<'a>,
+    pub(crate) snapshot: &'a str,
     pub(crate) use_boss_boost_point: bool,
     pub(crate) use_boost_point: bool,
     pub(crate) is_auto_start_mode: bool,
@@ -68,6 +69,14 @@ pub(super) fn migrate(connection: &Connection) -> Result<(), PersonalServiceErro
 // //// /创建成员战斗身份和动作收据表 ////
 
 impl ServiceDatabase {
+    // //// 按玩家和房间战斗身份读取入场收据 [@x380kkm 2026-09-22] ////
+    pub(crate) fn multiplayer_start_receipt(
+        &self,
+        identity: MultiplayerBattleIdentity<'_>,
+    ) -> Result<Option<MultiplayerBattleReceipt>, PersonalServiceError> {
+        receipt::read_start_receipt_for_identity(&self.connection, identity)
+    }
+
     // //// 读取指定联机动作的完整响应收据 [@x380kkm 2026-08-23] ////
     pub(crate) fn multiplayer_battle_receipt(
         &self,

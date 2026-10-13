@@ -3,6 +3,7 @@ import { SessionType } from "../../data/types";
 import { getClientSerializedData, serializePlayerData } from "../../data/utils";
 import { collectPlayerDataPooledExpSync, collectPlayerPooledExpSync, dailyResetPlayerDataSync, getAccountPlayers, getPlayerActiveMissionsSync, getPlayerBoxGachasSync, getPlayerCharactersManaNodesSync, getPlayerCharactersSync, getPlayerClearedRegularMissionListSync, getPlayerDailyChallengePointListSync, getPlayerDrawnQuestsSync, getPlayerEquipmentListSync, getPlayerGachaInfoListSync, getPlayerItemsSync, getPlayerMultiSpecialExchangeCampaignsSync, getPlayerOptionsSync, getPlayerPartyGroupListSync, getPlayerPeriodicRewardPointsSync, getPlayerQuestProgressSync, getPlayerStartDashExchangeCampaignsSync, getPlayerSync, getPlayerTriggeredTutorialsSync, getSession, updatePlayerSync } from "../../data/wdfpData";
 import { generateDataHeaders } from "../../utils";
+import { refreshPlayerPeriodicRewardsSync } from "../../data/periodicBattleRewards";
 
 interface LoadBody {
     app_secret: string,
@@ -60,6 +61,8 @@ const routes = async (fastify: FastifyInstance) => {
         dailyResetPlayerDataSync(player)
 
         collectPlayerDataPooledExpSync(player)
+
+        refreshPlayerPeriodicRewardsSync(playerId)
 
         const clientData = getClientSerializedData(playerId, { viewerId: viewerId })
         if (clientData === null) return reply.status(500).send({

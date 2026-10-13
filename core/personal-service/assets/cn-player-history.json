@@ -1,0 +1,4694 @@
+{
+  "milestones": [
+    {
+      "category": 1,
+      "mission_id": 10,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 1,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 11,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 2,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 12,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 3,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 13,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 4,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 14,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 5,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 15,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 6,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 22,
+      "stage": 10,
+      "pattern": "player_rank_achievement",
+      "chapter_id": null,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 32,
+      "stage": 9,
+      "pattern": "characters_count",
+      "chapter_id": null,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 90,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 7,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 97,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 8,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 101,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 9,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 104,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 10,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 109,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 1,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 110,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 2,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 111,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 3,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 112,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 4,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 113,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 5,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 114,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 6,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 115,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 11,
+      "character_id": null
+    },
+    {
+      "category": 1,
+      "mission_id": 118,
+      "stage": 1,
+      "pattern": "chapter_clear",
+      "chapter_id": 12,
+      "character_id": null
+    },
+    {
+      "category": 5,
+      "mission_id": 1111001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111001
+    },
+    {
+      "category": 5,
+      "mission_id": 1111002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111002
+    },
+    {
+      "category": 5,
+      "mission_id": 1111003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111003
+    },
+    {
+      "category": 5,
+      "mission_id": 1111004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111004
+    },
+    {
+      "category": 5,
+      "mission_id": 1111005,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111005
+    },
+    {
+      "category": 5,
+      "mission_id": 1111006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111006
+    },
+    {
+      "category": 5,
+      "mission_id": 1111007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111007
+    },
+    {
+      "category": 5,
+      "mission_id": 1111009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111009
+    },
+    {
+      "category": 5,
+      "mission_id": 1111015,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111015
+    },
+    {
+      "category": 5,
+      "mission_id": 1111021,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111021
+    },
+    {
+      "category": 5,
+      "mission_id": 1111027,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111027
+    },
+    {
+      "category": 5,
+      "mission_id": 1111033,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111033
+    },
+    {
+      "category": 5,
+      "mission_id": 1111039,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111039
+    },
+    {
+      "category": 5,
+      "mission_id": 1111045,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111045
+    },
+    {
+      "category": 5,
+      "mission_id": 1111051,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111051
+    },
+    {
+      "category": 5,
+      "mission_id": 1111057,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111057
+    },
+    {
+      "category": 5,
+      "mission_id": 1111063,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111063
+    },
+    {
+      "category": 5,
+      "mission_id": 1111069,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111069
+    },
+    {
+      "category": 5,
+      "mission_id": 1111081,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111081
+    },
+    {
+      "category": 5,
+      "mission_id": 1111087,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111087
+    },
+    {
+      "category": 5,
+      "mission_id": 1111093,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111093
+    },
+    {
+      "category": 5,
+      "mission_id": 1111099,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111099
+    },
+    {
+      "category": 5,
+      "mission_id": 1111105,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111105
+    },
+    {
+      "category": 5,
+      "mission_id": 1111111,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111111
+    },
+    {
+      "category": 5,
+      "mission_id": 1111117,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111117
+    },
+    {
+      "category": 5,
+      "mission_id": 1111123,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111123
+    },
+    {
+      "category": 5,
+      "mission_id": 1111129,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111129
+    },
+    {
+      "category": 5,
+      "mission_id": 1111135,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111135
+    },
+    {
+      "category": 5,
+      "mission_id": 1111141,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111141
+    },
+    {
+      "category": 5,
+      "mission_id": 1111147,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111147
+    },
+    {
+      "category": 5,
+      "mission_id": 1111153,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111153
+    },
+    {
+      "category": 5,
+      "mission_id": 1111159,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111159
+    },
+    {
+      "category": 5,
+      "mission_id": 1111165,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111165
+    },
+    {
+      "category": 5,
+      "mission_id": 1111171,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111171
+    },
+    {
+      "category": 5,
+      "mission_id": 1111177,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111177
+    },
+    {
+      "category": 5,
+      "mission_id": 1111183,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 111183
+    },
+    {
+      "category": 5,
+      "mission_id": 1113001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 113001
+    },
+    {
+      "category": 5,
+      "mission_id": 1121001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121001
+    },
+    {
+      "category": 5,
+      "mission_id": 1121002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121002
+    },
+    {
+      "category": 5,
+      "mission_id": 1121003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121003
+    },
+    {
+      "category": 5,
+      "mission_id": 1121004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121004
+    },
+    {
+      "category": 5,
+      "mission_id": 1121005,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121005
+    },
+    {
+      "category": 5,
+      "mission_id": 1121006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121006
+    },
+    {
+      "category": 5,
+      "mission_id": 1121007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121007
+    },
+    {
+      "category": 5,
+      "mission_id": 1121008,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121008
+    },
+    {
+      "category": 5,
+      "mission_id": 1121009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121009
+    },
+    {
+      "category": 5,
+      "mission_id": 1121015,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121015
+    },
+    {
+      "category": 5,
+      "mission_id": 1121021,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121021
+    },
+    {
+      "category": 5,
+      "mission_id": 1121027,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121027
+    },
+    {
+      "category": 5,
+      "mission_id": 1121033,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121033
+    },
+    {
+      "category": 5,
+      "mission_id": 1121039,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121039
+    },
+    {
+      "category": 5,
+      "mission_id": 1121045,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121045
+    },
+    {
+      "category": 5,
+      "mission_id": 1121051,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121051
+    },
+    {
+      "category": 5,
+      "mission_id": 1121057,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121057
+    },
+    {
+      "category": 5,
+      "mission_id": 1121069,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121069
+    },
+    {
+      "category": 5,
+      "mission_id": 1121070,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121070
+    },
+    {
+      "category": 5,
+      "mission_id": 1121075,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121075
+    },
+    {
+      "category": 5,
+      "mission_id": 1121081,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121081
+    },
+    {
+      "category": 5,
+      "mission_id": 1121087,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121087
+    },
+    {
+      "category": 5,
+      "mission_id": 1121093,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121093
+    },
+    {
+      "category": 5,
+      "mission_id": 1121099,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121099
+    },
+    {
+      "category": 5,
+      "mission_id": 1121105,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121105
+    },
+    {
+      "category": 5,
+      "mission_id": 1121111,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121111
+    },
+    {
+      "category": 5,
+      "mission_id": 1121117,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121117
+    },
+    {
+      "category": 5,
+      "mission_id": 1121123,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121123
+    },
+    {
+      "category": 5,
+      "mission_id": 1121129,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121129
+    },
+    {
+      "category": 5,
+      "mission_id": 1121135,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121135
+    },
+    {
+      "category": 5,
+      "mission_id": 1121141,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121141
+    },
+    {
+      "category": 5,
+      "mission_id": 1121147,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121147
+    },
+    {
+      "category": 5,
+      "mission_id": 1121153,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121153
+    },
+    {
+      "category": 5,
+      "mission_id": 1121159,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121159
+    },
+    {
+      "category": 5,
+      "mission_id": 1121165,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121165
+    },
+    {
+      "category": 5,
+      "mission_id": 1121171,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121171
+    },
+    {
+      "category": 5,
+      "mission_id": 1121177,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121177
+    },
+    {
+      "category": 5,
+      "mission_id": 1121183,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121183
+    },
+    {
+      "category": 5,
+      "mission_id": 1121189,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 121189
+    },
+    {
+      "category": 5,
+      "mission_id": 1123001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 123001
+    },
+    {
+      "category": 5,
+      "mission_id": 1131001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131001
+    },
+    {
+      "category": 5,
+      "mission_id": 1131002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131002
+    },
+    {
+      "category": 5,
+      "mission_id": 1131003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131003
+    },
+    {
+      "category": 5,
+      "mission_id": 1131004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131004
+    },
+    {
+      "category": 5,
+      "mission_id": 1131005,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131005
+    },
+    {
+      "category": 5,
+      "mission_id": 1131006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151005
+    },
+    {
+      "category": 5,
+      "mission_id": 1131007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151006
+    },
+    {
+      "category": 5,
+      "mission_id": 1131011,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131011
+    },
+    {
+      "category": 5,
+      "mission_id": 1131012,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131012
+    },
+    {
+      "category": 5,
+      "mission_id": 1131013,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131013
+    },
+    {
+      "category": 5,
+      "mission_id": 1131014,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131014
+    },
+    {
+      "category": 5,
+      "mission_id": 1131020,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131020
+    },
+    {
+      "category": 5,
+      "mission_id": 1131026,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131026
+    },
+    {
+      "category": 5,
+      "mission_id": 1131032,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131032
+    },
+    {
+      "category": 5,
+      "mission_id": 1131038,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131038
+    },
+    {
+      "category": 5,
+      "mission_id": 1131044,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131044
+    },
+    {
+      "category": 5,
+      "mission_id": 1131050,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131050
+    },
+    {
+      "category": 5,
+      "mission_id": 1131056,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131056
+    },
+    {
+      "category": 5,
+      "mission_id": 1131062,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131062
+    },
+    {
+      "category": 5,
+      "mission_id": 1131068,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131068
+    },
+    {
+      "category": 5,
+      "mission_id": 1131074,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131074
+    },
+    {
+      "category": 5,
+      "mission_id": 1131080,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131080
+    },
+    {
+      "category": 5,
+      "mission_id": 1131086,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131086
+    },
+    {
+      "category": 5,
+      "mission_id": 1131092,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131092
+    },
+    {
+      "category": 5,
+      "mission_id": 1131098,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131098
+    },
+    {
+      "category": 5,
+      "mission_id": 1131104,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131104
+    },
+    {
+      "category": 5,
+      "mission_id": 1131110,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131110
+    },
+    {
+      "category": 5,
+      "mission_id": 1131116,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131116
+    },
+    {
+      "category": 5,
+      "mission_id": 1131122,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131122
+    },
+    {
+      "category": 5,
+      "mission_id": 1131128,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131128
+    },
+    {
+      "category": 5,
+      "mission_id": 1131134,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131134
+    },
+    {
+      "category": 5,
+      "mission_id": 1131140,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131140
+    },
+    {
+      "category": 5,
+      "mission_id": 1131146,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131146
+    },
+    {
+      "category": 5,
+      "mission_id": 1131152,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131152
+    },
+    {
+      "category": 5,
+      "mission_id": 1131158,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131158
+    },
+    {
+      "category": 5,
+      "mission_id": 1131164,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131164
+    },
+    {
+      "category": 5,
+      "mission_id": 1131170,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131170
+    },
+    {
+      "category": 5,
+      "mission_id": 1131176,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131176
+    },
+    {
+      "category": 5,
+      "mission_id": 1131182,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 131182
+    },
+    {
+      "category": 5,
+      "mission_id": 1141001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141001
+    },
+    {
+      "category": 5,
+      "mission_id": 1141002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141002
+    },
+    {
+      "category": 5,
+      "mission_id": 1141003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141003
+    },
+    {
+      "category": 5,
+      "mission_id": 1141004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141004
+    },
+    {
+      "category": 5,
+      "mission_id": 1141005,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141005
+    },
+    {
+      "category": 5,
+      "mission_id": 1141006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141006
+    },
+    {
+      "category": 5,
+      "mission_id": 1141007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141007
+    },
+    {
+      "category": 5,
+      "mission_id": 1141008,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141008
+    },
+    {
+      "category": 5,
+      "mission_id": 1141009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141009
+    },
+    {
+      "category": 5,
+      "mission_id": 1141015,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141015
+    },
+    {
+      "category": 5,
+      "mission_id": 1141021,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141021
+    },
+    {
+      "category": 5,
+      "mission_id": 1141027,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141027
+    },
+    {
+      "category": 5,
+      "mission_id": 1141033,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141033
+    },
+    {
+      "category": 5,
+      "mission_id": 1141039,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141039
+    },
+    {
+      "category": 5,
+      "mission_id": 1141045,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141045
+    },
+    {
+      "category": 5,
+      "mission_id": 1141051,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141051
+    },
+    {
+      "category": 5,
+      "mission_id": 1141057,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141057
+    },
+    {
+      "category": 5,
+      "mission_id": 1141063,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141063
+    },
+    {
+      "category": 5,
+      "mission_id": 1141069,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141069
+    },
+    {
+      "category": 5,
+      "mission_id": 1141081,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141081
+    },
+    {
+      "category": 5,
+      "mission_id": 1141087,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141087
+    },
+    {
+      "category": 5,
+      "mission_id": 1141093,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141093
+    },
+    {
+      "category": 5,
+      "mission_id": 1141099,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141099
+    },
+    {
+      "category": 5,
+      "mission_id": 1141105,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141105
+    },
+    {
+      "category": 5,
+      "mission_id": 1141111,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141111
+    },
+    {
+      "category": 5,
+      "mission_id": 1141117,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141117
+    },
+    {
+      "category": 5,
+      "mission_id": 1141123,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141123
+    },
+    {
+      "category": 5,
+      "mission_id": 1141129,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141129
+    },
+    {
+      "category": 5,
+      "mission_id": 1141135,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141135
+    },
+    {
+      "category": 5,
+      "mission_id": 1141141,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141141
+    },
+    {
+      "category": 5,
+      "mission_id": 1141147,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141147
+    },
+    {
+      "category": 5,
+      "mission_id": 1141153,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141153
+    },
+    {
+      "category": 5,
+      "mission_id": 1141159,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141159
+    },
+    {
+      "category": 5,
+      "mission_id": 1141165,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141165
+    },
+    {
+      "category": 5,
+      "mission_id": 1141171,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141171
+    },
+    {
+      "category": 5,
+      "mission_id": 1141177,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141177
+    },
+    {
+      "category": 5,
+      "mission_id": 1141183,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141183
+    },
+    {
+      "category": 5,
+      "mission_id": 1141189,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141189
+    },
+    {
+      "category": 5,
+      "mission_id": 1141201,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141201
+    },
+    {
+      "category": 5,
+      "mission_id": 1151001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151001
+    },
+    {
+      "category": 5,
+      "mission_id": 1151002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151002
+    },
+    {
+      "category": 5,
+      "mission_id": 1151003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151003
+    },
+    {
+      "category": 5,
+      "mission_id": 1151004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151004
+    },
+    {
+      "category": 5,
+      "mission_id": 1151007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151007
+    },
+    {
+      "category": 5,
+      "mission_id": 1151008,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151011
+    },
+    {
+      "category": 5,
+      "mission_id": 1151009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151009
+    },
+    {
+      "category": 5,
+      "mission_id": 1151012,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151012
+    },
+    {
+      "category": 5,
+      "mission_id": 1151013,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151013
+    },
+    {
+      "category": 5,
+      "mission_id": 1151014,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151014
+    },
+    {
+      "category": 5,
+      "mission_id": 1151015,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 263003
+    },
+    {
+      "category": 5,
+      "mission_id": 1151021,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151021
+    },
+    {
+      "category": 5,
+      "mission_id": 1151027,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151027
+    },
+    {
+      "category": 5,
+      "mission_id": 1151033,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151033
+    },
+    {
+      "category": 5,
+      "mission_id": 1151039,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151039
+    },
+    {
+      "category": 5,
+      "mission_id": 1151045,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151045
+    },
+    {
+      "category": 5,
+      "mission_id": 1151051,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151051
+    },
+    {
+      "category": 5,
+      "mission_id": 1151057,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151057
+    },
+    {
+      "category": 5,
+      "mission_id": 1151063,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151063
+    },
+    {
+      "category": 5,
+      "mission_id": 1151069,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151069
+    },
+    {
+      "category": 5,
+      "mission_id": 1151075,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151075
+    },
+    {
+      "category": 5,
+      "mission_id": 1151081,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151081
+    },
+    {
+      "category": 5,
+      "mission_id": 1151087,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151087
+    },
+    {
+      "category": 5,
+      "mission_id": 1151093,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151093
+    },
+    {
+      "category": 5,
+      "mission_id": 1151099,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151099
+    },
+    {
+      "category": 5,
+      "mission_id": 1151105,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151105
+    },
+    {
+      "category": 5,
+      "mission_id": 1151111,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151111
+    },
+    {
+      "category": 5,
+      "mission_id": 1151117,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151117
+    },
+    {
+      "category": 5,
+      "mission_id": 1151123,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151123
+    },
+    {
+      "category": 5,
+      "mission_id": 1151129,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151129
+    },
+    {
+      "category": 5,
+      "mission_id": 1151141,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151141
+    },
+    {
+      "category": 5,
+      "mission_id": 1151147,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151147
+    },
+    {
+      "category": 5,
+      "mission_id": 1151153,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151153
+    },
+    {
+      "category": 5,
+      "mission_id": 1151159,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151159
+    },
+    {
+      "category": 5,
+      "mission_id": 1151165,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151165
+    },
+    {
+      "category": 5,
+      "mission_id": 1151171,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151171
+    },
+    {
+      "category": 5,
+      "mission_id": 1151182,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151182
+    },
+    {
+      "category": 5,
+      "mission_id": 1153001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 153001
+    },
+    {
+      "category": 5,
+      "mission_id": 1161001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161001
+    },
+    {
+      "category": 5,
+      "mission_id": 1161002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161002
+    },
+    {
+      "category": 5,
+      "mission_id": 1161004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161004
+    },
+    {
+      "category": 5,
+      "mission_id": 1161005,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161005
+    },
+    {
+      "category": 5,
+      "mission_id": 1161006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161006
+    },
+    {
+      "category": 5,
+      "mission_id": 1161007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161007
+    },
+    {
+      "category": 5,
+      "mission_id": 1161008,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161008
+    },
+    {
+      "category": 5,
+      "mission_id": 1161009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 151015
+    },
+    {
+      "category": 5,
+      "mission_id": 1161015,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161015
+    },
+    {
+      "category": 5,
+      "mission_id": 1161021,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161021
+    },
+    {
+      "category": 5,
+      "mission_id": 1161027,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161027
+    },
+    {
+      "category": 5,
+      "mission_id": 1161033,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161033
+    },
+    {
+      "category": 5,
+      "mission_id": 1161039,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161039
+    },
+    {
+      "category": 5,
+      "mission_id": 1161045,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161045
+    },
+    {
+      "category": 5,
+      "mission_id": 1161051,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161051
+    },
+    {
+      "category": 5,
+      "mission_id": 1161057,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161057
+    },
+    {
+      "category": 5,
+      "mission_id": 1161063,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161063
+    },
+    {
+      "category": 5,
+      "mission_id": 1161069,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161069
+    },
+    {
+      "category": 5,
+      "mission_id": 1161081,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161081
+    },
+    {
+      "category": 5,
+      "mission_id": 1161082,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161082
+    },
+    {
+      "category": 5,
+      "mission_id": 1161087,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161087
+    },
+    {
+      "category": 5,
+      "mission_id": 1161093,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161093
+    },
+    {
+      "category": 5,
+      "mission_id": 1161099,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161099
+    },
+    {
+      "category": 5,
+      "mission_id": 1161105,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161105
+    },
+    {
+      "category": 5,
+      "mission_id": 1161111,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161111
+    },
+    {
+      "category": 5,
+      "mission_id": 1161117,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161117
+    },
+    {
+      "category": 5,
+      "mission_id": 1161123,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161123
+    },
+    {
+      "category": 5,
+      "mission_id": 1161129,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161129
+    },
+    {
+      "category": 5,
+      "mission_id": 1161135,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161135
+    },
+    {
+      "category": 5,
+      "mission_id": 1161141,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161141
+    },
+    {
+      "category": 5,
+      "mission_id": 1161147,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161147
+    },
+    {
+      "category": 5,
+      "mission_id": 1161153,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161153
+    },
+    {
+      "category": 5,
+      "mission_id": 1161159,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161159
+    },
+    {
+      "category": 5,
+      "mission_id": 1161165,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161165
+    },
+    {
+      "category": 5,
+      "mission_id": 1161171,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161171
+    },
+    {
+      "category": 5,
+      "mission_id": 1161177,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161177
+    },
+    {
+      "category": 5,
+      "mission_id": 1161183,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161183
+    },
+    {
+      "category": 5,
+      "mission_id": 1161189,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161189
+    },
+    {
+      "category": 5,
+      "mission_id": 1161195,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161195
+    },
+    {
+      "category": 5,
+      "mission_id": 1161201,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161201
+    },
+    {
+      "category": 5,
+      "mission_id": 1163001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 163001
+    },
+    {
+      "category": 5,
+      "mission_id": 1211001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211001
+    },
+    {
+      "category": 5,
+      "mission_id": 1211002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211002
+    },
+    {
+      "category": 5,
+      "mission_id": 1211003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211003
+    },
+    {
+      "category": 5,
+      "mission_id": 1211004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211004
+    },
+    {
+      "category": 5,
+      "mission_id": 1211005,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211005
+    },
+    {
+      "category": 5,
+      "mission_id": 1211006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211006
+    },
+    {
+      "category": 5,
+      "mission_id": 1211007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211007
+    },
+    {
+      "category": 5,
+      "mission_id": 1211008,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211008
+    },
+    {
+      "category": 5,
+      "mission_id": 1211009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211009
+    },
+    {
+      "category": 5,
+      "mission_id": 1211010,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211010
+    },
+    {
+      "category": 5,
+      "mission_id": 1211011,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211011
+    },
+    {
+      "category": 5,
+      "mission_id": 1211012,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211012
+    },
+    {
+      "category": 5,
+      "mission_id": 1211013,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211013
+    },
+    {
+      "category": 5,
+      "mission_id": 1211014,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211014
+    },
+    {
+      "category": 5,
+      "mission_id": 1211020,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211020
+    },
+    {
+      "category": 5,
+      "mission_id": 1211026,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211026
+    },
+    {
+      "category": 5,
+      "mission_id": 1211032,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211032
+    },
+    {
+      "category": 5,
+      "mission_id": 1211038,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211038
+    },
+    {
+      "category": 5,
+      "mission_id": 1211044,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211044
+    },
+    {
+      "category": 5,
+      "mission_id": 1211050,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211050
+    },
+    {
+      "category": 5,
+      "mission_id": 1211056,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211056
+    },
+    {
+      "category": 5,
+      "mission_id": 1211062,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 211062
+    },
+    {
+      "category": 5,
+      "mission_id": 1213001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 213001
+    },
+    {
+      "category": 5,
+      "mission_id": 1213007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 213007
+    },
+    {
+      "category": 5,
+      "mission_id": 1213013,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 213013
+    },
+    {
+      "category": 5,
+      "mission_id": 1221001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221001
+    },
+    {
+      "category": 5,
+      "mission_id": 1221002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221002
+    },
+    {
+      "category": 5,
+      "mission_id": 1221003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221003
+    },
+    {
+      "category": 5,
+      "mission_id": 1221004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221004
+    },
+    {
+      "category": 5,
+      "mission_id": 1221006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221006
+    },
+    {
+      "category": 5,
+      "mission_id": 1221007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221007
+    },
+    {
+      "category": 5,
+      "mission_id": 1221008,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221008
+    },
+    {
+      "category": 5,
+      "mission_id": 1221009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221009
+    },
+    {
+      "category": 5,
+      "mission_id": 1221010,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221010
+    },
+    {
+      "category": 5,
+      "mission_id": 1221011,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221011
+    },
+    {
+      "category": 5,
+      "mission_id": 1221017,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221017
+    },
+    {
+      "category": 5,
+      "mission_id": 1221022,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221022
+    },
+    {
+      "category": 5,
+      "mission_id": 1221028,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221028
+    },
+    {
+      "category": 5,
+      "mission_id": 1221034,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221034
+    },
+    {
+      "category": 5,
+      "mission_id": 1221040,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221040
+    },
+    {
+      "category": 5,
+      "mission_id": 1221053,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221053
+    },
+    {
+      "category": 5,
+      "mission_id": 1221054,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221054
+    },
+    {
+      "category": 5,
+      "mission_id": 1221060,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221060
+    },
+    {
+      "category": 5,
+      "mission_id": 1221066,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221066
+    },
+    {
+      "category": 5,
+      "mission_id": 1221072,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221072
+    },
+    {
+      "category": 5,
+      "mission_id": 1221078,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221078
+    },
+    {
+      "category": 5,
+      "mission_id": 1222001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 222001
+    },
+    {
+      "category": 5,
+      "mission_id": 1223001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 223001
+    },
+    {
+      "category": 5,
+      "mission_id": 1223007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 223007
+    },
+    {
+      "category": 5,
+      "mission_id": 1223013,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 223013
+    },
+    {
+      "category": 5,
+      "mission_id": 1223019,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 223019
+    },
+    {
+      "category": 5,
+      "mission_id": 1231001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231001
+    },
+    {
+      "category": 5,
+      "mission_id": 1231002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231002
+    },
+    {
+      "category": 5,
+      "mission_id": 1231003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231003
+    },
+    {
+      "category": 5,
+      "mission_id": 1231004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231004
+    },
+    {
+      "category": 5,
+      "mission_id": 1231005,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231005
+    },
+    {
+      "category": 5,
+      "mission_id": 1231006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231006
+    },
+    {
+      "category": 5,
+      "mission_id": 1231007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231007
+    },
+    {
+      "category": 5,
+      "mission_id": 1231008,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231008
+    },
+    {
+      "category": 5,
+      "mission_id": 1231009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231009
+    },
+    {
+      "category": 5,
+      "mission_id": 1231010,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231012
+    },
+    {
+      "category": 5,
+      "mission_id": 1231013,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231013
+    },
+    {
+      "category": 5,
+      "mission_id": 1231014,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 161009
+    },
+    {
+      "category": 5,
+      "mission_id": 1231020,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231020
+    },
+    {
+      "category": 5,
+      "mission_id": 1231032,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231032
+    },
+    {
+      "category": 5,
+      "mission_id": 1231038,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231038
+    },
+    {
+      "category": 5,
+      "mission_id": 1231044,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231044
+    },
+    {
+      "category": 5,
+      "mission_id": 1231050,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231050
+    },
+    {
+      "category": 5,
+      "mission_id": 1231056,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231056
+    },
+    {
+      "category": 5,
+      "mission_id": 1231063,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231063
+    },
+    {
+      "category": 5,
+      "mission_id": 1231069,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231069
+    },
+    {
+      "category": 5,
+      "mission_id": 1231075,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231075
+    },
+    {
+      "category": 5,
+      "mission_id": 1231081,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231081
+    },
+    {
+      "category": 5,
+      "mission_id": 1231087,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231087
+    },
+    {
+      "category": 5,
+      "mission_id": 1231093,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231093
+    },
+    {
+      "category": 5,
+      "mission_id": 1231099,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231099
+    },
+    {
+      "category": 5,
+      "mission_id": 1233001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 233001
+    },
+    {
+      "category": 5,
+      "mission_id": 1233007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 233007
+    },
+    {
+      "category": 5,
+      "mission_id": 1233013,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 233013
+    },
+    {
+      "category": 5,
+      "mission_id": 1241001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241001
+    },
+    {
+      "category": 5,
+      "mission_id": 1241002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241002
+    },
+    {
+      "category": 5,
+      "mission_id": 1241003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241003
+    },
+    {
+      "category": 5,
+      "mission_id": 1241004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241004
+    },
+    {
+      "category": 5,
+      "mission_id": 1241005,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241005
+    },
+    {
+      "category": 5,
+      "mission_id": 1241006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241006
+    },
+    {
+      "category": 5,
+      "mission_id": 1241007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241007
+    },
+    {
+      "category": 5,
+      "mission_id": 1241008,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241008
+    },
+    {
+      "category": 5,
+      "mission_id": 1241009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241009
+    },
+    {
+      "category": 5,
+      "mission_id": 1241015,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241015
+    },
+    {
+      "category": 5,
+      "mission_id": 1241021,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241021
+    },
+    {
+      "category": 5,
+      "mission_id": 1241027,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241027
+    },
+    {
+      "category": 5,
+      "mission_id": 1241033,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241033
+    },
+    {
+      "category": 5,
+      "mission_id": 1241039,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241039
+    },
+    {
+      "category": 5,
+      "mission_id": 1241045,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241045
+    },
+    {
+      "category": 5,
+      "mission_id": 1241051,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241051
+    },
+    {
+      "category": 5,
+      "mission_id": 1241057,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241057
+    },
+    {
+      "category": 5,
+      "mission_id": 1241063,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241063
+    },
+    {
+      "category": 5,
+      "mission_id": 1241069,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 241069
+    },
+    {
+      "category": 5,
+      "mission_id": 1243001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 243001
+    },
+    {
+      "category": 5,
+      "mission_id": 1243007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 243007
+    },
+    {
+      "category": 5,
+      "mission_id": 1243013,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 243013
+    },
+    {
+      "category": 5,
+      "mission_id": 1243019,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 243019
+    },
+    {
+      "category": 5,
+      "mission_id": 1251001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251001
+    },
+    {
+      "category": 5,
+      "mission_id": 1251002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251002
+    },
+    {
+      "category": 5,
+      "mission_id": 1251003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251003
+    },
+    {
+      "category": 5,
+      "mission_id": 1251004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251004
+    },
+    {
+      "category": 5,
+      "mission_id": 1251005,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251005
+    },
+    {
+      "category": 5,
+      "mission_id": 1251006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251006
+    },
+    {
+      "category": 5,
+      "mission_id": 1251007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251007
+    },
+    {
+      "category": 5,
+      "mission_id": 1251008,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251008
+    },
+    {
+      "category": 5,
+      "mission_id": 1251009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251009
+    },
+    {
+      "category": 5,
+      "mission_id": 1251010,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251010
+    },
+    {
+      "category": 5,
+      "mission_id": 1251011,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251011
+    },
+    {
+      "category": 5,
+      "mission_id": 1251017,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251017
+    },
+    {
+      "category": 5,
+      "mission_id": 1251023,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251023
+    },
+    {
+      "category": 5,
+      "mission_id": 1251029,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251029
+    },
+    {
+      "category": 5,
+      "mission_id": 1251035,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251035
+    },
+    {
+      "category": 5,
+      "mission_id": 1251041,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251041
+    },
+    {
+      "category": 5,
+      "mission_id": 1251047,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251047
+    },
+    {
+      "category": 5,
+      "mission_id": 1251053,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251053
+    },
+    {
+      "category": 5,
+      "mission_id": 1251059,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251059
+    },
+    {
+      "category": 5,
+      "mission_id": 1251065,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251065
+    },
+    {
+      "category": 5,
+      "mission_id": 1251071,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251071
+    },
+    {
+      "category": 5,
+      "mission_id": 1251077,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251077
+    },
+    {
+      "category": 5,
+      "mission_id": 1253001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 253001
+    },
+    {
+      "category": 5,
+      "mission_id": 1253007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 253007
+    },
+    {
+      "category": 5,
+      "mission_id": 1253013,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 253013
+    },
+    {
+      "category": 5,
+      "mission_id": 1253019,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 253019
+    },
+    {
+      "category": 5,
+      "mission_id": 1261001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261001
+    },
+    {
+      "category": 5,
+      "mission_id": 1261003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261003
+    },
+    {
+      "category": 5,
+      "mission_id": 1261004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261004
+    },
+    {
+      "category": 5,
+      "mission_id": 1261005,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261005
+    },
+    {
+      "category": 5,
+      "mission_id": 1261006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261006
+    },
+    {
+      "category": 5,
+      "mission_id": 1261007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261007
+    },
+    {
+      "category": 5,
+      "mission_id": 1261008,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261008
+    },
+    {
+      "category": 5,
+      "mission_id": 1261009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261009
+    },
+    {
+      "category": 5,
+      "mission_id": 1261010,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261010
+    },
+    {
+      "category": 5,
+      "mission_id": 1261011,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261011
+    },
+    {
+      "category": 5,
+      "mission_id": 1261017,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261017
+    },
+    {
+      "category": 5,
+      "mission_id": 1261023,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261023
+    },
+    {
+      "category": 5,
+      "mission_id": 1261029,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261029
+    },
+    {
+      "category": 5,
+      "mission_id": 1261035,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261035
+    },
+    {
+      "category": 5,
+      "mission_id": 1261041,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261041
+    },
+    {
+      "category": 5,
+      "mission_id": 1261047,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261047
+    },
+    {
+      "category": 5,
+      "mission_id": 1261053,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261053
+    },
+    {
+      "category": 5,
+      "mission_id": 1261059,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261059
+    },
+    {
+      "category": 5,
+      "mission_id": 1261065,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261065
+    },
+    {
+      "category": 5,
+      "mission_id": 1261071,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261071
+    },
+    {
+      "category": 5,
+      "mission_id": 1261077,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261077
+    },
+    {
+      "category": 5,
+      "mission_id": 1261083,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261083
+    },
+    {
+      "category": 5,
+      "mission_id": 1261089,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261089
+    },
+    {
+      "category": 5,
+      "mission_id": 1263001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 263001
+    },
+    {
+      "category": 5,
+      "mission_id": 1263002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 263002
+    },
+    {
+      "category": 5,
+      "mission_id": 1263003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 231014
+    },
+    {
+      "category": 5,
+      "mission_id": 1263009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 263009
+    },
+    {
+      "category": 5,
+      "mission_id": 1263015,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 263015
+    },
+    {
+      "category": 5,
+      "mission_id": 1311001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 311001
+    },
+    {
+      "category": 5,
+      "mission_id": 1311002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 311002
+    },
+    {
+      "category": 5,
+      "mission_id": 1311003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 311003
+    },
+    {
+      "category": 5,
+      "mission_id": 1311004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 311004
+    },
+    {
+      "category": 5,
+      "mission_id": 1311005,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 311005
+    },
+    {
+      "category": 5,
+      "mission_id": 1311006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 311006
+    },
+    {
+      "category": 5,
+      "mission_id": 1311008,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 311008
+    },
+    {
+      "category": 5,
+      "mission_id": 1311009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 311009
+    },
+    {
+      "category": 5,
+      "mission_id": 1311010,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 311010
+    },
+    {
+      "category": 5,
+      "mission_id": 1311011,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 311011
+    },
+    {
+      "category": 5,
+      "mission_id": 1311012,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 311012
+    },
+    {
+      "category": 5,
+      "mission_id": 1311013,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 311013
+    },
+    {
+      "category": 5,
+      "mission_id": 1311019,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 311019
+    },
+    {
+      "category": 5,
+      "mission_id": 1311025,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 311025
+    },
+    {
+      "category": 5,
+      "mission_id": 1321001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 321001
+    },
+    {
+      "category": 5,
+      "mission_id": 1321002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 321002
+    },
+    {
+      "category": 5,
+      "mission_id": 1321003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 321003
+    },
+    {
+      "category": 5,
+      "mission_id": 1321004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 321004
+    },
+    {
+      "category": 5,
+      "mission_id": 1321005,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 321005
+    },
+    {
+      "category": 5,
+      "mission_id": 1321006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 321006
+    },
+    {
+      "category": 5,
+      "mission_id": 1321007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 321007
+    },
+    {
+      "category": 5,
+      "mission_id": 1321008,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 321008
+    },
+    {
+      "category": 5,
+      "mission_id": 1321009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 321009
+    },
+    {
+      "category": 5,
+      "mission_id": 1321010,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 321010
+    },
+    {
+      "category": 5,
+      "mission_id": 1321011,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 321011
+    },
+    {
+      "category": 5,
+      "mission_id": 1321013,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 321013
+    },
+    {
+      "category": 5,
+      "mission_id": 1323001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 323001
+    },
+    {
+      "category": 5,
+      "mission_id": 1323002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 321012
+    },
+    {
+      "category": 5,
+      "mission_id": 1331001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 331001
+    },
+    {
+      "category": 5,
+      "mission_id": 1331002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 331002
+    },
+    {
+      "category": 5,
+      "mission_id": 1331003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 331003
+    },
+    {
+      "category": 5,
+      "mission_id": 1331004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 331004
+    },
+    {
+      "category": 5,
+      "mission_id": 1331005,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 331005
+    },
+    {
+      "category": 5,
+      "mission_id": 1331006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 331006
+    },
+    {
+      "category": 5,
+      "mission_id": 1331007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 331007
+    },
+    {
+      "category": 5,
+      "mission_id": 1331010,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 331010
+    },
+    {
+      "category": 5,
+      "mission_id": 1331011,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 331011
+    },
+    {
+      "category": 5,
+      "mission_id": 1331012,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 331012
+    },
+    {
+      "category": 5,
+      "mission_id": 1331013,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 331013
+    },
+    {
+      "category": 5,
+      "mission_id": 1331014,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 331014
+    },
+    {
+      "category": 5,
+      "mission_id": 1331020,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 331020
+    },
+    {
+      "category": 5,
+      "mission_id": 1333001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 333001
+    },
+    {
+      "category": 5,
+      "mission_id": 1341001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 341001
+    },
+    {
+      "category": 5,
+      "mission_id": 1341002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 341002
+    },
+    {
+      "category": 5,
+      "mission_id": 1341003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 341003
+    },
+    {
+      "category": 5,
+      "mission_id": 1341004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 341004
+    },
+    {
+      "category": 5,
+      "mission_id": 1341005,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 341005
+    },
+    {
+      "category": 5,
+      "mission_id": 1341006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 341006
+    },
+    {
+      "category": 5,
+      "mission_id": 1341007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 341007
+    },
+    {
+      "category": 5,
+      "mission_id": 1341008,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 341008
+    },
+    {
+      "category": 5,
+      "mission_id": 1341009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 341009
+    },
+    {
+      "category": 5,
+      "mission_id": 1341010,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 341010
+    },
+    {
+      "category": 5,
+      "mission_id": 1341011,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 341011
+    },
+    {
+      "category": 5,
+      "mission_id": 1341017,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 341017
+    },
+    {
+      "category": 5,
+      "mission_id": 1351001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 351001
+    },
+    {
+      "category": 5,
+      "mission_id": 1351002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 351002
+    },
+    {
+      "category": 5,
+      "mission_id": 1351003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 351003
+    },
+    {
+      "category": 5,
+      "mission_id": 1351004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 351004
+    },
+    {
+      "category": 5,
+      "mission_id": 1351005,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 351005
+    },
+    {
+      "category": 5,
+      "mission_id": 1351006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 351006
+    },
+    {
+      "category": 5,
+      "mission_id": 1351007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 351007
+    },
+    {
+      "category": 5,
+      "mission_id": 1351008,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 351008
+    },
+    {
+      "category": 5,
+      "mission_id": 1351009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 351009
+    },
+    {
+      "category": 5,
+      "mission_id": 1351015,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 351015
+    },
+    {
+      "category": 5,
+      "mission_id": 1351021,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 351021
+    },
+    {
+      "category": 5,
+      "mission_id": 1351027,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 351027
+    },
+    {
+      "category": 5,
+      "mission_id": 1351033,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 351033
+    },
+    {
+      "category": 5,
+      "mission_id": 1361001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 361001
+    },
+    {
+      "category": 5,
+      "mission_id": 1361002,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 361002
+    },
+    {
+      "category": 5,
+      "mission_id": 1361003,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 361003
+    },
+    {
+      "category": 5,
+      "mission_id": 1361004,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 361004
+    },
+    {
+      "category": 5,
+      "mission_id": 1361005,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 361005
+    },
+    {
+      "category": 5,
+      "mission_id": 1361006,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 361006
+    },
+    {
+      "category": 5,
+      "mission_id": 1361007,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 361007
+    },
+    {
+      "category": 5,
+      "mission_id": 1361008,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 361008
+    },
+    {
+      "category": 5,
+      "mission_id": 1361009,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 361009
+    },
+    {
+      "category": 5,
+      "mission_id": 1361015,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 361015
+    },
+    {
+      "category": 5,
+      "mission_id": 1361021,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 361021
+    },
+    {
+      "category": 5,
+      "mission_id": 1361027,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 361027
+    },
+    {
+      "category": 5,
+      "mission_id": 1361033,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 361033
+    },
+    {
+      "category": 5,
+      "mission_id": 1900001,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 1
+    },
+    {
+      "category": 5,
+      "mission_id": 1900010,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 10
+    },
+    {
+      "category": 9,
+      "mission_id": 1410033,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 141003
+    },
+    {
+      "category": 9,
+      "mission_id": 2210043,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 221004
+    },
+    {
+      "category": 9,
+      "mission_id": 2510043,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 251004
+    },
+    {
+      "category": 9,
+      "mission_id": 2610073,
+      "stage": 1,
+      "pattern": "mana_board_2nd_complete_count",
+      "chapter_id": null,
+      "character_id": 261007
+    }
+  ],
+  "equipment_max_enhancement": {
+    "5010032": 120,
+    "5010045": 120,
+    "5010056": 120,
+    "5010060": 99,
+    "5010064": 99,
+    "5010070": 99,
+    "5010073": 120,
+    "5010074": 99,
+    "5020035": 99,
+    "5020040": 99,
+    "5020042": 120,
+    "5020043": 99,
+    "5030028": 120,
+    "5030029": 99,
+    "5040020": 120,
+    "5040025": 99,
+    "5040033": 99,
+    "5060020": 99,
+    "5060029": 99,
+    "5060045": 99,
+    "5070033": 99,
+    "5070042": 99,
+    "5070044": 120,
+    "5080032": 120,
+    "5090023": 99,
+    "5090024": 99,
+    "5090047": 120,
+    "5100011": 120,
+    "5100020": 120
+  },
+  "histories": [
+    {
+      "id": 1,
+      "string_id": "player_history",
+      "aggregation_time": 1750305600,
+      "start_time": 1752724800,
+      "end_time": 1755187199
+    }
+  ],
+  "topics": {
+    "1": [
+      {
+        "index": 1,
+        "multiplied_id": 1001,
+        "display_order": 1,
+        "aggregation_target": 0,
+        "tab_group": 1,
+        "toggle_default": true
+      },
+      {
+        "index": 2,
+        "multiplied_id": 1002,
+        "display_order": 2,
+        "aggregation_target": 1,
+        "tab_group": 1,
+        "toggle_default": true
+      },
+      {
+        "index": 3,
+        "multiplied_id": 1003,
+        "display_order": 3,
+        "aggregation_target": 2,
+        "tab_group": 3,
+        "toggle_default": true
+      },
+      {
+        "index": 4,
+        "multiplied_id": 1004,
+        "display_order": 4,
+        "aggregation_target": 3,
+        "tab_group": 3,
+        "toggle_default": true
+      },
+      {
+        "index": 5,
+        "multiplied_id": 1005,
+        "display_order": 5,
+        "aggregation_target": 4,
+        "tab_group": 2,
+        "toggle_default": true
+      },
+      {
+        "index": 6,
+        "multiplied_id": 1006,
+        "display_order": 6,
+        "aggregation_target": 5,
+        "tab_group": 2,
+        "toggle_default": true
+      },
+      {
+        "index": 7,
+        "multiplied_id": 1007,
+        "display_order": 7,
+        "aggregation_target": 6,
+        "tab_group": 2,
+        "toggle_default": true
+      },
+      {
+        "index": 8,
+        "multiplied_id": 1008,
+        "display_order": 8,
+        "aggregation_target": 7,
+        "tab_group": 2,
+        "toggle_default": true
+      },
+      {
+        "index": 9,
+        "multiplied_id": 1009,
+        "display_order": 9,
+        "aggregation_target": 8,
+        "tab_group": 1,
+        "toggle_default": true
+      },
+      {
+        "index": 10,
+        "multiplied_id": 1010,
+        "display_order": 10,
+        "aggregation_target": 9,
+        "tab_group": 1,
+        "toggle_default": true
+      },
+      {
+        "index": 11,
+        "multiplied_id": 1011,
+        "display_order": 11,
+        "aggregation_target": 10,
+        "tab_group": 1,
+        "toggle_default": true
+      },
+      {
+        "index": 12,
+        "multiplied_id": 1012,
+        "display_order": 12,
+        "aggregation_target": 11,
+        "tab_group": 3,
+        "toggle_default": true
+      },
+      {
+        "index": 13,
+        "multiplied_id": 1013,
+        "display_order": 13,
+        "aggregation_target": 12,
+        "tab_group": 3,
+        "toggle_default": true
+      },
+      {
+        "index": 14,
+        "multiplied_id": 1014,
+        "display_order": 14,
+        "aggregation_target": 13,
+        "tab_group": 4,
+        "toggle_default": true
+      },
+      {
+        "index": 15,
+        "multiplied_id": 1015,
+        "display_order": 15,
+        "aggregation_target": 14,
+        "tab_group": 4,
+        "toggle_default": true
+      },
+      {
+        "index": 16,
+        "multiplied_id": 1016,
+        "display_order": 16,
+        "aggregation_target": 15,
+        "tab_group": 4,
+        "toggle_default": true
+      },
+      {
+        "index": 17,
+        "multiplied_id": 1017,
+        "display_order": 17,
+        "aggregation_target": 16,
+        "tab_group": 4,
+        "toggle_default": true
+      },
+      {
+        "index": 18,
+        "multiplied_id": 1018,
+        "display_order": 18,
+        "aggregation_target": 26,
+        "tab_group": 3,
+        "toggle_default": true
+      },
+      {
+        "index": 19,
+        "multiplied_id": 1019,
+        "display_order": 19,
+        "aggregation_target": 17,
+        "tab_group": 3,
+        "toggle_default": true
+      },
+      {
+        "index": 20,
+        "multiplied_id": 1020,
+        "display_order": 20,
+        "aggregation_target": 18,
+        "tab_group": 3,
+        "toggle_default": true
+      },
+      {
+        "index": 21,
+        "multiplied_id": 1021,
+        "display_order": 21,
+        "aggregation_target": 19,
+        "tab_group": 3,
+        "toggle_default": true
+      },
+      {
+        "index": 22,
+        "multiplied_id": 1022,
+        "display_order": 22,
+        "aggregation_target": 20,
+        "tab_group": 3,
+        "toggle_default": true
+      },
+      {
+        "index": 23,
+        "multiplied_id": 1023,
+        "display_order": 23,
+        "aggregation_target": 21,
+        "tab_group": 3,
+        "toggle_default": true
+      },
+      {
+        "index": 24,
+        "multiplied_id": 1024,
+        "display_order": 24,
+        "aggregation_target": 22,
+        "tab_group": 3,
+        "toggle_default": true
+      },
+      {
+        "index": 25,
+        "multiplied_id": 1025,
+        "display_order": 25,
+        "aggregation_target": 23,
+        "tab_group": 3,
+        "toggle_default": true
+      },
+      {
+        "index": 26,
+        "multiplied_id": 1026,
+        "display_order": 26,
+        "aggregation_target": 24,
+        "tab_group": 1,
+        "toggle_default": true
+      },
+      {
+        "index": 27,
+        "multiplied_id": 1027,
+        "display_order": 27,
+        "aggregation_target": 25,
+        "tab_group": 1,
+        "toggle_default": true
+      }
+    ]
+  },
+  "backgrounds": [
+    {
+      "id": 1001,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_1001",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_1001",
+      "display_order": 10,
+      "tab_group": 1,
+      "is_default": true
+    },
+    {
+      "id": 1002,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_1002",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_1002",
+      "display_order": 20,
+      "tab_group": 1,
+      "is_default": false
+    },
+    {
+      "id": 1003,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_1003",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_1003",
+      "display_order": 30,
+      "tab_group": 1,
+      "is_default": false
+    },
+    {
+      "id": 1004,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_1004",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_1004",
+      "display_order": 40,
+      "tab_group": 1,
+      "is_default": false
+    },
+    {
+      "id": 1005,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_1005",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_1005",
+      "display_order": 50,
+      "tab_group": 1,
+      "is_default": false
+    },
+    {
+      "id": 1006,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_1006",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_1006",
+      "display_order": 60,
+      "tab_group": 1,
+      "is_default": false
+    },
+    {
+      "id": 1007,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_1007",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_1007",
+      "display_order": 70,
+      "tab_group": 1,
+      "is_default": false
+    },
+    {
+      "id": 1008,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_1008",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_1008",
+      "display_order": 80,
+      "tab_group": 1,
+      "is_default": false
+    },
+    {
+      "id": 2001,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2001",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2001",
+      "display_order": 90,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2002,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2002",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2002",
+      "display_order": 100,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2003,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2003",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2003",
+      "display_order": 110,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2004,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2004",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2004",
+      "display_order": 120,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2005,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2005",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2005",
+      "display_order": 130,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2006,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2006",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2006",
+      "display_order": 140,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2007,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2007",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2007",
+      "display_order": 150,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2008,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2008",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2008",
+      "display_order": 160,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2009,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2009",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2009",
+      "display_order": 170,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2010,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2010",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2010",
+      "display_order": 180,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2011,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2011",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2011",
+      "display_order": 190,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2012,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2012",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2012",
+      "display_order": 200,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2013,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2013",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2013",
+      "display_order": 210,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2014,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2014",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2014",
+      "display_order": 220,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2015,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2015",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2015",
+      "display_order": 230,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2016,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2016",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2016",
+      "display_order": 240,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2017,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2017",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2017",
+      "display_order": 250,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2018,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2018",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2018",
+      "display_order": 260,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2019,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2019",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2019",
+      "display_order": 270,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2021,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2021",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2021",
+      "display_order": 290,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2022,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2022",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2022",
+      "display_order": 300,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2023,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2023",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2023",
+      "display_order": 310,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2024,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2024",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2024",
+      "display_order": 320,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 2025,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_2025",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_2025",
+      "display_order": 330,
+      "tab_group": 2,
+      "is_default": false
+    },
+    {
+      "id": 3001,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_3001",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_3001",
+      "display_order": 335,
+      "tab_group": 3,
+      "is_default": false
+    },
+    {
+      "id": 3002,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_3002",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_3002",
+      "display_order": 340,
+      "tab_group": 3,
+      "is_default": false
+    },
+    {
+      "id": 3003,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_3003",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_3003",
+      "display_order": 350,
+      "tab_group": 3,
+      "is_default": false
+    },
+    {
+      "id": 3004,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_3004",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_3004",
+      "display_order": 360,
+      "tab_group": 3,
+      "is_default": false
+    },
+    {
+      "id": 3005,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_3005",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_3005",
+      "display_order": 370,
+      "tab_group": 3,
+      "is_default": false
+    },
+    {
+      "id": 3006,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_3006",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_3006",
+      "display_order": 380,
+      "tab_group": 3,
+      "is_default": false
+    },
+    {
+      "id": 3007,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_3007",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_3007",
+      "display_order": 390,
+      "tab_group": 3,
+      "is_default": false
+    },
+    {
+      "id": 3008,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_3008",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_3008",
+      "display_order": 400,
+      "tab_group": 3,
+      "is_default": false
+    },
+    {
+      "id": 3009,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_3009",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_3009",
+      "display_order": 410,
+      "tab_group": 3,
+      "is_default": false
+    },
+    {
+      "id": 3010,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_3010",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_3010",
+      "display_order": 420,
+      "tab_group": 3,
+      "is_default": false
+    },
+    {
+      "id": 3011,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_3011",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_3011",
+      "display_order": 430,
+      "tab_group": 3,
+      "is_default": false
+    },
+    {
+      "id": 3012,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_3012",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_3012",
+      "display_order": 440,
+      "tab_group": 3,
+      "is_default": false
+    },
+    {
+      "id": 3013,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_3013",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_3013",
+      "display_order": 450,
+      "tab_group": 3,
+      "is_default": false
+    },
+    {
+      "id": 3014,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_3014",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_3014",
+      "display_order": 460,
+      "tab_group": 3,
+      "is_default": false
+    },
+    {
+      "id": 3015,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_3015",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_3015",
+      "display_order": 470,
+      "tab_group": 3,
+      "is_default": false
+    },
+    {
+      "id": 3016,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_3016",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_3016",
+      "display_order": 480,
+      "tab_group": 3,
+      "is_default": false
+    },
+    {
+      "id": 4001,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_4001",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_4001",
+      "display_order": 490,
+      "tab_group": 4,
+      "is_default": false
+    },
+    {
+      "id": 4002,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_4002",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_4002",
+      "display_order": 500,
+      "tab_group": 4,
+      "is_default": false
+    },
+    {
+      "id": 4003,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_4003",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_4003",
+      "display_order": 510,
+      "tab_group": 4,
+      "is_default": false
+    },
+    {
+      "id": 4004,
+      "frame_image_path": "dynamic/player_history/card_frame/player_history_background_4004",
+      "thumbnail_image_path": "dynamic/player_history/card_thumbnail/player_history_background_thumbnail_4004",
+      "display_order": 520,
+      "tab_group": 4,
+      "is_default": false
+    }
+  ],
+  "challenge_single_bosses": [
+    {
+      "id": 1,
+      "string_id": "lich",
+      "name": "领主名称",
+      "degree_mission_id": 57020,
+      "thumbnail_image_path": "quest/thumbnail/expert_single_event/lich_100"
+    },
+    {
+      "id": 2,
+      "string_id": "guardian_golem",
+      "name": "废墟魔像",
+      "degree_mission_id": 57040,
+      "thumbnail_image_path": "quest/thumbnail/expert_single_event/guardian_golem_100"
+    },
+    {
+      "id": 3,
+      "string_id": "hermit_crab",
+      "name": "寄居蟹船长",
+      "degree_mission_id": 57060,
+      "thumbnail_image_path": "quest/thumbnail/expert_single_event/hermit_crab_100"
+    },
+    {
+      "id": 4,
+      "string_id": "arch_evil",
+      "name": "诅咒弧魔艾基尔",
+      "degree_mission_id": 57080,
+      "thumbnail_image_path": "quest/thumbnail/expert_single_event/arch_evil_100"
+    },
+    {
+      "id": 5,
+      "string_id": "white_tiger_ghost",
+      "name": "白虎",
+      "degree_mission_id": 57100,
+      "thumbnail_image_path": "quest/thumbnail/expert_single_event/white_tiger_ghost_100"
+    },
+    {
+      "id": 6,
+      "string_id": "administrator",
+      "name": "管理者",
+      "degree_mission_id": 57120,
+      "thumbnail_image_path": "quest/thumbnail/expert_single_event/administrator_100"
+    }
+  ]
+}

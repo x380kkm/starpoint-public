@@ -37,6 +37,8 @@ struct SearchRoomRequest {
 
 #[derive(Deserialize)]
 struct SelectRoomRequest {
+    #[serde(default)]
+    accepted_type: i64,
     access_token: Option<String>,
     category: i64,
     party_id: i64,
@@ -171,6 +173,7 @@ fn search_room(
     )
 }
 
+// //// 校验铃铛接入和结算续战的成员资格 [@x380kkm 2026-09-26] ////
 fn select_room(
     request: &HttpRequest,
     database: &mut ServiceDatabase,
@@ -213,6 +216,35 @@ fn select_room(
     if room.category_id != body.category || room.quest_id != body.quest_id {
         return Ok(error_response("409 Conflict", "room_mismatch"));
     }
+    let can_enter = if room.is_attention_room {
+        let quest = crate::rescue_settings::RescueQuest {
+            category_id: room.category_id,
+            quest_id: room.quest_id,
+        };
+        crate::rescue_settings::can_enter_rescue_quest(database, &player.data, &quest)?
+    } else {
+        crate::cn_quest::is_quest_open(database, room.category_id, room.quest_id)?
+    };
+    if !can_enter {
+        return msgpack_response(database, body.viewer_id, missing_room_connection(&room.room_number));
+    }
+    if room.is_attention_room {
+        if room.host_account_id != player.account_id
+            || !super::can_start_attention_room(database, &room)?
+        {
+            return msgpack_response(database, body.viewer_id, missing_room_connection(&room.room_number));
+        }
+        let now = database.current_wall_time_millis()?;
+        let is_returning_member = body.accepted_type == 6
+            && database
+                .multiplayer_member(&room.room_number, body.viewer_id)?
+                .is_some_and(|member| member.account_id == player.account_id);
+        if (body.accepted_type != 2 && !is_returning_member)
+            || !database.accept_attention_room(&room.room_number, body.viewer_id, now)?
+        {
+            return msgpack_response(database, body.viewer_id, missing_room_connection(&room.room_number));
+        }
+    }
     let joined = database.join_multiplayer_room(
         &room.room_number,
         player.account_id,
@@ -236,7 +268,7 @@ fn serialize_room(room: &MultiplayerRoom, mate_count: i64) -> Value {
         "clear_phase": 0,
         "establisher_character": room.host_main_character_id,
         "establisher_character_evolution_img_level": 0,
-        "establisher_follow": 1,
+        "establisher_follow": 0,
         "establisher_name": format!("Player{}", room.host_viewer_id),
         "host_entry_time": room.host_entry_time,
         "host_main_character_id": room.host_main_character_id,

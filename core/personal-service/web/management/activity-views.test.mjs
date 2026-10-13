@@ -6,7 +6,10 @@
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 
-const source = await readFile(new URL("./activity-views.js", import.meta.url), "utf8")
+const navigation = await readFile(new URL("./activity-navigation.js", import.meta.url), "utf8")
+const navigationUrl = `data:text/javascript;base64,${Buffer.from(navigation).toString("base64")}`
+const source = (await readFile(new URL("./activity-views.js", import.meta.url), "utf8"))
+    .replace("/manage/activity-navigation.js", navigationUrl)
 const moduleUrl = `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`
 const { filterActivitiesByDate } = await import(moduleUrl)
 

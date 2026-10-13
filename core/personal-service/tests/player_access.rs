@@ -208,6 +208,7 @@ fn scopes_player_save_access_and_supports_revoke() {
     assert!(exported.starts_with("HTTP/1.1 200 OK"));
     let mut import = response_body(&exported);
     import["name"] = Value::String("Player copy".to_owned());
+    import["data"]["user_info"]["free_mana"] = json!(876543);
     let imported = player_request(
         &service,
         &first_token,
@@ -220,6 +221,14 @@ fn scopes_player_save_access_and_supports_revoke() {
         .as_i64()
         .expect("imported slot id is numeric");
     assert_ne!(imported_slot_id, first_slot_id);
+    let edited_export = player_request(
+        &service,
+        &first_token,
+        "GET",
+        &format!("/v1/player/local-saves/{imported_slot_id}/export"),
+        None,
+    );
+    assert_eq!(response_body(&edited_export)["data"]["user_info"]["free_mana"], 876543);
 
     let encrypted_export = player_request(
         &service,

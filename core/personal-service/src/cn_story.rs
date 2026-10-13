@@ -2,10 +2,12 @@
 // # personal-service-cn-story
 //
 // 该模块实现 CN 剧情任务的普通结算和跳过结算. 任务和奖励来自仓库内的真实资产表.
+// 剧情进度, 奖励, 关联任务和领取记录在同一事务中保存.
+// 首次通关时 StoryJoinCharacter 主表按关卡加入的角色直接入队, 响应以 story_join_character_id_list 返回.
 
 use crate::cn::{decode_request, msgpack_response_at, server_time};
 use crate::cn_battle_assets::{load_battle_fixture, BattleFixture, Reward};
-use crate::cn_battle_rewards::{apply_reward, RewardResult};
+use crate::cn_battle_rewards::{apply_reward_at, RewardResult};
 use crate::cn_player::finish_quest_progress;
 use crate::cn_tutorial::{
     decode_player_data, encode_player_data, player_snapshot, require_object, require_root,
@@ -46,7 +48,15 @@ pub(crate) fn route(
     {
         return None;
     }
-    Some(finish(request, database))
+    Some(
+        database
+            .with_player_settlement(|database| finish(request, database).map(Some))
+            .and_then(|response| {
+                response.ok_or_else(|| {
+                    PersonalServiceError::new("CN story settlement returned no response")
+                })
+            }),
+    )
 }
 // //// /分派 CN 剧情结算请求 ////
 
@@ -87,14 +97,18 @@ fn finish(
     let mut player_data = decode_player_data(&snapshot.data)?;
     let root = require_root(&mut player_data)?;
     let was_finished = is_quest_finished(root, body.category, body.quest_id)?;
-    let reward_result = if was_finished {
-        RewardResult::default()
+    let (reward_result, story_join) = if was_finished {
+        (RewardResult::default(), Default::default())
     } else {
-        let reward_result = apply_clear_reward(root, quest.clear_reward.as_ref())?;
+        let clear_time = server_time(database)?;
+        let reward_result = apply_clear_reward(root, quest.clear_reward.as_ref(), clear_time)?;
+        let story_join = crate::cn_character::join_story_characters(
+            root, body.viewer_id, body.category, body.quest_id, clear_time,
+        )?;
         finish_quest_progress(root, body.category, body.quest_id)?;
-        reward_result
+        (reward_result, story_join)
     };
-    let (mission_info, active_mission_list) = if !was_finished && body.category == 3 {
+    let (mission_info, mut active_mission_list) = if !was_finished && body.category == 3 {
         let mission_delta =
             crate::cn_mission::record_story_action(root, database, snapshot.account_id, 1)?;
         (
@@ -104,16 +118,24 @@ fn finish(
     } else {
         (Vec::new(), Vec::new())
     };
-    let response = if was_finished {
+    if !was_finished {
+        active_mission_list.extend(crate::cn_mission::record_active_quest_clear(root, database, body.category, body.quest_id)?);
+    }
+    if !story_join.character_ids.is_empty() {
+        active_mission_list.extend(crate::cn_mission::refresh_active_missions(root, database)?);
+    }
+    let mut response = if was_finished {
         json!([])
     } else {
         let user_info = require_object(root, "user_info")?;
+        let mut character_list = reward_result.character_list;
+        character_list.extend(story_join.characters);
         json!({
             "user_info": {
                 "free_vmoney": user_info.get("free_vmoney").and_then(Value::as_i64).unwrap_or_default(),
                 "free_mana": user_info.get("free_mana").and_then(Value::as_i64).unwrap_or_default(),
             },
-            "character_list": reward_result.character_list,
+            "character_list": character_list,
             "joined_character_id_list": reward_result.joined_character_ids,
             "equipment_list": reward_result.equipment_list,
             "item_list": reward_result.items,
@@ -123,9 +145,31 @@ fn finish(
             "mail_arrived": false,
         })
     };
+    if !story_join.character_ids.is_empty() {
+        response["story_join_character_id_list"] = json!(story_join.character_ids);
+        response["encyclopedia_info"] = Value::Object(story_join.encyclopedia_info);
+    }
     let response_time = server_time(database)?;
     if !was_finished {
-        database.save_player_snapshot(snapshot.account_id, &encode_player_data(&player_data)?)?;
+        crate::cn_mission::apply_mission_reward_response(
+            &mut response,
+            root,
+            &mission_info,
+            body.viewer_id,
+            response_time,
+        )?;
+        let data = encode_player_data(&player_data)?;
+        if story_join.history.is_empty() {
+            database.save_player_snapshot(snapshot.account_id, &data)?;
+        } else {
+            database.save_player_snapshot_with_receive_history(
+                snapshot.account_id,
+                &data,
+                &format!("story-join:{}:{}", body.category, body.quest_id),
+                response_time,
+                &story_join.history,
+            )?;
+        }
     }
     msgpack_response_at(body.viewer_id, false, response_time, response)
 }
@@ -140,13 +184,14 @@ fn story_assets() -> Result<&'static BattleFixture, PersonalServiceError> {
 fn apply_clear_reward(
     root: &mut Map<String, Value>,
     reward: Option<&Reward>,
+    now: i64,
 ) -> Result<crate::cn_battle_rewards::RewardResult, PersonalServiceError> {
     let Some(reward) = reward else {
         return Ok(RewardResult::default());
     };
     let mut reward = reward.clone();
     reward.count.get_or_insert(1);
-    apply_reward(root, &reward)
+    apply_reward_at(root, &reward, now)
 }
 
 fn is_quest_finished(

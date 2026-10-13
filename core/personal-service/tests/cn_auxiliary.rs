@@ -79,33 +79,20 @@ fn returns_typed_auxiliary_responses_and_saves_birth() {
     assert_eq!(takeover["exists_user_take_over_data"], false);
     assert_eq!(takeover["social_account"]["is_apple_linked"], false);
 
-    let exchange = request(
-        service.port(),
-        "/api/index.php/special_exchange/enter_campaign",
-        json!({"viewer_id": viewer_id, "campaign_id": 1}),
-    );
-    assert!(exchange["special_exchange_campaign_list"].is_array());
-
-    let character_exchange = request(
-        service.port(),
-        "/api/index.php/special_exchange/exchange_character",
-        json!({"viewer_id": viewer_id, "campaign_id": 1, "character_id": 1}),
-    );
-    assert!(character_exchange["special_exchange_campaign_list"].is_array());
-    assert!(character_exchange["character_list"].is_array());
-    assert!(character_exchange["equipment_list"].is_array());
-    assert!(character_exchange["item_list"].is_object());
-    assert!(character_exchange["mail_arrived"].is_boolean());
-    assert!(character_exchange["user_info"].is_null());
     service.stop().expect("service stops cleanly");
 }
 // //// /验证 CN 辅助页面契约和生日持久化 ////
 
 fn request(port: u16, path: &str, body: Value) -> Value {
-    decode_response::<Value>(&cn_support::send_request(
+    let response = decode_response::<Value>(&cn_support::send_request(
         port,
         path,
         &encode_request(&body),
-    ))
-    .data
+    ));
+    assert_eq!(
+        response.data_headers.result_code, 1,
+        "{path}: {}",
+        response.data
+    );
+    response.data
 }

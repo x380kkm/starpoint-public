@@ -5,21 +5,27 @@
 
 mod campaign;
 mod movie;
+pub(crate) mod receipt;
 mod region;
 
 use crate::cn::{decode_request, msgpack_response_at, server_time};
-use crate::cn_character_reward::{grant_character, DuplicateCharacterItem};
+use crate::cn_character_reward::{
+    grant_character, record_character_encyclopedia_state, DuplicateCharacterItem,
+};
 use crate::cn_tutorial::{
     decode_player_data, encode_player_data, player_snapshot, require_object, require_root,
 };
 use crate::database::{
-    evaluate_activity_schedule, ActivityWindowStatus, ReceiveHistoryEntry, ServiceDatabase,
+    evaluate_activity_schedule, ActivitySchedule, ActivityWindowStatus, ReceiveHistoryEntry,
+    ServiceDatabase,
 };
 use crate::http::{HttpRequest, HttpResponse};
 use crate::PersonalServiceError;
 use getrandom::getrandom;
+use receipt::GachaReceipt;
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
+use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 const CN_GACHA_ASSET: &str = include_str!("../../../assets/gacha.json");
@@ -106,6 +112,77 @@ struct TicketPayment {
     pulls_per_ticket: i64,
 }
 
+//// 为一次 CN 载入请求复用活动时间查询 [@x380kkm 2026-09-02] ////
+struct GachaLoadContext {
+    now_ms: i64,
+    wall_now_ms: i64,
+    schedules: BTreeMap<String, ActivitySchedule>,
+    temporary_open_windows: BTreeMap<String, (i64, i64)>,
+}
+
+impl GachaLoadContext {
+    fn from_database(database: &ServiceDatabase) -> Result<Self, PersonalServiceError> {
+        let now_ms = database.current_server_time_millis()?;
+        let wall_now_ms = database.current_wall_time_millis()?;
+        let schedules = database
+            .list_activity_schedules()?
+            .into_iter()
+            .map(|schedule| (schedule.activity_id.clone(), schedule))
+            .collect();
+        let mut temporary_open_windows = BTreeMap::new();
+        for (activity_id, _) in database.list_active_activity_temporary_open_leases()? {
+            if let Some(window) = database.activity_temporary_open_window(&activity_id)? {
+                temporary_open_windows.insert(activity_id, window);
+            }
+        }
+        Ok(Self {
+            now_ms,
+            wall_now_ms,
+            schedules,
+            temporary_open_windows,
+        })
+    }
+
+    fn activity_status(&self, gacha_id: i64) -> Result<ActivityWindowStatus, PersonalServiceError> {
+        let activity_id = format!("gacha:{gacha_id}");
+        activity_status_from_sources(
+            gacha_id,
+            self.now_ms,
+            self.temporary_open_windows.contains_key(&activity_id),
+            self.schedules.get(&activity_id),
+        )
+    }
+
+    fn temporary_gacha_period(&self, gacha_id: i64) -> Result<Option<Value>, PersonalServiceError> {
+        let activity_id = format!("gacha:{gacha_id}");
+        let Some((opened_wall_ms, expires_wall_ms)) =
+            self.temporary_open_windows.get(&activity_id).copied()
+        else {
+            return Ok(None);
+        };
+        Ok(Some(projected_temporary_gacha_period(
+            opened_wall_ms,
+            expires_wall_ms,
+            self.wall_now_ms,
+            self.now_ms,
+        )?))
+    }
+
+    fn dynamic_campaign_period(
+        &self,
+        gacha_id: i64,
+        gacha: &Value,
+    ) -> Result<Option<Value>, PersonalServiceError> {
+        let activity_id = format!("gacha:{gacha_id}");
+        dynamic_campaign_period_from_sources(
+            gacha,
+            self.now_ms,
+            self.temporary_gacha_period(gacha_id)?,
+            self.schedules.get(&activity_id),
+        )
+    }
+}
+
 // //// 分派 CN 扭蛋请求 [@x380kkm 2026-07-24] ////
 pub(crate) fn route(
     request: &HttpRequest,
@@ -130,6 +207,7 @@ pub(crate) fn refresh_daily_availability(
     database: &ServiceDatabase,
     account_id: i64,
 ) -> Result<(), PersonalServiceError> {
+    let context = GachaLoadContext::from_database(database)?;
     let root = player_data
         .as_object_mut()
         .ok_or_else(|| PersonalServiceError::new("stored CN player data is not an object"))?;
@@ -154,13 +232,11 @@ pub(crate) fn refresh_daily_availability(
             info.insert("is_daily_first".to_owned(), Value::Bool(is_daily_first));
         }
     }
-    refresh_dynamic_gacha_campaigns(root, database)?;
-    campaign::replace_available_for_load(root, |gacha_id| {
-        Ok(gacha_activity_status(database, gacha_id)? == ActivityWindowStatus::Open)
-    })?;
+    refresh_dynamic_gacha_campaigns_with_context(root, &context)?;
+    campaign::replace_available_for_load(root, &context)?;
     inject_account_first_gacha_info(root)?;
-    inject_active_temporary_gacha_aliases(root, database, account_id)?;
-    inject_regional_coverage_gacha_aliases(root, database, account_id)?;
+    inject_active_temporary_gacha_aliases_with_context(root, database, &context, account_id)?;
+    inject_regional_coverage_gacha_aliases_with_context(root, database, &context, account_id)?;
     Ok(())
 }
 // //// /按当前服务日期刷新 CN 载入响应中的每日扭蛋状态 ////
@@ -206,13 +282,23 @@ fn inject_account_first_gacha_info(
 // //// /向载入响应投影未消费的账号首次扭蛋 ////
 
 // //// 仅向客户端合成当前有效的临时卡池入口 [@x380kkm 2026-08-24] ////
+#[cfg(test)]
 fn inject_active_temporary_gacha_aliases(
     root: &mut Map<String, Value>,
     database: &ServiceDatabase,
     account_id: i64,
 ) -> Result<(), PersonalServiceError> {
-    let leases = database.list_active_activity_temporary_open_leases()?;
-    if leases.is_empty() {
+    let context = GachaLoadContext::from_database(database)?;
+    inject_active_temporary_gacha_aliases_with_context(root, database, &context, account_id)
+}
+
+fn inject_active_temporary_gacha_aliases_with_context(
+    root: &mut Map<String, Value>,
+    database: &ServiceDatabase,
+    context: &GachaLoadContext,
+    account_id: i64,
+) -> Result<(), PersonalServiceError> {
+    if context.temporary_open_windows.is_empty() {
         return Ok(());
     }
     let mut campaign_aliases = Vec::new();
@@ -222,7 +308,7 @@ fn inject_active_temporary_gacha_aliases(
             .or_insert_with(|| Value::Array(Vec::new()))
             .as_array_mut()
             .ok_or_else(|| PersonalServiceError::new("stored CN gacha info is invalid"))?;
-        for (activity_id, _) in leases {
+        for (activity_id, _) in &context.temporary_open_windows {
             let Some(canonical_id) = activity_id
                 .strip_prefix("gacha:")
                 .and_then(|value| value.parse::<i64>().ok())
@@ -232,12 +318,12 @@ fn inject_active_temporary_gacha_aliases(
             let Some(temporary_id) = region::temporary_alias_for(canonical_id)? else {
                 continue;
             };
-            if gacha_master_window_status(canonical_id, database.current_server_time_millis()?)?
+            if gacha_master_window_status(canonical_id, context.now_ms)?
                 == ActivityWindowStatus::Open
             {
                 continue;
             }
-            let Some(period) = active_temporary_gacha_period(database, canonical_id)? else {
+            let Some(period) = context.temporary_gacha_period(canonical_id)? else {
                 continue;
             };
             let gacha = direct_gacha_definition(canonical_id)?;
@@ -275,12 +361,13 @@ fn inject_active_temporary_gacha_aliases(
 }
 
 // //// 在普通卡池时间缺口合成一个 CN 内容入口 [@x380kkm 2026-08-24] ////
-fn inject_regional_coverage_gacha_aliases(
+fn inject_regional_coverage_gacha_aliases_with_context(
     root: &mut Map<String, Value>,
     database: &ServiceDatabase,
+    context: &GachaLoadContext,
     account_id: i64,
 ) -> Result<(), PersonalServiceError> {
-    let aliases = region::coverage_aliases(database.current_server_time_millis()?)?;
+    let aliases = region::coverage_aliases(context.now_ms)?;
     if aliases.is_empty() {
         return Ok(());
     }
@@ -429,11 +516,10 @@ fn alias_gacha_period(
 // //// /构造地区别名响应使用的客户端有效期 ////
 
 // //// 在载入响应中同步回归和群星卡池的客户端有效期 [@x380kkm 2026-08-24] ////
-fn refresh_dynamic_gacha_campaigns(
+fn refresh_dynamic_gacha_campaigns_with_context(
     root: &mut Map<String, Value>,
-    database: &ServiceDatabase,
+    context: &GachaLoadContext,
 ) -> Result<(), PersonalServiceError> {
-    let now_ms = database.current_server_time_millis()?;
     let document = gacha_document()?
         .as_object()
         .ok_or_else(|| PersonalServiceError::new("CN gacha asset root is invalid"))?;
@@ -447,7 +533,7 @@ fn refresh_dynamic_gacha_campaigns(
         let gacha_id = gacha_id
             .parse::<i64>()
             .map_err(|_| PersonalServiceError::new("CN gacha id is invalid"))?;
-        let period = dynamic_campaign_period(database, gacha_id, gacha, now_ms)?;
+        let period = context.dynamic_campaign_period(gacha_id, gacha)?;
         update_dynamic_campaign(root, gacha_id, field, period)?;
     }
     Ok(())
@@ -467,17 +553,46 @@ fn dynamic_campaign_field(gacha: &Value) -> Result<Option<&'static str>, Persona
     }
 }
 
+// //// 将关联兑换的资格与客户端动态卡池有效期保持一致 [@x380kkm 2026-09-23] ////
+pub(crate) fn exchange_campaign_is_available(
+    database: &ServiceDatabase,
+    gacha_id: i64,
+    now: i64,
+) -> Result<bool, PersonalServiceError> {
+    Ok(dynamic_campaign_period(
+        database,
+        gacha_id,
+        direct_gacha_definition(gacha_id)?,
+        now.saturating_mul(1000),
+    )?.is_some())
+}
+// //// /将关联兑换的资格与客户端动态卡池有效期保持一致 ////
+
 fn dynamic_campaign_period(
     database: &ServiceDatabase,
     gacha_id: i64,
     gacha: &Value,
     now_ms: i64,
 ) -> Result<Option<Value>, PersonalServiceError> {
-    if let Some(period) = active_temporary_gacha_period(database, gacha_id)? {
+    let activity_id = format!("gacha:{gacha_id}");
+    dynamic_campaign_period_from_sources(
+        gacha,
+        now_ms,
+        active_temporary_gacha_period(database, gacha_id)?,
+        database.get_activity_schedule(&activity_id)?.as_ref(),
+    )
+}
+
+fn dynamic_campaign_period_from_sources(
+    gacha: &Value,
+    now_ms: i64,
+    temporary_period: Option<Value>,
+    schedule: Option<&ActivitySchedule>,
+) -> Result<Option<Value>, PersonalServiceError> {
+    if let Some(period) = temporary_period {
         return Ok(Some(period));
     }
-    let activity_id = format!("gacha:{gacha_id}");
-    if let Some(schedule) = database.get_activity_schedule(&activity_id)? {
+    if let Some(schedule) = schedule {
         let evaluation = evaluate_activity_schedule(&schedule, now_ms);
         if evaluation.status != ActivityWindowStatus::Open {
             return Ok(None);
@@ -624,6 +739,7 @@ pub(crate) fn draw_tutorial_gacha(
         plan.resolution.canonical,
         false,
         false,
+        None,
     )? {
         Ok(_) => {}
         Err(code) => return Ok(Err(code)),
@@ -649,16 +765,23 @@ fn execute(
     if body.viewer_id <= 0 || body.api_count < 0 {
         return Ok(error_response("400 Bad Request", "invalid_gacha_request"));
     }
-    let resolution = match region::resolve(body.gacha_id) {
-        Ok(resolution) => resolution,
-        Err(_) => return Ok(error_response("400 Bad Request", "invalid_gacha_request")),
-    };
     let snapshot = match player_snapshot(database, body.viewer_id)? {
         Ok(snapshot) => snapshot,
         Err(response) => return Ok(response),
     };
     let mut player_data = decode_player_data(&snapshot.data)?;
     let root = require_root(&mut player_data)?;
+    let receipt = GachaReceipt::new("exec", body.viewer_id, body.api_count, json!({
+        "gacha_id": body.gacha_id, "payment_type": body.payment_type,
+        "type": body.r#type, "number_of_exec": body.number_of_exec,
+    }));
+    if let Some(response) = receipt.replay(root)? {
+        return Ok(response);
+    }
+    let resolution = match region::resolve(body.gacha_id) {
+        Ok(resolution) => resolution,
+        Err(_) => return Ok(error_response("400 Bad Request", "invalid_gacha_request")),
+    };
     let gacha = direct_gacha_definition(resolution.canonical)?;
     if let Some(response) = closed_gacha_response(database, root, resolution)? {
         return Ok(response);
@@ -666,6 +789,13 @@ fn execute(
     let daily_available = gacha_supports_daily_discount(gacha)?
         && database.is_cn_gacha_daily_available(snapshot.account_id, resolution.canonical)?;
     let account_first_available = account_first_available(root, gacha, resolution.canonical)?;
+    let campaign_gacha_id = if resolution.is_temporary { resolution.requested } else { resolution.canonical };
+    let campaign_id = if body.payment_type == CAMPAIGN_PAYMENT {
+        let kind = if body.r#type == CAMPAIGN_MULTI_DRAW { 2 } else { 1 };
+        campaign::select_available(database, root, resolution.canonical, campaign_gacha_id, kind)?
+    } else {
+        None
+    };
     let mut payment = match apply_payment(
         root,
         gacha,
@@ -673,13 +803,14 @@ fn execute(
         resolution.canonical,
         daily_available,
         account_first_available,
+        campaign_id,
     )? {
         Ok(payment) => payment,
         Err(code) => return Ok(error_response("400 Bad Request", code)),
     };
-    if resolution.is_temporary {
-        campaign::project_temporary_response(&mut payment.campaign_list, resolution.requested)?;
-    }
+    let redeemed_campaign_ids = payment.campaign_list.iter()
+        .filter_map(|campaign| campaign.get("campaign_id").and_then(Value::as_i64)).collect::<Vec<_>>();
+    campaign::project_response(&mut payment.campaign_list, campaign_gacha_id, database.current_server_time_millis()?)?;
     let pull_count = payment.pull_count;
     let count_increment = gacha_count_increment(&body);
     let is_daily_payment = payment.is_daily_payment;
@@ -689,13 +820,48 @@ fn execute(
     };
 
     let server_time = server_time(database)?;
-    let (response, history_entries) = if gacha_type(gacha)? == EQUIPMENT_GACHA_TYPE {
+    let is_crazy = body.r#type == CRAZY_MULTI_TICKET_DRAW;
+    let awards_characters = !is_crazy && gacha_type(gacha)? == CHARACTER_GACHA_TYPE;
+    let (mut response, history_entries) = if is_crazy {
+        let mut draws = Vec::with_capacity(10);
+        for draw_number in 0..10 {
+            let character_id = draw_character_id(gacha, draw_number, false)?;
+            let movie_id = movie::draw_movie_id(gacha, character_id)?;
+            draws.push(json!({
+                "character_id": character_id,
+                "movie_id": movie_id,
+                "seed": movie::movie_seed(character_id, movie_id)?,
+                "entry_count": 1,
+            }));
+        }
+        crate::cn_crazy_gacha::store_draw(root, &draws)?;
+        let gacha_info = response_gacha_info(
+            update_gacha_info(root, resolution.canonical, 0, availability, count_increment)?,
+            resolution,
+            database,
+        )?;
+        (
+            json!({
+                "user_info": {"free_vmoney": payment.free_vmoney, "vmoney": payment.vmoney},
+                "draw": draws,
+                "character_list": [],
+                "item_list": payment.item_list,
+                "gacha_info_list": [gacha_info],
+                "gacha_campaign_list": [],
+                "crazy_gacha_result_list": root["crazy_gacha_result_list"],
+                "last_crazy_gacha_draw_result": root["last_crazy_gacha_draw_result"],
+                "encyclopedia_info": {},
+                "mail_arrived": false,
+            }),
+            Vec::new(),
+        )
+    } else if gacha_type(gacha)? == EQUIPMENT_GACHA_TYPE {
         let mut draws = Vec::with_capacity(pull_count as usize);
         let mut equipment_by_id = Map::new();
         let mut history_entries = Vec::with_capacity(pull_count as usize);
         for draw_number in 0..pull_count {
             let equipment_id = draw_equipment_id(gacha, draw_number)?;
-            let stored = add_equipment(root, equipment_id)?;
+            let stored = crate::cn_equipment::grant_equipment(root, equipment_id, 1, server_time)?;
             equipment_by_id.insert(equipment_id.to_string(), stored);
             history_entries.push(ReceiveHistoryEntry::reward(6, Some(equipment_id), 1));
             draws.push(json!({
@@ -747,11 +913,7 @@ fn execute(
                 body.r#type == GUARANTEED_CHARACTER_SINGLE_TICKET_DRAW,
             )?;
             let reward = grant_character(root, body.viewer_id, character_id, server_time)?;
-            if reward.joined {
-                if record_character_encyclopedia_state(root, character_id)? {
-                    encyclopedia_info.insert(format!("1{character_id}01"), json!({"read": false}));
-                }
-            }
+            encyclopedia_info.extend(record_character_encyclopedia_state(root, character_id)?);
             let movie_id = movie::draw_movie_id(gacha, character_id)?;
             history_entries.push(ReceiveHistoryEntry::reward(5, Some(character_id), 1));
             let mut draw = json!({
@@ -796,11 +958,25 @@ fn execute(
             history_entries,
         )
     };
+    let mut active_missions = if awards_characters {
+        crate::cn_mission::record_active_counters(root, database, &[("total_gacha_character_count", pull_count)])?
+    } else { Vec::new() };
+    let mission_info = crate::cn_mission::record_economic_actions(
+        root, &crate::cn_mission::plan_economic_missions(database, snapshot.account_id)?,
+        crate::cn_mission::EconomicActions {
+            character_draws: if awards_characters { pull_count } else { 0 },
+            ..crate::cn_mission::EconomicActions::default()
+        }, server_time,
+    )?;
+    crate::cn_mission::apply_mission_reward_response(&mut response, root, &mission_info, body.viewer_id, server_time)?;
+    response["mission_info"] = json!(mission_info);
+    for campaign_id in redeemed_campaign_ids {
+        active_missions.extend(crate::cn_mission::record_active_campaign_action(root, database, "gacha_campaign", campaign_id, 1)?);
+    }
+    active_missions.extend(crate::cn_mission::refresh_active_missions(root, database)?);
+    response["active_mission_list"] = json!(active_missions);
+    let history_event_key = receipt.record(root, &response, server_time)?;
     let encoded_player_data = encode_player_data(&player_data)?;
-    let history_event_key = format!(
-        "gacha:exec:{}:{}:{}:{}:{}",
-        resolution.canonical, body.payment_type, body.r#type, body.number_of_exec, body.api_count
-    );
     if is_daily_payment {
         let saved = database.save_player_snapshot_with_cn_daily_draw(
             snapshot.account_id,
@@ -838,6 +1014,18 @@ fn exchange_character(
         Ok(body) if body.viewer_id > 0 && body.character_id > 0 && body.api_count >= 0 => body,
         Ok(_) | Err(_) => return Ok(error_response("400 Bad Request", "invalid_gacha_request")),
     };
+    let snapshot = match player_snapshot(database, body.viewer_id)? {
+        Ok(snapshot) => snapshot,
+        Err(response) => return Ok(response),
+    };
+    let mut player_data = decode_player_data(&snapshot.data)?;
+    let root = require_root(&mut player_data)?;
+    let receipt = GachaReceipt::new("exchange-character", body.viewer_id, body.api_count, json!({
+        "gacha_id": body.gacha_id, "character_id": body.character_id,
+    }));
+    if let Some(response) = receipt.replay(root)? {
+        return Ok(response);
+    }
     let resolution = match region::resolve(body.gacha_id) {
         Ok(resolution) => resolution,
         Err(_) => return Ok(error_response("400 Bad Request", "invalid_gacha_request")),
@@ -849,12 +1037,6 @@ fn exchange_character(
     if !is_character_in_gacha(gacha, body.character_id) {
         return Ok(error_response("400 Bad Request", "character_not_in_gacha"));
     }
-    let snapshot = match player_snapshot(database, body.viewer_id)? {
-        Ok(snapshot) => snapshot,
-        Err(response) => return Ok(response),
-    };
-    let mut player_data = decode_player_data(&snapshot.data)?;
-    let root = require_root(&mut player_data)?;
     if let Some(response) = closed_gacha_response(database, root, resolution)? {
         return Ok(response);
     }
@@ -888,26 +1070,22 @@ fn exchange_character(
     let response_time = server_time(database)?;
     let reward = grant_character(root, body.viewer_id, body.character_id, response_time)?;
     let item_list = duplicate_item_list(reward.duplicate_item);
-    let mut encyclopedia_info = Map::new();
-    if reward.joined {
-        if record_character_encyclopedia_state(root, body.character_id)? {
-            encyclopedia_info.insert(format!("1{}01", body.character_id), json!({"read": false}));
-        }
-    }
-    let response = json!({
+    let encyclopedia_info = record_character_encyclopedia_state(root, body.character_id)?;
+    let active_missions = crate::cn_mission::refresh_active_missions(root, database)?;
+    let mut response = json!({
         "character_list": [reward.character],
         "item_list": item_list,
         "gacha_info_list": [gacha_info],
         "encyclopedia_info": encyclopedia_info,
+        "active_mission_list": active_missions,
         "mail_arrived": false,
     });
+    crate::cn_reward_overflow::apply_response(&mut response, root)?;
+    let history_event_key = receipt.record(root, &response, response_time)?;
     database.save_player_snapshot_with_receive_history(
         snapshot.account_id,
         &encode_player_data(&player_data)?,
-        &format!(
-            "gacha:exchange-character:{}:{}:{}:{}",
-            resolution.canonical, body.character_id, body.api_count, body.viewer_id
-        ),
+        &history_event_key,
         response_time,
         &[ReceiveHistoryEntry::reward(5, Some(body.character_id), 1)],
     )?;
@@ -924,17 +1102,23 @@ fn exchange_equipment(
         Ok(body) if body.viewer_id > 0 && body.equipment_id > 0 && body.api_count >= 0 => body,
         Ok(_) | Err(_) => return Ok(error_response("400 Bad Request", "invalid_gacha_request")),
     };
-    let resolution = match region::resolve(body.gacha_id) {
-        Ok(resolution) => resolution,
-        Err(_) => return Ok(error_response("400 Bad Request", "invalid_gacha_request")),
-    };
-    let gacha = direct_gacha_definition(resolution.canonical)?;
     let snapshot = match player_snapshot(database, body.viewer_id)? {
         Ok(snapshot) => snapshot,
         Err(response) => return Ok(response),
     };
     let mut player_data = decode_player_data(&snapshot.data)?;
     let root = require_root(&mut player_data)?;
+    let receipt = GachaReceipt::new("exchange-equipment", body.viewer_id, body.api_count, json!({
+        "gacha_id": body.gacha_id, "equipment_id": body.equipment_id,
+    }));
+    if let Some(response) = receipt.replay(root)? {
+        return Ok(response);
+    }
+    let resolution = match region::resolve(body.gacha_id) {
+        Ok(resolution) => resolution,
+        Err(_) => return Ok(error_response("400 Bad Request", "invalid_gacha_request")),
+    };
+    let gacha = direct_gacha_definition(resolution.canonical)?;
     if let Some(response) = closed_gacha_response(database, root, resolution)? {
         return Ok(response);
     }
@@ -965,21 +1149,22 @@ fn exchange_equipment(
         resolution,
         database,
     )?;
-    let equipment = add_equipment(root, body.equipment_id)?;
     let response_time = server_time(database)?;
-    let response = json!({
+    let equipment = crate::cn_equipment::grant_equipment(root, body.equipment_id, 1, response_time)?;
+    let active_missions = crate::cn_mission::refresh_active_missions(root, database)?;
+    let mut response = json!({
         "equipment_list": [equipment],
         "gacha_info_list": [gacha_info],
         "encyclopedia_info": [],
+        "active_mission_list": active_missions,
         "mail_arrived": false,
     });
+    crate::cn_reward_overflow::apply_response(&mut response, root)?;
+    let history_event_key = receipt.record(root, &response, response_time)?;
     database.save_player_snapshot_with_receive_history(
         snapshot.account_id,
         &encode_player_data(&player_data)?,
-        &format!(
-            "gacha:exchange-equipment:{}:{}:{}:{}",
-            resolution.canonical, body.equipment_id, body.api_count, body.viewer_id
-        ),
+        &history_event_key,
         response_time,
         &[ReceiveHistoryEntry::reward(6, Some(body.equipment_id), 1)],
     )?;
@@ -995,6 +1180,7 @@ fn apply_payment(
     canonical_gacha_id: i64,
     daily_available: bool,
     account_first_available: bool,
+    campaign_id: Option<i64>,
 ) -> Result<Result<PaymentResult, &'static str>, PersonalServiceError> {
     let (free_vmoney, vmoney) = {
         let user_info = require_object(root, "user_info")?;
@@ -1083,13 +1269,24 @@ fn apply_payment(
             if body.number_of_exec <= 0 || body.number_of_exec > 100 {
                 return Ok(Err("invalid_gacha_request"));
             }
+            let ticket_count = if body.r#type == CRAZY_MULTI_TICKET_DRAW {
+                if body.number_of_exec != 1 {
+                    return Ok(Err("invalid_gacha_request"));
+                }
+                match crate::cn_crazy_gacha::ticket_cost(root)? {
+                    Ok(cost) => cost,
+                    Err(code) => return Ok(Err(code)),
+                }
+            } else {
+                body.number_of_exec
+            };
             let items = require_object(root, "item_list")?;
             let item_id = ticket.item_id.to_string();
             let current = stored_item_count(items, ticket.item_id)?;
-            if current < body.number_of_exec {
+            if current < ticket_count {
                 return Ok(Err("not_enough_tickets"));
             }
-            let new_count = current - body.number_of_exec;
+            let new_count = current - ticket_count;
             items.insert(item_id.clone(), Value::from(new_count));
             item_list.insert(item_id, Value::from(new_count));
             body.number_of_exec * ticket.pulls_per_ticket
@@ -1103,7 +1300,10 @@ fn apply_payment(
             {
                 return Ok(Err("invalid_gacha_request"));
             }
-            let updated = match campaign::redeem(root, canonical_gacha_id)? {
+            let Some(campaign_id) = campaign_id else {
+                return Ok(Err("gacha_campaign_not_found"));
+            };
+            let updated = match campaign::redeem(root, canonical_gacha_id, campaign_id)? {
                 Ok(campaign) => campaign,
                 Err(code) => return Ok(Err(code)),
             };
@@ -1401,20 +1601,20 @@ fn player_gacha_activity_status(
 // //// /返回显式 DB 卡池规则状态 ////
 
 // //// 返回 CN 扭蛋当前活动状态 [@x380kkm 2026-08-24] ////
-fn gacha_activity_status(
-    database: &ServiceDatabase,
+fn activity_status_from_sources(
     gacha_id: i64,
+    now_ms: i64,
+    temporary_open: bool,
+    schedule: Option<&ActivitySchedule>,
 ) -> Result<ActivityWindowStatus, PersonalServiceError> {
-    let activity_id = format!("gacha:{gacha_id}");
-    let now_ms = database.current_server_time_millis()?;
-    let status = database.activity_window_status(&activity_id, now_ms)?;
-    Ok(if status == ActivityWindowStatus::Unscheduled {
-        gacha_master_window_status(gacha_id, now_ms)?
-    } else {
-        status
-    })
+    if temporary_open {
+        return Ok(ActivityWindowStatus::Open);
+    }
+    match schedule {
+        Some(schedule) => Ok(evaluate_activity_schedule(schedule, now_ms).status),
+        None => gacha_master_window_status(gacha_id, now_ms),
+    }
 }
-// //// /返回 CN 扭蛋当前活动状态 ////
 
 // //// 按客户端卡池 master 判断默认开放时间 [@x380kkm 2026-08-24] ////
 fn gacha_master_window_status(
@@ -1639,79 +1839,6 @@ fn duplicate_item_list(duplicate_item: Option<DuplicateCharacterItem>) -> Value 
     )]))
 }
 
-// //// 构造新角色对应的百科增量 [@x380kkm 2026-08-28] ////
-pub(crate) fn record_character_encyclopedia_state(
-    root: &mut Map<String, Value>,
-    character_id: i64,
-) -> Result<bool, PersonalServiceError> {
-    let key = format!("1{character_id}01");
-    let stored = root
-        .entry("encyclopedia_list".to_owned())
-        .or_insert_with(|| json!({}))
-        .as_object_mut()
-        .ok_or_else(|| PersonalServiceError::new("stored CN encyclopedia data is invalid"))?;
-    if stored.contains_key(&key) {
-        return Ok(false);
-    }
-    let value = json!({"read": false});
-    stored.insert(key, value);
-    Ok(true)
-}
-// //// /构造新角色对应的百科增量 ////
-
-fn add_equipment(
-    root: &mut Map<String, Value>,
-    equipment_id: i64,
-) -> Result<Value, PersonalServiceError> {
-    let equipment_list = require_object(root, "user_equipment_list")?;
-    let key = equipment_id.to_string();
-    let was_owned = equipment_list.contains_key(&key);
-    let mut equipment = equipment_list.get(&key).cloned().unwrap_or_else(|| {
-        json!({
-            "enhancement_level": 0,
-            "level": 1,
-            "protection": false,
-            "stack": 0,
-        })
-    });
-    let (stack, protection, level, enhancement_level) = {
-        let object = equipment
-            .as_object_mut()
-            .ok_or_else(|| PersonalServiceError::new("stored CN equipment data is invalid"))?;
-        let current_stack = object
-            .get("stack")
-            .and_then(Value::as_i64)
-            .unwrap_or_default();
-        let stack = if was_owned {
-            current_stack
-                .checked_add(1)
-                .ok_or_else(|| PersonalServiceError::new("CN equipment stack exceeds range"))?
-        } else {
-            current_stack
-        };
-        object.insert("stack".to_owned(), Value::from(stack));
-        (
-            stack,
-            object
-                .get("protection")
-                .and_then(Value::as_bool)
-                .unwrap_or(false),
-            object.get("level").and_then(Value::as_i64).unwrap_or(1),
-            object
-                .get("enhancement_level")
-                .and_then(Value::as_i64)
-                .unwrap_or_default(),
-        )
-    };
-    equipment_list.insert(key, equipment);
-    Ok(json!({
-        "equipment_id": equipment_id,
-        "protection": protection,
-        "level": level,
-        "enhancement_level": enhancement_level,
-        "stack": stack,
-    }))
-}
 
 fn update_gacha_info(
     root: &mut Map<String, Value>,
@@ -1873,9 +2000,9 @@ mod tests {
 
         assert_eq!(root["user_character_list"]["111001"]["entry_count"], 1);
         assert_eq!(root["user_character_list"]["111001"]["stack"], 1);
-        assert_eq!(root["item_list"]["14003"], 1);
-        assert_eq!(draw["ex_boost_item"], json!({"id": 14_003, "count": 1}));
-        assert_eq!(item_list["14003"], 1);
+        assert_eq!(root["item_list"]["14003"], 3);
+        assert_eq!(draw["ex_boost_item"], json!({"id": 14_003, "count": 3}));
+        assert_eq!(item_list["14003"], 3);
     }
     // //// /验证重复角色扭蛋同时返回素材并持久化余额 ////
 

@@ -18,12 +18,16 @@ public final class GameInstallReceiver extends BroadcastReceiver {
         if (!GameInstaller.INSTALL_RESULT_ACTION.equals(intent.getAction())) {
             return;
         }
+        int sessionId = intent.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, -1);
+        if (!GameInstaller.isCurrentSession(context, sessionId)) {
+            return;
+        }
         int status = intent.getIntExtra(
             PackageInstaller.EXTRA_STATUS,
             PackageInstaller.STATUS_FAILURE
         );
         if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
-            showUserConfirmation(context, intent);
+            requestUserConfirmation(context, sessionId, intent);
             return;
         }
         GameInstaller.clearSession(context);
@@ -40,18 +44,27 @@ public final class GameInstallReceiver extends BroadcastReceiver {
         openManagementActivity(context, false, message);
     }
 
-    private static void showUserConfirmation(Context context, Intent resultIntent) {
+    private static void requestUserConfirmation(
+        Context context,
+        int sessionId,
+        Intent resultIntent
+    ) {
         GameInstaller.setStatus(context, "请在系统窗口确认安装游戏...");
-        Intent confirmation = getConfirmationIntent(resultIntent);
-        if (confirmation == null) {
-            GameInstaller.setStatus(context, "系统没有提供游戏安装确认窗口, 请重试.");
-            return;
-        }
-        confirmation.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
-            context.startActivity(confirmation);
+            Intent confirmation = getConfirmationIntent(resultIntent);
+            if (confirmation == null) {
+                GameInstaller.cancelSession(
+                    context,
+                    sessionId,
+                    "系统没有提供游戏安装确认窗口, 请重试."
+                );
+                return;
+            }
+            confirmation.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            GameInstaller.setPendingUserConfirmation(context, sessionId, confirmation);
+            openManagementActivity(context, false, null);
         } catch (RuntimeException error) {
-            GameInstaller.setStatus(context, "无法打开系统安装确认窗口, 请重试.");
+            GameInstaller.cancelSession(context, sessionId, "无法读取系统安装确认窗口, 请重试.");
         }
     }
 
@@ -83,6 +96,10 @@ public final class GameInstallReceiver extends BroadcastReceiver {
         try {
             context.startActivity(activity);
         } catch (RuntimeException error) {
+            if (!succeeded && failure == null) {
+                GameInstaller.setStatus(context, "请打开 Starpoint 确认安装游戏.");
+                return;
+            }
             GameInstaller.setStatus(
                 context,
                 succeeded

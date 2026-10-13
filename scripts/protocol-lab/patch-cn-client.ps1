@@ -1,8 +1,9 @@
 # audience: internal
 # # patch-cn-client
-# 此脚本把 CN APK 中的版本地址和 API 端点改为指定服务器, 内嵌个人服务模式启用 dummy SDK 运行路径和原生扩展守卫, 诊断开关添加请求观察, 版本查询, 响应解码和预展开资源补丁, 再重建, 对齐和签名 APK.
+# 此脚本把 CN APK 中的版本地址和 API 端点改为指定服务器, 内嵌个人服务模式启用 dummy SDK 运行路径, 原生扩展守卫, 本地订单付款和救援默认续战, 诊断开关添加请求观察, 版本查询, 响应解码和预展开资源补丁, 再重建, 对齐和签名 APK.
 # 此脚本只接受一个 APK, 只替换已知地址, 并把运行时产物和证据写入 workspace artifacts.
 # 此脚本在 artifacts 中生成或复用测试签名, 不使用发行签名处理客户端.
+# 装备结果页加载当前卡池概率主表, 按兑换入口的可见性计算兑换点提示.
 
 [CmdletBinding()]
 param(
@@ -1554,13 +1555,24 @@ $RemoteUtilDecodeDiagnosticPatchSourcePath = Join-Path $PSScriptRoot "RemoteUtil
 $AssetExtractorPreextractedBundlePatchSourcePath = Join-Path $PSScriptRoot "AssetExtractorPreextractedBundlePatch.java"
 $GbitsVersionQueryProbePatchSourcePath = Join-Path $PSScriptRoot "GbitsVersionQueryProbePatch.java"
 $GbitsVersionUrlAbcPatchSourcePath = Join-Path $PSScriptRoot "GbitsVersionUrlAbcPatch.java"
+$GachaEquipmentExchangeVisibilityPatchSourcePath = Join-Path $PSScriptRoot "GachaEquipmentExchangeVisibilityPatch.java"
+$GachaEquipmentResultAssetsPatchSourcePath = Join-Path $PSScriptRoot "GachaEquipmentResultAssetsPatch.java"
+$LocalPaymentPatchSourcePath = Join-Path $PSScriptRoot "LocalPaymentAbcPatch.java"
+$RescueAutoStartPatchSourcePath = Join-Path $PSScriptRoot "RescueAutoStartAbcPatch.java"
+$ManaBoardCachePatchSourcePath = Join-Path $PSScriptRoot "ManaBoardCacheAbcPatch.java"
+$AssetCacheRecoveryPatchSourcePath = Join-Path $PSScriptRoot "AssetCacheRecoveryAbcPatch.java"
 foreach ($Tool in @(
     @($FfdecJarPath, "FFDec jar"),
     @($ZipalignPath, "zipalign"),
     @($ApkSignerJarPath, "apksigner jar"),
     @($BuildToolsPropertiesPath, "Android build-tools properties"),
     @($JavaPath, "Java"),
-    @($KeytoolPath, "keytool")
+    @($KeytoolPath, "keytool"),
+    @($FfdecLibraryJarPath, "FFDec library jar"),
+    @($JavacPath, "Java compiler"),
+    @($AbcMethodDigestSourcePath, "ABC method digest source"),
+    @($GachaEquipmentExchangeVisibilityPatchSourcePath, "Gacha equipment exchange visibility patch source"),
+    @($GachaEquipmentResultAssetsPatchSourcePath, "Gacha equipment result assets patch source")
 )) {
     Assert-ProtocolLabFile -Path $Tool[0] -Description $Tool[1]
 }
@@ -1574,6 +1586,12 @@ if ($SdkLoginPatchMode.PatchRemoteUtilRequestGuard) {
     )) {
         Assert-ProtocolLabFile -Path $Tool[0] -Description $Tool[1]
     }
+}
+if ($EmbeddedPersonalService) {
+    Assert-ProtocolLabFile -Path $LocalPaymentPatchSourcePath -Description "本地付款 ABC 补丁源码"
+    Assert-ProtocolLabFile -Path $RescueAutoStartPatchSourcePath -Description "救援续战 ABC 补丁源码"
+    Assert-ProtocolLabFile -Path $ManaBoardCachePatchSourcePath -Description "玛纳板缓存 ABC 补丁源码"
+    Assert-ProtocolLabFile -Path $AssetCacheRecoveryPatchSourcePath -Description "资源缓存恢复 ABC 补丁源码"
 }
 if ($VersionUrlPatchEnabled) {
     foreach ($Tool in @(
@@ -1627,6 +1645,12 @@ $RemoteUtilPatchedSwfPath = Join-Path $WorkingDirectory "patched\worldflipper_an
 $VersionUrlPatchedSwfPath = Join-Path $WorkingDirectory "patched\worldflipper_android_version_url.swf"
 $VersionQueryPatchedSwfPath = Join-Path $WorkingDirectory "patched\worldflipper_android_version_query.swf"
 $DecodeDiagnosticPatchedSwfPath = Join-Path $WorkingDirectory "patched\worldflipper_android_decode_diagnostic.swf"
+$AssetExtractorPatchedSwfPath = Join-Path $WorkingDirectory "patched\worldflipper_android_asset_extractor.swf"
+$GachaEquipmentExchangePatchedSwfPath = Join-Path $WorkingDirectory "patched\worldflipper_android_equipment_exchange.swf"
+$LocalPaymentPatchedSwfPath = Join-Path $WorkingDirectory "patched\worldflipper_android_local_payment.swf"
+$RescueAutoStartPatchedSwfPath = Join-Path $WorkingDirectory "patched\worldflipper_android_rescue_auto_start.swf"
+$ManaBoardCachePatchedSwfPath = Join-Path $WorkingDirectory "patched\worldflipper_android_mana_board_cache.swf"
+$AssetCacheRecoveryPatchedSwfPath = Join-Path $WorkingDirectory "patched\worldflipper_android_asset_cache_recovery.swf"
 $VerificationDirectory = Join-Path $WorkingDirectory "ffdec-verify"
 $VerificationPcodeDirectory = Join-Path $WorkingDirectory "ffdec-verify-pcode"
 $RemoteUtilAbcPatchClassesDirectory = Join-Path $WorkingDirectory "remoteutil-abc-patch-classes"
@@ -1639,6 +1663,24 @@ $GbitsVersionQueryProbeClassesDirectory = Join-Path $WorkingDirectory "gbits-ver
 $GbitsVersionQueryProbeEvidencePath = Join-Path $EvidenceDirectory "gbits-version-query-probe.json"
 $GbitsVersionUrlAbcPatchClassesDirectory = Join-Path $WorkingDirectory "gbits-version-url-abc-patch-classes"
 $GbitsVersionUrlAbcPatchEvidencePath = Join-Path $EvidenceDirectory "gbits-version-url-abc-patch.json"
+$GachaEquipmentExchangeVisibilityClassesDirectory = Join-Path $WorkingDirectory "gacha-equipment-exchange-visibility-classes"
+$GachaEquipmentExchangeVisibilityEvidencePath = Join-Path $EvidenceDirectory "gacha-equipment-exchange-visibility.json"
+$GachaEquipmentResultAssetsClassesDirectory = Join-Path $WorkingDirectory "gacha-equipment-result-assets-classes"
+$GachaEquipmentResultAssetsEvidencePath = Join-Path $EvidenceDirectory "gacha-equipment-result-assets.json"
+$LocalPaymentClassesDirectory = Join-Path $WorkingDirectory "local-payment-classes"
+$LocalPaymentEvidencePath = Join-Path $EvidenceDirectory "local-payment.json"
+$LocalPaymentClassNames = if ($EmbeddedPersonalService) {
+    @("pinball.payment.real.RealPayment", "pinball.payment.gbits.GbitsAndroidRealPayment", "pinball.remote.payment.finish.PaymentFinishRealRemote")
+} else { @() }
+$RescueAutoStartClassesDirectory = Join-Path $WorkingDirectory "rescue-auto-start-classes"
+$RescueAutoStartEvidencePath = Join-Path $EvidenceDirectory "rescue-auto-start.json"
+$RescueAutoStartClassNames = if ($EmbeddedPersonalService) { @("pinball.loading.multi.EnterRoomService") } else { @() }
+$ManaBoardCacheClassesDirectory = Join-Path $WorkingDirectory "mana-board-cache-classes"
+$ManaBoardCacheEvidencePath = Join-Path $EvidenceDirectory "mana-board-cache.json"
+$ManaBoardCacheClassNames = if ($EmbeddedPersonalService) { @("pinball.common.data.character.GeneralCharacterLogic") } else { @() }
+$AssetCacheRecoveryClassesDirectory = Join-Path $WorkingDirectory "asset-cache-recovery-classes"
+$AssetCacheRecoveryEvidencePath = Join-Path $EvidenceDirectory "asset-cache-recovery.json"
+$AssetCacheRecoveryClassNames = if ($EmbeddedPersonalService) { @("pinball.asset.file.FileReader", "pinball.asset.file._FileReader.IntermediateDownloadFilesLoader", "pinball.loading.assetDownload.check.AssetSufficiencyChecking", "pinball.loading.assetDownload.recovery.AssetRecovering") } else { @() }
 $UnsignedApkPath = Join-Path $WorkingDirectory "unsigned.apk"
 $AlignedApkPath = Join-Path $WorkingDirectory "aligned.apk"
 $VersionQueryProbeMode = Get-ClientPatchVersionQueryProbeMode `
@@ -1968,7 +2010,7 @@ try {
             "AssetExtractorPreextractedBundlePatch",
             $OriginalSwfPath,
             $DecodeDiagnosticPatchedSwfPath,
-            $PatchedSwfPath,
+            $AssetExtractorPatchedSwfPath,
             $AssetExtractorPreextractedBundleEvidencePath
         ) -LogPath (Join-Path $EvidenceDirectory "asset-extractor-preextracted-bundle.log") | Out-Null
         Assert-ProtocolLabFile -Path $AssetExtractorPreextractedBundleEvidencePath -Description "AssetExtractor 预展开资源补丁证据"
@@ -1976,9 +2018,111 @@ try {
         Assert-ClientPatchAssetExtractorPreextractedEvidence -Evidence $Evidence | Out-Null
         $Evidence
     } else {
-        Copy-Item -LiteralPath $DecodeDiagnosticPatchedSwfPath -Destination $PatchedSwfPath
+        Copy-Item -LiteralPath $DecodeDiagnosticPatchedSwfPath -Destination $AssetExtractorPatchedSwfPath
         $null
     }
+    Assert-ProtocolLabFile -Path $AssetExtractorPatchedSwfPath -Description "AssetExtractor 补丁输出 SWF"
+
+    # //// 将内嵌服务商品购买接入本地订单 [@x380kkm 2026-09-22] ////
+    $LocalPaymentEvidence = if ($EmbeddedPersonalService) {
+        New-Item -ItemType Directory -Force -Path $LocalPaymentClassesDirectory | Out-Null
+        Invoke-ClientPatchTool -FilePath $JavacPath -ArgumentList @(
+            "-encoding", "UTF-8", "-cp", $FfdecLibraryJarPath,
+            "-d", $LocalPaymentClassesDirectory, $LocalPaymentPatchSourcePath, $AbcMethodDigestSourcePath
+        ) -LogPath (Join-Path $EvidenceDirectory "local-payment-compile.log") | Out-Null
+        $FfdecLibraryDirectory = Split-Path -Parent $FfdecLibraryJarPath
+        Invoke-ClientPatchTool -FilePath $JavaPath -ArgumentList @(
+            "-cp", "$LocalPaymentClassesDirectory;$FfdecLibraryDirectory\*", "LocalPaymentAbcPatch",
+            $OriginalSwfPath, $AssetExtractorPatchedSwfPath, $LocalPaymentPatchedSwfPath, $LocalPaymentEvidencePath
+        ) -LogPath (Join-Path $EvidenceDirectory "local-payment.log") | Out-Null
+        Get-Content -LiteralPath $LocalPaymentEvidencePath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } else { $null }
+    # //// /将内嵌服务商品购买接入本地订单 ////
+
+    # //// 设置内嵌服务救援房间的默认续战模式 [@x380kkm 2026-09-23] ////
+    $RescueAutoStartEvidence = if ($EmbeddedPersonalService) {
+        New-Item -ItemType Directory -Force -Path $RescueAutoStartClassesDirectory | Out-Null
+        Invoke-ClientPatchTool -FilePath $JavacPath -ArgumentList @(
+            "-encoding", "UTF-8", "-cp", $FfdecLibraryJarPath,
+            "-d", $RescueAutoStartClassesDirectory, $RescueAutoStartPatchSourcePath, $AbcMethodDigestSourcePath
+        ) -LogPath (Join-Path $EvidenceDirectory "rescue-auto-start-compile.log") | Out-Null
+        $FfdecLibraryDirectory = Split-Path -Parent $FfdecLibraryJarPath
+        Invoke-ClientPatchTool -FilePath $JavaPath -ArgumentList @(
+            "-cp", "$RescueAutoStartClassesDirectory;$FfdecLibraryDirectory\*", "RescueAutoStartAbcPatch",
+            $OriginalSwfPath, $LocalPaymentPatchedSwfPath, $RescueAutoStartPatchedSwfPath, $RescueAutoStartEvidencePath
+        ) -LogPath (Join-Path $EvidenceDirectory "rescue-auto-start.log") | Out-Null
+        Get-Content -LiteralPath $RescueAutoStartEvidencePath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } else { $null }
+    # //// /设置内嵌服务救援房间的默认续战模式 ////
+
+    # //// 按可见板范围刷新玛纳节点和能力缓存 [@x380kkm 2026-09-24] ////
+    $ManaBoardCacheEvidence = if ($EmbeddedPersonalService) {
+        New-Item -ItemType Directory -Force -Path $ManaBoardCacheClassesDirectory | Out-Null
+        Invoke-ClientPatchTool -FilePath $JavacPath -ArgumentList @(
+            "-encoding", "UTF-8", "-cp", $FfdecLibraryJarPath,
+            "-d", $ManaBoardCacheClassesDirectory, $ManaBoardCachePatchSourcePath, $AbcMethodDigestSourcePath
+        ) -LogPath (Join-Path $EvidenceDirectory "mana-board-cache-compile.log") | Out-Null
+        $FfdecLibraryDirectory = Split-Path -Parent $FfdecLibraryJarPath
+        Invoke-ClientPatchTool -FilePath $JavaPath -ArgumentList @(
+            "-cp", "$ManaBoardCacheClassesDirectory;$FfdecLibraryDirectory\*", "ManaBoardCacheAbcPatch",
+            $OriginalSwfPath, $RescueAutoStartPatchedSwfPath, $ManaBoardCachePatchedSwfPath, $ManaBoardCacheEvidencePath
+        ) -LogPath (Join-Path $EvidenceDirectory "mana-board-cache.log") | Out-Null
+        Get-Content -LiteralPath $ManaBoardCacheEvidencePath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } else { $null }
+    # //// /按可见板范围刷新玛纳节点和能力缓存 ////
+
+    # //// 校验资源缓存并按平台清单恢复缺失文件 [@x380kkm 2026-09-27] ////
+    $AssetCacheRecoveryEvidence = if ($EmbeddedPersonalService) {
+        New-Item -ItemType Directory -Force -Path $AssetCacheRecoveryClassesDirectory | Out-Null
+        Invoke-ClientPatchTool -FilePath $JavacPath -ArgumentList @(
+            "-encoding", "UTF-8", "-cp", $FfdecLibraryJarPath,
+            "-d", $AssetCacheRecoveryClassesDirectory, $AssetCacheRecoveryPatchSourcePath, $AbcMethodDigestSourcePath
+        ) -LogPath (Join-Path $EvidenceDirectory "asset-cache-recovery-compile.log") | Out-Null
+        $FfdecLibraryDirectory = Split-Path -Parent $FfdecLibraryJarPath
+        Invoke-ClientPatchTool -FilePath $JavaPath -ArgumentList @(
+            "-cp", "$AssetCacheRecoveryClassesDirectory;$FfdecLibraryDirectory\*", "AssetCacheRecoveryAbcPatch",
+            $OriginalSwfPath, $ManaBoardCachePatchedSwfPath, $AssetCacheRecoveryPatchedSwfPath, $AssetCacheRecoveryEvidencePath
+        ) -LogPath (Join-Path $EvidenceDirectory "asset-cache-recovery.log") | Out-Null
+        Get-Content -LiteralPath $AssetCacheRecoveryEvidencePath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } else { $null }
+    $EquipmentExchangeInputSwfPath = if ($EmbeddedPersonalService) { $AssetCacheRecoveryPatchedSwfPath } else { $AssetExtractorPatchedSwfPath }
+    # //// /校验资源缓存并按平台清单恢复缺失文件 ////
+
+    New-Item -ItemType Directory -Force -Path $GachaEquipmentExchangeVisibilityClassesDirectory | Out-Null
+    Invoke-ClientPatchTool -FilePath $JavacPath -ArgumentList @(
+        "-encoding", "UTF-8",
+        "-cp", $FfdecLibraryJarPath,
+        "-d", $GachaEquipmentExchangeVisibilityClassesDirectory,
+        $GachaEquipmentExchangeVisibilityPatchSourcePath,
+        $AbcMethodDigestSourcePath
+    ) -LogPath (Join-Path $EvidenceDirectory "gacha-equipment-exchange-visibility-compile.log") | Out-Null
+    $FfdecLibraryDirectory = Split-Path -Parent $FfdecLibraryJarPath
+    Invoke-ClientPatchTool -FilePath $JavaPath -ArgumentList @(
+        "-cp", "$GachaEquipmentExchangeVisibilityClassesDirectory;$FfdecLibraryDirectory\*",
+        "GachaEquipmentExchangeVisibilityPatch",
+        $OriginalSwfPath,
+        $EquipmentExchangeInputSwfPath,
+        $GachaEquipmentExchangePatchedSwfPath,
+        $GachaEquipmentExchangeVisibilityEvidencePath
+    ) -LogPath (Join-Path $EvidenceDirectory "gacha-equipment-exchange-visibility.log") | Out-Null
+    $GachaEquipmentExchangeVisibilityEvidence = Get-Content -LiteralPath $GachaEquipmentExchangeVisibilityEvidencePath -Raw -Encoding UTF8 | ConvertFrom-Json
+    New-Item -ItemType Directory -Force -Path $GachaEquipmentResultAssetsClassesDirectory | Out-Null
+    Invoke-ClientPatchTool -FilePath $JavacPath -ArgumentList @(
+        "-encoding", "UTF-8",
+        "-cp", $FfdecLibraryJarPath,
+        "-d", $GachaEquipmentResultAssetsClassesDirectory,
+        $GachaEquipmentResultAssetsPatchSourcePath,
+        $AbcMethodDigestSourcePath
+    ) -LogPath (Join-Path $EvidenceDirectory "gacha-equipment-result-assets-compile.log") | Out-Null
+    Invoke-ClientPatchTool -FilePath $JavaPath -ArgumentList @(
+        "-cp", "$GachaEquipmentResultAssetsClassesDirectory;$FfdecLibraryDirectory\*",
+        "GachaEquipmentResultAssetsPatch",
+        $OriginalSwfPath,
+        $GachaEquipmentExchangePatchedSwfPath,
+        $PatchedSwfPath,
+        $GachaEquipmentResultAssetsEvidencePath
+    ) -LogPath (Join-Path $EvidenceDirectory "gacha-equipment-result-assets.log") | Out-Null
+    $GachaEquipmentResultAssetsEvidence = Get-Content -LiteralPath $GachaEquipmentResultAssetsEvidencePath -Raw -Encoding UTF8 | ConvertFrom-Json
     Assert-ProtocolLabFile -Path $PatchedSwfPath -Description "最终补丁输出 SWF"
     $AssetExtractorPreextractedBundleEvidenceFile = if ($PreextractedBundleMode.PatchAssetExtractorStart) {
         Get-ClientPatchFileEvidence -Path $AssetExtractorPreextractedBundleEvidencePath
@@ -1987,10 +2131,11 @@ try {
     }
 
     New-Item -ItemType Directory -Force -Path $VerificationDirectory | Out-Null
+    $VerificationClassNames = (@($PatchedClassNames) + @($RescueAutoStartClassNames) + @($ManaBoardCacheClassNames) + @($AssetCacheRecoveryClassNames)) -join ","
     Invoke-ClientPatchTool -FilePath $JavaPath -ArgumentList @(
         "-jar", $FfdecJarPath,
         "-onerror", "abort",
-        "-selectclass", $SelectedClasses,
+        "-selectclass", $VerificationClassNames,
         "-export", "script", $VerificationDirectory, $PatchedSwfPath
     ) -LogPath (Join-Path $EvidenceDirectory "ffdec-verify-export.log") | Out-Null
     $SdkDummyPcodeVerification = if ($SdkLoginPatchMode.PatchSdkDummy) {
@@ -2171,7 +2316,13 @@ try {
             AndroidManifestEntry = $InputAndroidManifestEvidence
         }
         Patch = [ordered]@{
-            ClassNames = $PatchedClassNames
+            ClassNames = @($PatchedClassNames) + @("pinball.scene.gacha.equipment.result.GachaEquipmentResultScene", "pinball.asset.AssetGroupResolver") + @($LocalPaymentClassNames) + @($RescueAutoStartClassNames) + @($ManaBoardCacheClassNames) + @($AssetCacheRecoveryClassNames)
+            LocalPayment = $LocalPaymentEvidence
+            RescueAutoStart = $RescueAutoStartEvidence
+            ManaBoardCache = $ManaBoardCacheEvidence
+            AssetCacheRecovery = $AssetCacheRecoveryEvidence
+            GachaEquipmentExchangeVisibility = $GachaEquipmentExchangeVisibilityEvidence
+            GachaEquipmentResultAssets = $GachaEquipmentResultAssetsEvidence
             VersionUrlAbc = [ordered]@{
                 Enabled = [bool]$VersionUrlPatchEnabled
                 EvidenceFile = if ($VersionUrlPatchEnabled) { Get-ClientPatchFileEvidence -Path $GbitsVersionUrlAbcPatchEvidencePath } else { $null }

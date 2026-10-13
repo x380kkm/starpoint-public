@@ -1,7 +1,7 @@
 // audience: internal
 // # personal-service-ai-team-storage
 //
-// 该模块保存从本地存档提取的两个不可变 AI 队伍快照和槽位自动选择设置.
+// 该模块保存从本地存档提取的两个不可变 AI 队伍快照, 槽位自动选择设置和实例来源选择.
 // 当前 head 只表示每个槽位的两个活动快照. 历史快照不会被更新.
 
 use super::ServiceDatabase;
@@ -64,6 +64,11 @@ pub(super) fn migrate(connection: &Connection) -> Result<(), PersonalServiceErro
                      CHECK (automatic_selection_enabled IN (0, 1)),
                  FOREIGN KEY (slot_id) REFERENCES local_save_slots (id) ON DELETE CASCADE
              );
+             CREATE TABLE IF NOT EXISTS ai_team_source (
+                 id INTEGER PRIMARY KEY CHECK (id = 1),
+                 slot_id INTEGER,
+                 FOREIGN KEY (slot_id) REFERENCES local_save_slots (id) ON DELETE SET NULL
+             );
              CREATE TRIGGER IF NOT EXISTS ai_team_snapshots_immutable
              BEFORE UPDATE ON ai_team_snapshots
              BEGIN
@@ -75,6 +80,27 @@ pub(super) fn migrate(connection: &Connection) -> Result<(), PersonalServiceErro
 // //// /创建不可变 AI 队伍快照表 ////
 
 impl ServiceDatabase {
+    // //// 读取实例 AI 来源存档 [@x380kkm 2026-09-29] ////
+    pub(crate) fn ai_team_source_slot_id(&self) -> Result<Option<i64>, PersonalServiceError> {
+        self.connection
+            .query_row(
+                "SELECT slot_id FROM ai_team_source WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .optional()
+            .map(Option::flatten)
+            .map_err(ai_team_database_error)
+    }
+
+    // //// 将实例 AI 来源恢复为当前玩家存档 [@x380kkm 2026-09-29] ////
+    pub(crate) fn follow_current_ai_team_source(&self) -> Result<(), PersonalServiceError> {
+        self.connection
+            .execute("DELETE FROM ai_team_source WHERE id = 1", [])
+            .map_err(ai_team_database_error)?;
+        Ok(())
+    }
+
     // //// 读取槽位自动选择设置 [@x380kkm 2026-08-20] ////
     pub(crate) fn is_ai_team_automatic_selection_enabled(
         &self,
@@ -117,6 +143,42 @@ impl ServiceDatabase {
         source_revision_id: &str,
         snapshots: &[AiTeamSnapshotInput],
     ) -> Result<Vec<AiTeamSnapshot>, AiTeamStoreError> {
+        self.stage_ai_team_snapshots(slot_id, source_revision_id, snapshots)?
+            .commit()
+            .map_err(ai_team_storage_error)?;
+        self.list_ai_team_snapshots(slot_id)
+            .map_err(AiTeamStoreError::Storage)
+            .and_then(|snapshots| snapshots.ok_or(AiTeamStoreError::InvalidState))
+    }
+
+    // //// 原子保存两个快照并选择实例 AI 来源 [@x380kkm 2026-09-29] ////
+    pub(crate) fn select_ai_team_snapshots(
+        &mut self,
+        slot_id: i64,
+        source_revision_id: &str,
+        snapshots: &[AiTeamSnapshotInput],
+    ) -> Result<Vec<AiTeamSnapshot>, AiTeamStoreError> {
+        let transaction = self.stage_ai_team_snapshots(slot_id, source_revision_id, snapshots)?;
+        transaction
+            .execute(
+                "INSERT INTO ai_team_source (id, slot_id) VALUES (1, ?1)
+                 ON CONFLICT(id) DO UPDATE SET slot_id = excluded.slot_id",
+                params![slot_id],
+            )
+            .map_err(ai_team_storage_error)?;
+        transaction.commit().map_err(ai_team_storage_error)?;
+        self.list_ai_team_snapshots(slot_id)
+            .map_err(AiTeamStoreError::Storage)
+            .and_then(|snapshots| snapshots.ok_or(AiTeamStoreError::InvalidState))
+    }
+
+    // //// 在事务中建立槽位的两个 AI 快照 [@x380kkm 2026-09-29] ////
+    fn stage_ai_team_snapshots(
+        &mut self,
+        slot_id: i64,
+        source_revision_id: &str,
+        snapshots: &[AiTeamSnapshotInput],
+    ) -> Result<rusqlite::Transaction<'_>, AiTeamStoreError> {
         if snapshots.len() != 2
             || snapshots
                 .iter()
@@ -200,10 +262,7 @@ impl ServiceDatabase {
                 params![slot_id],
             )
             .map_err(ai_team_storage_error)?;
-        transaction.commit().map_err(ai_team_storage_error)?;
-        self.list_ai_team_snapshots(slot_id)
-            .map_err(AiTeamStoreError::Storage)
-            .and_then(|snapshots| snapshots.ok_or(AiTeamStoreError::InvalidState))
+        Ok(transaction)
     }
 
     pub(crate) fn list_ai_team_snapshots(

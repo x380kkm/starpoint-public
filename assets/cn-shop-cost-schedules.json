@@ -1,0 +1,189 @@
+{
+  "items": {
+    "8:220032": "equipment_awaking_crystal_piece"
+  },
+  "schedules": {
+    "equipment_awaking_crystal_piece": [
+      {
+        "month": 1,
+        "availableFrom": "2023-01-01 05:00:00",
+        "availableUntil": null,
+        "costs": [
+          {
+            "id": 40265,
+            "amount": 75
+          },
+          {
+            "id": 40277,
+            "amount": 75
+          }
+        ]
+      },
+      {
+        "month": 2,
+        "availableFrom": "2023-01-01 05:00:00",
+        "availableUntil": null,
+        "costs": [
+          {
+            "id": 40301,
+            "amount": 75
+          },
+          {
+            "id": 40162,
+            "amount": 75
+          }
+        ]
+      },
+      {
+        "month": 3,
+        "availableFrom": "2023-01-01 05:00:00",
+        "availableUntil": null,
+        "costs": [
+          {
+            "id": 40265,
+            "amount": 75
+          },
+          {
+            "id": 40132,
+            "amount": 75
+          }
+        ]
+      },
+      {
+        "month": 4,
+        "availableFrom": "2023-01-01 05:00:00",
+        "availableUntil": null,
+        "costs": [
+          {
+            "id": 40182,
+            "amount": 75
+          },
+          {
+            "id": 40152,
+            "amount": 75
+          }
+        ]
+      },
+      {
+        "month": 5,
+        "availableFrom": "2023-01-01 05:00:00",
+        "availableUntil": null,
+        "costs": [
+          {
+            "id": 40112,
+            "amount": 75
+          },
+          {
+            "id": 40162,
+            "amount": 75
+          }
+        ]
+      },
+      {
+        "month": 6,
+        "availableFrom": "2023-01-01 05:00:00",
+        "availableUntil": null,
+        "costs": [
+          {
+            "id": 40092,
+            "amount": 75
+          },
+          {
+            "id": 40277,
+            "amount": 75
+          }
+        ]
+      },
+      {
+        "month": 7,
+        "availableFrom": "2023-01-01 05:00:00",
+        "availableUntil": null,
+        "costs": [
+          {
+            "id": 40301,
+            "amount": 75
+          },
+          {
+            "id": 40152,
+            "amount": 75
+          }
+        ]
+      },
+      {
+        "month": 8,
+        "availableFrom": "2023-01-01 05:00:00",
+        "availableUntil": null,
+        "costs": [
+          {
+            "id": 40122,
+            "amount": 75
+          },
+          {
+            "id": 40052,
+            "amount": 75
+          }
+        ]
+      },
+      {
+        "month": 9,
+        "availableFrom": "2023-01-01 05:00:00",
+        "availableUntil": null,
+        "costs": [
+          {
+            "id": 40052,
+            "amount": 75
+          },
+          {
+            "id": 40092,
+            "amount": 75
+          }
+        ]
+      },
+      {
+        "month": 10,
+        "availableFrom": "2023-01-01 05:00:00",
+        "availableUntil": null,
+        "costs": [
+          {
+            "id": 40182,
+            "amount": 75
+          },
+          {
+            "id": 40162,
+            "amount": 75
+          }
+        ]
+      },
+      {
+        "month": 11,
+        "availableFrom": "2023-01-01 05:00:00",
+        "availableUntil": null,
+        "costs": [
+          {
+            "id": 40022,
+            "amount": 75
+          },
+          {
+            "id": 40277,
+            "amount": 75
+          }
+        ]
+      },
+      {
+        "month": 12,
+        "availableFrom": "2023-01-01 05:00:00",
+        "availableUntil": null,
+        "costs": [
+          {
+            "id": 40122,
+            "amount": 75
+          },
+          {
+            "id": 40132,
+            "amount": 75
+          }
+        ]
+      }
+    ]
+  }
+}

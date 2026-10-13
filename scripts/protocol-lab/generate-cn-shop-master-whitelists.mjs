@@ -10,6 +10,8 @@ import { decodeOrderedMap } from "./decode-cn-orderedmap.mjs"
 import { readEntityRecords, readMasterBuffers } from "./generate-cn-activity-catalog.mjs"
 
 const SHOP_MASTER_SCHEMAS = [
+    { name: "special_pack_shop", shopType: 3, logicalPath: "master/shop/special_pack_shop.orderedmap" },
+    { name: "mana_shop", shopType: 5, logicalPath: "master/shop/mana_shop.orderedmap" },
     { name: "treasure_shop", shopType: 2, logicalPath: "master/shop/treasure_shop.orderedmap" },
     { name: "event_item_shop", shopType: 4, logicalPath: "master/shop/event_item_shop.orderedmap" },
     { name: "boss_coin_shop", shopType: 7, logicalPath: "master/shop/boss_coin_shop.orderedmap" },

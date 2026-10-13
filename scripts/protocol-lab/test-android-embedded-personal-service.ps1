@@ -135,7 +135,8 @@ Assert-AndroidContract -Condition $DistributionScriptText.Contains("source.asset
 Assert-AndroidContract -Condition $GameScriptText.Contains("Resolve-AndroidPackagingWorkspaceRoot") -Message "Android 游戏打包脚本未解析 Git 公共工作区."
 Assert-AndroidContract -Condition ($DistributionScriptText -match 'schema_version\s*=\s*3') -Message "Android 单 APK 分发清单版本不是 3."
 Assert-AndroidContract -Condition ($InstallerText -match 'schema_version\s*-ne\s*3') -Message "Android 安装器未接受单 APK 分发清单版本 3."
-Assert-AndroidContract -Condition $InstallerText.Contains("--one-device") -Message "Android 安装器未使用独立 one-device ADB server."
+Assert-AndroidContract -Condition $InstallerText.Contains("Start-ProtocolLabAdbServer") -Message "Android 安装器未使用共享隔离 ADB server."
+Assert-AndroidContract -Condition $InstallerText.Contains("Invoke-ProtocolLabAdb") -Message "Android 安装器未通过共享目标校验发送命令."
 Assert-AndroidContract -Condition (-not $InstallerText.Contains("Get-Command adb")) -Message "Android 安装器仍会从 PATH 解析 adb."
 
 if (-not $SkipCargoMetadata) {

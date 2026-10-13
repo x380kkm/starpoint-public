@@ -77,7 +77,7 @@ impl MultiplayerSessionListener {
                     viewer_id,
                     account_id,
                     connection_id: connection_id.clone(),
-                    is_host: room.host_account_id == account_id,
+                    is_host: room.host_viewer_id == viewer_id,
                     legacy_protocol: true,
                 };
                 queue_frame(
@@ -276,7 +276,7 @@ impl MultiplayerSessionListener {
                 } else {
                     room_data
                 };
-                let welcome_roster = if legacy_protocol {
+                let welcome_roster = if legacy_protocol && !room.is_attention_room {
                     vec![player.clone()]
                 } else {
                     roster.clone()
@@ -285,6 +285,9 @@ impl MultiplayerSessionListener {
                     &mut self.clients[client_index],
                     &json!([1, [0, welcome_context, welcome_roster]]),
                 )?;
+                if room.is_attention_room && !room.lobby_started && !room.battle_started {
+                    self.schedule_npc_lobby_sequence(room_number.clone(), room_sequence);
+                }
                 if had_existing_players {
                     self.broadcast_lobby(&room_number, room_sequence, &json!([1, [1, roster]]))?;
                 }

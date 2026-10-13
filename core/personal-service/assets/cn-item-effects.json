@@ -1,1 +1,647 @@
-{"100":{"effectKind":2,"effectValue":1},"101":{"effectKind":2,"effectValue":25},"102":{"effectKind":2,"effectValue":50},"106":{"effectKind":2,"effectValue":100},"200":{"effectKind":2,"effectValue":25},"201":{"effectKind":2,"effectValue":25},"202":{"effectKind":2,"effectValue":25},"203":{"effectKind":2,"effectValue":25},"204":{"effectKind":2,"effectValue":25},"205":{"effectKind":2,"effectValue":25},"206":{"effectKind":2,"effectValue":25},"207":{"effectKind":2,"effectValue":25},"208":{"effectKind":2,"effectValue":25},"209":{"effectKind":2,"effectValue":25},"210":{"effectKind":2,"effectValue":25},"211":{"effectKind":2,"effectValue":25},"212":{"effectKind":2,"effectValue":25},"213":{"effectKind":2,"effectValue":25},"214":{"effectKind":2,"effectValue":25},"215":{"effectKind":2,"effectValue":25},"216":{"effectKind":2,"effectValue":25},"217":{"effectKind":2,"effectValue":25},"218":{"effectKind":2,"effectValue":25},"219":{"effectKind":2,"effectValue":25},"220":{"effectKind":2,"effectValue":25},"221":{"effectKind":2,"effectValue":25},"222":{"effectKind":2,"effectValue":25},"223":{"effectKind":2,"effectValue":25},"224":{"effectKind":2,"effectValue":25},"225":{"effectKind":2,"effectValue":25},"226":{"effectKind":2,"effectValue":25},"227":{"effectKind":2,"effectValue":25},"228":{"effectKind":2,"effectValue":25},"229":{"effectKind":2,"effectValue":25},"230":{"effectKind":2,"effectValue":25},"231":{"effectKind":2,"effectValue":25},"232":{"effectKind":2,"effectValue":25},"233":{"effectKind":2,"effectValue":25},"234":{"effectKind":2,"effectValue":25},"235":{"effectKind":2,"effectValue":25},"236":{"effectKind":2,"effectValue":25},"237":{"effectKind":2,"effectValue":25},"238":{"effectKind":2,"effectValue":25},"239":{"effectKind":2,"effectValue":25},"240":{"effectKind":2,"effectValue":25},"241":{"effectKind":2,"effectValue":25},"242":{"effectKind":2,"effectValue":25},"243":{"effectKind":2,"effectValue":25},"244":{"effectKind":2,"effectValue":25},"245":{"effectKind":2,"effectValue":25},"246":{"effectKind":2,"effectValue":25},"247":{"effectKind":2,"effectValue":25},"248":{"effectKind":2,"effectValue":25},"249":{"effectKind":2,"effectValue":25},"250":{"effectKind":2,"effectValue":25},"251":{"effectKind":2,"effectValue":25},"252":{"effectKind":2,"effectValue":25},"253":{"effectKind":2,"effectValue":25},"254":{"effectKind":2,"effectValue":25},"255":{"effectKind":2,"effectValue":25},"256":{"effectKind":2,"effectValue":25},"257":{"effectKind":2,"effectValue":25},"258":{"effectKind":2,"effectValue":25},"259":{"effectKind":2,"effectValue":25},"260":{"effectKind":2,"effectValue":25},"261":{"effectKind":2,"effectValue":25},"262":{"effectKind":2,"effectValue":25},"263":{"effectKind":2,"effectValue":25},"264":{"effectKind":2,"effectValue":25},"265":{"effectKind":2,"effectValue":25},"266":{"effectKind":2,"effectValue":25},"267":{"effectKind":2,"effectValue":25},"901":{"effectKind":2,"effectValue":100},"50102":{"effectKind":2,"effectValue":100},"50105":{"effectKind":2,"effectValue":100},"50106":{"effectKind":2,"effectValue":100},"70000":{"effectKind":2,"effectValue":25},"70012":{"effectKind":2,"effectValue":25},"70015":{"effectKind":2,"effectValue":25},"70018":{"effectKind":2,"effectValue":25},"70028":{"effectKind":2,"effectValue":25},"70043":{"effectKind":2,"effectValue":25},"70046":{"effectKind":2,"effectValue":25},"70049":{"effectKind":2,"effectValue":25},"70052":{"effectKind":2,"effectValue":25},"70058":{"effectKind":2,"effectValue":25},"999105":{"effectKind":2,"effectValue":25},"999106":{"effectKind":2,"effectValue":25},"999810":{"effectKind":2,"effectValue":25},"999900":{"effectKind":2,"effectValue":25},"10000003":{"effectKind":2,"effectValue":25},"10000023":{"effectKind":2,"effectValue":25},"10000037":{"effectKind":2,"effectValue":25},"10000056":{"effectKind":2,"effectValue":25},"10000069":{"effectKind":2,"effectValue":25},"10000074":{"effectKind":2,"effectValue":25},"10000079":{"effectKind":2,"effectValue":25},"10000090":{"effectKind":2,"effectValue":25},"10000094":{"effectKind":2,"effectValue":25},"10000137":{"effectKind":2,"effectValue":25}}
+{
+  "100": {
+    "effectKind": 2,
+    "effectValue": 1,
+    "start_time": 1451577599
+  },
+  "101": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599
+  },
+  "102": {
+    "effectKind": 2,
+    "effectValue": 50,
+    "start_time": 1451577599
+  },
+  "106": {
+    "effectKind": 2,
+    "effectValue": 100,
+    "start_time": 1451577599
+  },
+  "200": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1590984000,
+    "end_time": 1593550799
+  },
+  "201": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1594612800,
+    "end_time": 1597265999
+  },
+  "202": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1600142400,
+    "end_time": 1602709199
+  },
+  "203": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1606449600,
+    "end_time": 1609361999
+  },
+  "204": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1668657600,
+    "end_time": 1672502399
+  },
+  "205": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1674705599
+  },
+  "206": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1612065600,
+    "end_time": 1614718799
+  },
+  "207": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1680278399
+  },
+  "208": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1678334400,
+    "end_time": 1682801999
+  },
+  "209": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1682801999
+  },
+  "210": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1681358400,
+    "end_time": 1685480399
+  },
+  "211": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1680753600,
+    "end_time": 1684097999
+  },
+  "212": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1631739599
+  },
+  "213": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1690837199
+  },
+  "214": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1686887999,
+    "end_time": 1690837199
+  },
+  "215": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1688011200,
+    "end_time": 1692046799
+  },
+  "216": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1687406400,
+    "end_time": 1693497599
+  },
+  "217": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1690344000,
+    "end_time": 1694725199
+  },
+  "218": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1690344000,
+    "end_time": 1696021199
+  },
+  "219": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1705006799
+  },
+  "220": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1698785999
+  },
+  "221": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1696478400,
+    "end_time": 1701377999
+  },
+  "222": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1697083200,
+    "end_time": 1701377999
+  },
+  "223": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1704056399
+  },
+  "224": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1705265999
+  },
+  "225": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1706734799
+  },
+  "226": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1709240399
+  },
+  "227": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1711918799
+  },
+  "228": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1715720399
+  },
+  "229": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1714510799
+  },
+  "230": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1717016399
+  },
+  "231": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1719608399
+  },
+  "232": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1720990799
+  },
+  "233": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1727038799
+  },
+  "234": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1725119999
+  },
+  "235": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1728939599
+  },
+  "236": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1729457999
+  },
+  "237": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1730667599
+  },
+  "238": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1731531599
+  },
+  "239": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1732913999
+  },
+  "240": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1734123599
+  },
+  "241": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1735333199
+  },
+  "242": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1738184399
+  },
+  "243": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1736888399
+  },
+  "244": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1739393999
+  },
+  "245": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1736024399
+  },
+  "246": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1739653199
+  },
+  "247": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1740776399
+  },
+  "248": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1742504399
+  },
+  "249": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1743973199
+  },
+  "250": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1744664399
+  },
+  "251": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1747083599
+  },
+  "252": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1732161600,
+    "end_time": 1734814799
+  },
+  "253": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1747774799
+  },
+  "254": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1733371200,
+    "end_time": 1736110799
+  },
+  "255": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1735790400,
+    "end_time": 1738357199
+  },
+  "256": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1733976000,
+    "end_time": 1736542799
+  },
+  "257": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1750107599
+  },
+  "258": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1734580800,
+    "end_time": 1737147599
+  },
+  "259": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1754945999
+  },
+  "260": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1736395200,
+    "end_time": 1740776399
+  },
+  "261": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1740776399
+  },
+  "262": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1738209600,
+    "end_time": 1740776399
+  },
+  "263": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1754513999
+  },
+  "264": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1737000000,
+    "end_time": 1740776399
+  },
+  "265": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1755723599
+  },
+  "266": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1741233600,
+    "end_time": 1743886799
+  },
+  "267": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1743695999
+  },
+  "901": {
+    "effectKind": 2,
+    "effectValue": 100,
+    "start_time": 1451577599
+  },
+  "50102": {
+    "effectKind": 2,
+    "effectValue": 100,
+    "start_time": 1451577599
+  },
+  "50105": {
+    "effectKind": 2,
+    "effectValue": 100,
+    "start_time": 1451577599
+  },
+  "50106": {
+    "effectKind": 2,
+    "effectValue": 100,
+    "start_time": 1451577599
+  },
+  "70000": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1682715600,
+    "end_time": 1685548799
+  },
+  "70012": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1689825600,
+    "end_time": 1693515599
+  },
+  "70015": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1692849600,
+    "end_time": 1697317199
+  },
+  "70018": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1695934800,
+    "end_time": 1698767999
+  },
+  "70028": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1707426000,
+    "end_time": 1711918799
+  },
+  "70043": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1714492800,
+    "end_time": 1715806799
+  },
+  "70046": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1714424400,
+    "end_time": 1717189199
+  },
+  "70049": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1727643600,
+    "end_time": 1730390399
+  },
+  "70052": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1737925200,
+    "end_time": 1740776399
+  },
+  "70058": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1745960400,
+    "end_time": 1748725199
+  },
+  "999105": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1664510400,
+    "end_time": 1672502399
+  },
+  "999106": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1670472000,
+    "end_time": 1672502399
+  },
+  "999810": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1670472000,
+    "end_time": 1677599999
+  },
+  "999900": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1650340800,
+    "end_time": 1654030799
+  },
+  "10000003": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1739419200,
+    "end_time": 1741813199
+  },
+  "10000013": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1741838400,
+    "end_time": 1744491599
+  },
+  "10000015": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1746046799
+  },
+  "10000022": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1743048000,
+    "end_time": 1746046799
+  },
+  "10000023": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1760389199
+  },
+  "10000024": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1748725199
+  },
+  "10000028": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1746072000,
+    "end_time": 1748725199
+  },
+  "10000037": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1762981199
+  },
+  "10000041": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1745467200,
+    "end_time": 1748725199
+  },
+  "10000050": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1745467200,
+    "end_time": 1748725199
+  },
+  "10000052": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1747886400,
+    "end_time": 1751317199
+  },
+  "10000056": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1763067599
+  },
+  "10000069": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1765141199
+  },
+  "10000074": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1765659599
+  },
+  "10000079": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451534400,
+    "end_time": 1767041999
+  },
+  "10000080": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1766350799
+  },
+  "10000090": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599,
+    "end_time": 1767646799
+  },
+  "10000094": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451534400,
+    "end_time": 1768856399
+  },
+  "10000137": {
+    "effectKind": 2,
+    "effectValue": 25,
+    "start_time": 1451577599
+  }
+}

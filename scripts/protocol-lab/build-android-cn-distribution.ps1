@@ -1,7 +1,8 @@
 # audience: external
 # # build-android-cn-distribution
 #
-# 该脚本构建一个包含游戏安装入口, 个人服务和 CDN 尾随数据的 Android 分发 APK.
+# 该脚本构建包含游戏安装入口与个人服务的 Android 安装包.
+# Embedded 把 CDN 附在 APK 尾部, External 生成标准安装 APK 和由系统文件选择器导入的资源文档.
 
 [CmdletBinding()]
 param(
@@ -16,7 +17,10 @@ param(
     [string]$KeystorePasswordFile,
     [string]$CompanionKeystorePath,
     [string]$CompanionKeystorePassword,
-    [ValidateNotNullOrEmpty()][string]$ServiceBaselineRef = "v-beta-0.0.15"
+    [ValidateSet('Embedded', 'External')][string]$ResourceDelivery = 'Embedded',
+    [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$ServiceBaselineRef,
+    [Parameter(Mandatory)][ValidatePattern('^\d+\.\d+\.\d+$')][string]$ReleaseVersion,
+    [Parameter(Mandatory)][ValidateRange(1, [int]::MaxValue)][int]$VersionCode
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,6 +28,7 @@ Set-StrictMode -Version Latest
 Import-Module (Join-Path $PSScriptRoot "android-packaging-paths.psm1") -Force
 
 $RepositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "../.."))
+& (Join-Path $PSScriptRoot 'check-personal-service-web.ps1') -RepositoryRoot $RepositoryRoot
 $WorkspaceRoot = Resolve-AndroidPackagingWorkspaceRoot -RepositoryRoot $RepositoryRoot
 $ServiceBaseline = Assert-AndroidPersonalServiceBaseline `
     -RepositoryRoot $RepositoryRoot `
@@ -48,8 +53,9 @@ $PrepareData = Join-Path $PSScriptRoot "prepare-android-cn-data.py"
 $PackageGame = Join-Path $PSScriptRoot "package-android-cn-game.ps1"
 $AppendBundle = Join-Path $PSScriptRoot "append-android-apk-bundle.py"
 $InspectBundle = Join-Path $PSScriptRoot "inspect-android-apk-bundle.py"
+$PackageResources = Join-Path $PSScriptRoot 'package-android-resource-document.py'
 $BuildCompanion = Join-Path $RepositoryRoot "platforms/android/companion/build-companion-apk.ps1"
-foreach ($RequiredFile in @($PrepareData, $PackageGame, $AppendBundle, $InspectBundle, $BuildCompanion)) {
+foreach ($RequiredFile in @($PrepareData, $PackageGame, $AppendBundle, $InspectBundle, $PackageResources, $BuildCompanion)) {
     if (-not (Test-Path -LiteralPath $RequiredFile -PathType Leaf)) {
         throw "Android 单 APK 构建依赖不存在: $RequiredFile"
     }
@@ -133,6 +139,9 @@ $GameParameters = @{
         InputApkPath = $InputApkPath
         OutputApkPath = $GameApkPath
         WorkingDirectory = $GameBuildDirectory
+        GameVersionCode = 1008001 + $VersionCode
+        ReleaseVersion = $ReleaseVersion
+        CdnRoot = $SourceCdnRoot
     }
 foreach ($Optional in @(
         @{ Name = "StarviewToolsRoot"; Value = $StarviewToolsRoot },
@@ -161,6 +170,9 @@ $CompanionParameters = @{
         GameApkPath = $GameApkPath
         OutputDirectory = $CompanionBuildDirectory
         ServiceBaselineRef = $ServiceBaselineRef
+        VersionCode = $VersionCode
+        VersionName = $ReleaseVersion
+        ResourceDelivery = $ResourceDelivery
     }
 foreach ($Optional in @(
         @{ Name = "AndroidSdkRoot"; Value = $AndroidSdkRoot },
@@ -185,10 +197,14 @@ $CompanionReport = Get-Content `
     } else {
         [IO.Path]::GetFullPath((Join-Path $CompanionBuildDirectory $CompanionReport.apk.path))
     }
+$ExpectedSignature = if ($ResourceDelivery -eq 'External') { 'v1+v2' } else { 'v1' }
+$ExpectedMinimumApi = if ($ResourceDelivery -eq 'Embedded') { 31 } else { 26 }
 if ($CompanionReport.package_id -cne "dev.starpoint.personalservice" `
     -or $CompanionReport.endpoint -cne "http://127.0.0.1:17171" `
     -or $CompanionReport.lifecycle.target_sdk -ne 29 `
-    -or $CompanionReport.lifecycle.signature_scheme -cne "v1" `
+    -or $CompanionReport.lifecycle.minimum_sdk -ne $ExpectedMinimumApi `
+    -or $CompanionReport.lifecycle.signature_scheme -cne $ExpectedSignature `
+    -or $CompanionReport.lifecycle.resource_delivery -cne $ResourceDelivery.ToLowerInvariant() `
     -or $CompanionReport.game.sha256 -cne $GameReport.Output.Sha256 `
     -or $CompanionReport.cdn.manifest_sha256 -cne $CdnReport.manifest_sha256 `
     -or $CompanionReport.source.personal_service_tree -cne $ServiceBaseline.personal_service_tree `
@@ -207,10 +223,41 @@ if (-not (Test-Path -LiteralPath $CompanionApkPath -PathType Leaf)) {
 }
 # //// /构建嵌入游戏的个人服务 APK ////
 
-# //// 追加 CDN 尾随 payload [@x380kkm 2026-08-31] ////
+# //// 按资源分发模式组装安装文件 [@x380kkm 2026-09-26] ////
 New-Item -ItemType Directory -Path $OutputDirectory | Out-Null
-$CompleteApkPath = Join-Path $OutputDirectory "StarpointCN-Android-Complete.apk"
-$BundleReport = Invoke-AndroidBundlePython `
+$ArtifactName = "sp-$ReleaseVersion.apk"
+$CompleteApkPath = Join-Path $OutputDirectory $ArtifactName
+$CdnDelivery = [ordered]@{
+    manifest_sha256 = $CdnReport.manifest_sha256
+    files = $CdnReport.files
+    bytes = $CdnReport.bytes
+}
+$ExpectedFiles = @($CompleteApkPath)
+if ($ResourceDelivery -eq 'External') {
+    Copy-Item -LiteralPath $CompanionApkPath -Destination $CompleteApkPath
+    $ResourceArtifactName = "sp-$ReleaseVersion.starpoint-resources"
+    $ResourcePath = Join-Path $OutputDirectory $ResourceArtifactName
+    $ResourceReport = Invoke-AndroidBundlePython `
+        -ScriptPath $PackageResources `
+        -ArgumentList @('--base-apk', $CompanionApkPath, '--cdn-root', $CdnDataDirectory, '--output-resources', $ResourcePath) `
+        -LogPath (Join-Path $Logs 'package-android-resource-document.log')
+    if ($ResourceReport.payload.files -ne $CdnReport.files `
+        -or $ResourceReport.payload.bytes -ne $CdnReport.bytes `
+        -or $ResourceReport.manifest_sha256 -cne $CdnReport.manifest_sha256) {
+        throw 'Android 独立资源报告与签名清单不一致.'
+    }
+    $ApkReport = $CompanionReport.apk
+    $DistributionMode = 'apk-and-resource-document'
+    $CdnDelivery.payload_bytes = $ResourceReport.payload.bytes
+    $CdnDelivery.verified = $ResourceReport.digests_verified
+    $CdnDelivery.resource_document = [ordered]@{
+        path = $ResourceArtifactName
+        bytes = $ResourceReport.resources.bytes
+        sha256 = $ResourceReport.resources.sha256
+    }
+    $ExpectedFiles += $ResourcePath
+} else {
+    $BundleReport = Invoke-AndroidBundlePython `
         -ScriptPath $AppendBundle `
         -ArgumentList @(
             "--base-apk", $CompanionApkPath,
@@ -227,12 +274,18 @@ $BundleReport = Invoke-AndroidBundlePython `
         -or $InspectReport.manifest_sha256 -cne $CdnReport.manifest_sha256) {
         throw "Android 单 APK CDN 尾随 payload 报告不一致."
     }
-# //// /追加 CDN 尾随 payload ////
+    $ApkReport = $BundleReport.apk
+    $DistributionMode = 'single-apk-tail-cdn'
+    $CdnDelivery.payload_bytes = $BundleReport.payload.bytes
+    $CdnDelivery.footer = $BundleReport.footer
+    $CdnDelivery.verified = $InspectReport.digests_verified
+}
+# //// /按资源分发模式组装安装文件 ////
 
 $Distribution = [ordered]@{
         schema_version = 3
         platform = "android"
-        mode = "single-apk-tail-cdn"
+        mode = $DistributionMode
         endpoint = "http://127.0.0.1:17171"
         source = [ordered]@{
             repository_root = $RepositoryRoot
@@ -241,12 +294,15 @@ $Distribution = [ordered]@{
             assets_consistent = $ServiceBaseline.assets_consistent
         }
         apk = [ordered]@{
-            path = "StarpointCN-Android-Complete.apk"
-            bytes = $BundleReport.apk.bytes
-            sha256 = $BundleReport.apk.sha256
+            path = $ArtifactName
+            bytes = $ApkReport.bytes
+            sha256 = $ApkReport.sha256
+            version_name = $ReleaseVersion
+            version_code = $VersionCode
         }
         companion = [ordered]@{
             package_id = "dev.starpoint.personalservice"
+            minimum_sdk = $CompanionReport.lifecycle.minimum_sdk
             target_sdk = $CompanionReport.lifecycle.target_sdk
             embedded_game_asset = $CompanionReport.game.asset
         }
@@ -255,18 +311,11 @@ $Distribution = [ordered]@{
             source_sha256 = $GameReport.Output.Sha256
             embedded_sha256 = $CompanionReport.game.sha256
         }
-        cdn = [ordered]@{
-            manifest_sha256 = $CdnReport.manifest_sha256
-            files = $CdnReport.files
-            bytes = $CdnReport.bytes
-            payload_bytes = $BundleReport.payload.bytes
-            footer = $BundleReport.footer
-            verified = $InspectReport.digests_verified
-        }
+        cdn = $CdnDelivery
     }
 $OutputFiles = @(Get-ChildItem -LiteralPath $OutputDirectory -File)
-if ($OutputFiles.Count -ne 1 -or $OutputFiles[0].FullName -cne $CompleteApkPath) {
-    throw "Android 单 APK 输出目录包含意外文件: $($OutputFiles.Name -join ', ')"
+if ($OutputFiles.Count -ne $ExpectedFiles.Count -or @($OutputFiles | Where-Object { $_.FullName -cnotin $ExpectedFiles }).Count -gt 0) {
+    throw "Android 分发输出目录包含意外文件: $($OutputFiles.Name -join ', ')"
 }
 $ResolvedBuildDirectory = [IO.Path]::GetFullPath($BuildDirectory)
 $ExpectedBuildDirectory = [IO.Path]::GetFullPath("$OutputDirectory.build")

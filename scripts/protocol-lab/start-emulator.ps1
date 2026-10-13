@@ -68,6 +68,7 @@ $StdoutPath = Join-Path $RunDirectory "emulator.stdout.log"
 $StderrPath = Join-Path $RunDirectory "emulator.stderr.log"
 
 $EmulatorEnvironment = [ordered]@{
+    ANDROID_HOME = $Paths.SdkRoot
     ANDROID_SDK_ROOT = $Paths.SdkRoot
     ANDROID_AVD_HOME = $Paths.AvdHome
     ANDROID_ADB_SERVER_PORT = $ResolvedAdbServerPort.ToString([Globalization.CultureInfo]::InvariantCulture)

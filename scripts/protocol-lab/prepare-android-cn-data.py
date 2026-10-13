@@ -2,6 +2,7 @@
 # # prepare-android-cn-data
 #
 # 此程序从 CN CDN 生成 Android 侧载目录, 内容清单和完成标记.
+# 分发 PathFile 的同名资源记录来自 Android EntityList, 投影文件通过原子替换与共享源文件分离.
 
 from __future__ import annotations
 
@@ -10,7 +11,7 @@ import hashlib
 import json
 import os
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 
@@ -115,6 +116,21 @@ def build_manifest(records: list[DataFile]) -> bytes:
 # //// /生成 Android CDN 内容清单 ////
 
 
+# //// 按 Android 实体记录投影共享 PathFile [@x380kkm 2026-09-21] ////
+def render_android_path_file(path_file: Path, entity_list: Path) -> bytes:
+    platform_rows = {line.split(",", 1)[0]: line
+                     for line in entity_list.read_text(encoding="utf-8-sig").splitlines() if line}
+    original = path_file.read_bytes()
+    lines = []
+    for line in original.decode("utf-8-sig").splitlines(keepends=True):
+        row = line.rstrip("\r\n")
+        replacement = platform_rows.get(row.split(",", 1)[0], row)
+        lines.append(replacement + line[len(row):])
+    prefix = b"\xef\xbb\xbf" if original.startswith(b"\xef\xbb\xbf") else b""
+    return prefix + "".join(lines).encode("utf-8")
+# //// /按 Android 实体记录投影共享 PathFile ////
+
+
 # //// 使用硬链接或复制物化分发数据 [@x380kkm 2026-08-31] ////
 def materialize_data(records: list[DataFile], destination: Path) -> tuple[int, int]:
     linked = 0
@@ -142,12 +158,23 @@ def prepare_distribution(source_root: Path, output_root: Path) -> dict[str, obje
         raise ValueError(f"Android CDN 输出目录已存在: {output}")
 
     records = collect_data_files(source)
+    path_file_content = render_android_path_file(source / ANDROID_PATH_FILE, source / ANDROID_ENTITY_LIST)
+    records = [replace(record, size=len(path_file_content), sha256=hashlib.sha256(path_file_content).hexdigest())
+               if record.relative == ANDROID_PATH_FILE else record for record in records]
     manifest = build_manifest(records)
     manifest_sha256 = hashlib.sha256(manifest).hexdigest()
     manifest_prefix = manifest_sha256[:16]
     data_directory = output / manifest_prefix
     data_directory.mkdir(parents=True)
     linked, copied = materialize_data(records, data_directory)
+    path_file = data_directory / ANDROID_PATH_FILE
+    path_file_linked = path_file.samefile(source / ANDROID_PATH_FILE)
+    temporary_path_file = path_file.with_suffix(".csv.tmp")
+    temporary_path_file.write_bytes(path_file_content)
+    temporary_path_file.replace(path_file)
+    if path_file_linked:
+        linked -= 1
+        copied += 1
     (data_directory / MANIFEST_NAME).write_bytes(manifest)
     (data_directory / COMPLETE_MARKER).write_text(
         manifest_sha256 + "\n",

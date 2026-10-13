@@ -14,20 +14,24 @@ use std::collections::BTreeMap;
 pub(super) struct ShopCosts {
     user_info: BTreeMap<String, i64>,
     items: BTreeMap<String, i64>,
+    entries: Vec<Value>,
 }
 
 pub(super) struct ShopRewards {
+    pub(super) pass_card_points: i64,
     pub(super) user_info: Value,
     pub(super) joined_character_id_list: Vec<i64>,
     pub(super) character_list: Vec<Value>,
     pub(super) equipment_list: Vec<Value>,
     pub(super) item_list: Map<String, Value>,
     pub(super) history_entries: Vec<ReceiveHistoryEntry>,
+    pub(super) cost_entries: Vec<Value>,
 }
 
 // //// 合并批量购买产生的 CN 商店奖励 [@x380kkm 2026-08-24] ////
 impl ShopRewards {
     pub(super) fn merge(&mut self, mut other: Self) {
+        self.pass_card_points += other.pass_card_points;
         self.user_info = other.user_info;
         for character_id in other.joined_character_id_list {
             if !self.joined_character_id_list.contains(&character_id) {
@@ -46,6 +50,7 @@ impl ShopRewards {
         );
         self.item_list.extend(other.item_list);
         self.history_entries.append(&mut other.history_entries);
+        self.cost_entries.append(&mut other.cost_entries);
     }
 }
 
@@ -71,7 +76,7 @@ pub(super) fn shop_costs(
     root: &Map<String, Value>,
     item: &Map<String, Value>,
     purchase_count: i64,
-) -> Result<ShopCosts, PersonalServiceError> {
+) -> Result<Result<ShopCosts, &'static str>, PersonalServiceError> {
     let user_info = root
         .get("user_info")
         .and_then(Value::as_object)
@@ -81,6 +86,7 @@ pub(super) fn shop_costs(
         .and_then(Value::as_object)
         .ok_or_else(|| PersonalServiceError::new("stored CN item list is missing"))?;
     let mut user_info_costs = BTreeMap::new();
+    let mut entries = Vec::new();
     if let Some(user_cost) = item.get("userCost").and_then(Value::as_object) {
         let cost_type = user_cost
             .get("type")
@@ -92,24 +98,39 @@ pub(super) fn shop_costs(
             .ok_or_else(|| PersonalServiceError::new("CN shop user cost is invalid"))?
             .checked_mul(purchase_count)
             .ok_or_else(|| PersonalServiceError::new("CN shop user cost exceeds range"))?;
-        let field = match cost_type {
-            0 => "free_vmoney",
-            1 => "free_mana",
-            2 => "bond_token",
+        let paid_only = item
+            .get("paidOnly")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let fields: &[&str] = match cost_type {
+            0 if paid_only => &["vmoney"],
+            1 if paid_only => &["paid_mana"],
+            0 => &["free_vmoney", "vmoney"],
+            1 => &["free_mana", "paid_mana"],
+            2 => &["bond_token"],
             _ => {
                 return Err(PersonalServiceError::new(
                     "CN shop user cost type is invalid",
                 ))
             }
         };
-        let remaining = user_info
-            .get(field)
-            .and_then(Value::as_i64)
-            .unwrap_or_default()
-            .checked_sub(amount)
-            .filter(|value| *value >= 0)
-            .ok_or_else(|| PersonalServiceError::new("CN shop user balance is insufficient"))?;
-        user_info_costs.insert(field.to_owned(), remaining);
+        let mut outstanding = amount;
+        for field in fields {
+            let balance = user_info
+                .get(*field)
+                .and_then(Value::as_i64)
+                .unwrap_or_default()
+                .max(0);
+            let spent = balance.min(outstanding);
+            outstanding -= spent;
+            user_info_costs.insert((*field).to_owned(), balance - spent);
+            if spent > 0 {
+                entries.push(json!({"kind": field, "count": spent}));
+            }
+        }
+        if outstanding > 0 {
+            return Ok(Err("shop_user_balance_insufficient"));
+        }
     }
     let mut required_items = BTreeMap::<String, i64>::new();
     for cost in item
@@ -140,14 +161,18 @@ pub(super) fn shop_costs(
             .and_then(Value::as_i64)
             .unwrap_or_default()
             .checked_sub(required)
-            .filter(|value| *value >= 0)
-            .ok_or_else(|| PersonalServiceError::new("CN shop item balance is insufficient"))?;
+            .filter(|value| *value >= 0);
+        let Some(remaining) = remaining else {
+            return Ok(Err("shop_item_balance_insufficient"));
+        };
+        entries.push(json!({"kind": "item", "id": item_id.parse::<i64>().ok(), "count": required}));
         remaining_items.insert(item_id, remaining);
     }
-    Ok(ShopCosts {
+    Ok(Ok(ShopCosts {
         user_info: user_info_costs,
         items: remaining_items,
-    })
+        entries,
+    }))
 }
 // //// /计算购买后的 CN 商店费用余额 ////
 
@@ -185,16 +210,13 @@ pub(super) fn apply_shop_rewards(
         .map(|(item_id, value)| (item_id.clone(), Value::from(*value)))
         .collect::<Map<_, _>>();
     let mut history_entries = Vec::new();
+    let mut pass_card_points = 0_i64;
 
     if shop_type == SHOP_TYPE_EQUIPMENT_ENHANCEMENT {
         let equipment_id = item
             .get("equipmentId")
             .and_then(Value::as_i64)
             .ok_or_else(|| PersonalServiceError::new("CN enhancement equipment id is invalid"))?;
-        let target_level = item
-            .get("enhancementMaxLevel")
-            .and_then(Value::as_i64)
-            .ok_or_else(|| PersonalServiceError::new("CN enhancement level is invalid"))?;
         let equipment = require_object(root, "user_equipment_list")?
             .get_mut(&equipment_id.to_string())
             .and_then(Value::as_object_mut)
@@ -203,7 +225,8 @@ pub(super) fn apply_shop_rewards(
             .get("enhancement_level")
             .and_then(Value::as_i64)
             .unwrap_or_default()
-            .max(target_level);
+            .checked_add(purchase_count)
+            .ok_or_else(|| PersonalServiceError::new("CN enhancement level exceeds range"))?;
         equipment.insert(
             "enhancement_level".to_owned(),
             Value::from(enhancement_level),
@@ -279,8 +302,16 @@ pub(super) fn apply_shop_rewards(
                     .get("id")
                     .and_then(Value::as_i64)
                     .ok_or_else(|| PersonalServiceError::new("CN shop equipment id is invalid"))?;
-                equipment_list.insert(equipment_id, add_shop_equipment(root, equipment_id, count)?);
+                equipment_list.insert(
+                    equipment_id,
+                    crate::cn_equipment::grant_equipment(root, equipment_id, count, response_time)?,
+                );
                 history_entries.push(ReceiveHistoryEntry::reward(6, Some(equipment_id), count));
+            }
+            6 => {
+                pass_card_points = pass_card_points.checked_add(count).ok_or_else(|| {
+                    PersonalServiceError::new("CN shop pass card points exceed range")
+                })?;
             }
             _ => return Err(PersonalServiceError::new("CN shop reward type is invalid")),
         }
@@ -290,9 +321,12 @@ pub(super) fn apply_shop_rewards(
         .and_then(Value::as_object)
         .ok_or_else(|| PersonalServiceError::new("stored CN user info is missing"))?;
     Ok(ShopRewards {
+        pass_card_points,
         user_info: json!({
             "free_vmoney": user_info.get("free_vmoney").and_then(Value::as_i64).unwrap_or_default(),
+            "vmoney": user_info.get("vmoney").and_then(Value::as_i64).unwrap_or_default(),
             "free_mana": user_info.get("free_mana").and_then(Value::as_i64).unwrap_or_default(),
+            "paid_mana": user_info.get("paid_mana").and_then(Value::as_i64).unwrap_or_default(),
             "bond_token": user_info.get("bond_token").and_then(Value::as_i64).unwrap_or_default(),
             "exp_pool": user_info.get("exp_pool").and_then(Value::as_i64).unwrap_or_default(),
             "exp_pooled_time": user_info.get("exp_pooled_time").and_then(Value::as_i64).unwrap_or(response_time),
@@ -302,6 +336,7 @@ pub(super) fn apply_shop_rewards(
         equipment_list: equipment_list.into_values().collect(),
         item_list: response_items,
         history_entries,
+        cost_entries: costs.entries.clone(),
     })
 }
 // //// /发放 CN 商店商品奖励 ////
@@ -339,41 +374,6 @@ fn add_shop_item(
     Ok(total)
 }
 
-fn add_shop_equipment(
-    root: &mut Map<String, Value>,
-    equipment_id: i64,
-    count: i64,
-) -> Result<Value, PersonalServiceError> {
-    let equipment_list = require_object(root, "user_equipment_list")?;
-    let key = equipment_id.to_string();
-    let was_owned = equipment_list.contains_key(&key);
-    let equipment = equipment_list
-        .entry(key)
-        .or_insert_with(|| {
-            json!({
-                "enhancement_level": 0,
-                "level": 1,
-                "protection": false,
-                "stack": 0,
-            })
-        })
-        .as_object_mut()
-        .ok_or_else(|| PersonalServiceError::new("stored CN equipment data is invalid"))?;
-    let extra_stack = if was_owned {
-        count
-    } else {
-        count.saturating_sub(1)
-    };
-    let stack = equipment
-        .get("stack")
-        .and_then(Value::as_i64)
-        .unwrap_or_default()
-        .checked_add(extra_stack)
-        .ok_or_else(|| PersonalServiceError::new("CN equipment stack exceeds range"))?;
-    equipment.insert("stack".to_owned(), Value::from(stack));
-    Ok(serialize_shop_equipment(equipment_id, equipment))
-}
-
 fn serialize_shop_equipment(equipment_id: i64, equipment: &Map<String, Value>) -> Value {
     json!({
         "equipment_id": equipment_id,
@@ -408,6 +408,7 @@ mod tests {
         let costs = ShopCosts {
             user_info: BTreeMap::new(),
             items: BTreeMap::new(),
+            entries: Vec::new(),
         };
         let first_item = json!({
             "rewards": [
@@ -450,7 +451,7 @@ mod tests {
         assert_eq!(result.character_list[0]["stack"], 1);
         assert_eq!(result.equipment_list.len(), 1);
         assert_eq!(result.equipment_list[0]["stack"], 2);
-        assert_eq!(result.item_list["14003"], 1);
+        assert_eq!(result.item_list["14003"], 3);
         assert_eq!(root["user_character_list"]["111001"]["stack"], 1);
         assert_eq!(root["user_equipment_list"]["5030037"]["stack"], 2);
         assert!(root.get("encyclopedia_list").is_none());
@@ -477,6 +478,7 @@ mod tests {
         let costs = ShopCosts {
             user_info: BTreeMap::new(),
             items: BTreeMap::new(),
+            entries: Vec::new(),
         };
         let item = json!({"rewards": [{"type": 3, "id": 111001, "count": 1}]});
 
@@ -516,8 +518,8 @@ mod tests {
         )
         .unwrap();
         assert_eq!(root["user_character_list"]["111001"]["stack"], 2);
-        assert_eq!(root["item_list"]["14003"], 1);
-        assert_eq!(star_grain_duplicate.item_list["14003"], 1);
+        assert_eq!(root["item_list"]["14003"], 3);
+        assert_eq!(star_grain_duplicate.item_list["14003"], 3);
     }
     // //// /验证普通商店重复角色不产生星之粒素材 ////
 }

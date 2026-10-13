@@ -99,11 +99,6 @@ fn entry_overlaps_range(
     from_ms: Option<i64>,
     to_ms: Option<i64>,
 ) -> bool {
-    if crate::activity_projection::is_permanent_activity_id(&entry.activity_id)
-        && entry.rule.is_none()
-    {
-        return true;
-    }
     if let Some(rule) = &entry.rule {
         return activity_schedule_overlaps_range(rule, from_ms, to_ms);
     }
